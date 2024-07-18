@@ -1964,8 +1964,7 @@ static void DrawInfoBox(int a1)
 
             v22 = map_get_elev_idx(ptr->map, ptr->elevation);
             v9 = map_get_short_name(ptr->map);
-            //sprintf(str, "%s %s", v9, v22);
-            sprintf(str, "%s", v9);
+            sprintf(str, "%s %s", v9, v22);
 
             y = v2 + 3 + v2 + 256;
 
