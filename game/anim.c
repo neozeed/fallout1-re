@@ -2038,7 +2038,6 @@ int make_path_func(Object* object, int from, int to, unsigned char* rotations, i
         }
 
         if (rotations != NULL) {
-			int index;
             // Looks like array resevering, probably because A* finishes it's path from end to start,
             // this probably reverses it start-to-end.
             unsigned char* beginning = rotations;
@@ -2354,8 +2353,8 @@ static int make_stair_path(Object* object, int from, int fromElevation, int to, 
     int toX;
     int toY;
     int ddx,ddy;
-    int tileX = fromX;
-    int tileY = fromY;
+    int tileX;
+    int tileY;
 
     int pathNodeIndex = 0;
     int prevTile = from;
@@ -3029,8 +3028,8 @@ Rect tempRect;
             }
 
             if ((sad_entry->flags & ANIM_SAD_FOREVER) != 0 || object->frame != 0) {
-                int x;
-                int y;
+                int x = 0;
+                int y = 0;
 
                 CacheEntry* cacheHandle;
                 Art* art = art_ptr_lock(object->fid, &cacheHandle);
