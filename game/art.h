@@ -75,8 +75,9 @@ typedef struct Art {
     int field_3A;
 } Art;
 #pragma pack()
-
-//static_assert(sizeof(Art) == 62, "wrong size");
+#if _MSC_VER > 1400
+static_assert(sizeof(Art) == 62, "wrong size");
+#endif
 
 typedef struct ArtFrame {
     short width;

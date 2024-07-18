@@ -9,8 +9,9 @@ typedef struct SelfrunData {
     char mapFileName[SELFRUN_MAP_FILE_NAME_LENGTH];
     int stopKeyCode;
 } SelfrunData;
-
-//static_assert(sizeof(SelfrunData) == 32, "wrong size");
+#if _MSC_VER > 1400
+static_assert(sizeof(SelfrunData) == 32, "wrong size");
+#endif
 
 int selfrun_get_list(char*** fileListPtr, int* fileListLengthPtr);
 int selfrun_free_list(char*** fileListPtr);

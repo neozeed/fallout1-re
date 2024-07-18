@@ -294,8 +294,9 @@ typedef struct ItemProto {
     int inventoryFid; // inv_fid
     unsigned char field_80;
 } ItemProto;
-
-//static_assert(sizeof(ItemProto) == 0x84, "wrong size");
+#if _MSC_VER > 1400
+static_assert(sizeof(ItemProto) == 0x84, "wrong size");
+#endif
 
 typedef struct CritterProtoData {
     int flags; // d.flags
@@ -321,8 +322,9 @@ typedef struct CritterProto {
     int aiPacket; // ai_packet
     int team; // team_num
 } CritterProto;
-
-//static_assert(sizeof(CritterProto) == 0x19C, "wrong size");
+#if _MSC_VER > 1400
+static_assert(sizeof(CritterProto) == 0x19C, "wrong size");
+#endif
 
 typedef struct {
     int openFlags; // d.open_flags
@@ -372,8 +374,10 @@ typedef struct SceneryProto {
     int field_30; //
     unsigned char field_34;
 } SceneryProto;
+#if _MSC_VER > 1400
+static_assert(sizeof(SceneryProto) == 0x38, "wrong size");
+#endif
 
-//static_assert(sizeof(SceneryProto) == 0x38, "wrong size");
 
 typedef struct WallProto {
     int pid; // id
@@ -386,8 +390,10 @@ typedef struct WallProto {
     int sid; // sid
     int material; // material
 } WallProto;
+#if _MSC_VER > 1400
+static_assert(sizeof(WallProto) == 0x24, "wrong size");
+#endif
 
-//static_assert(sizeof(WallProto) == 0x24, "wrong size");
 
 typedef struct TileProto {
     int pid; // id
@@ -398,8 +404,9 @@ typedef struct TileProto {
     int sid; // sid
     int material; // material
 } TileProto;
-
-//static_assert(sizeof(TileProto) == 0x1C, "wrong size");
+#if _MSC_VER > 1400
+static_assert(sizeof(TileProto) == 0x1C, "wrong size");
+#endif
 
 typedef struct MiscProto {
     int pid; // id
@@ -410,8 +417,9 @@ typedef struct MiscProto {
     int flags; // flags
     int extendedFlags; // flags_ext
 } MiscProto;
-
-//static_assert(sizeof(MiscProto) == 0x1C, "wrong size");
+#if _MSC_VER > 1400
+static_assert(sizeof(MiscProto) == 0x1C, "wrong size");
+#endif
 
 typedef union Proto {
     struct {

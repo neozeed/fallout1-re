@@ -1,6 +1,5 @@
 #ifndef FALLOUT_GAME_OBJECT_TYPES_H_
 #define FALLOUT_GAME_OBJECT_TYPES_H_
-#define STATIC_INLINE static _inline
 
 // Rotation
 typedef enum Rotation {
@@ -267,8 +266,8 @@ typedef struct Object {
     int field_80;
 } Object;
 
-#ifdef _WIN32
-//	static_assert(sizeof(Object) == 132, "wrong size");
+#if _MSC_VER > 1400
+static_assert(sizeof(Object) == 132, "wrong size");
 #endif
 
 typedef struct ObjectListNode {
@@ -282,22 +281,22 @@ typedef struct ObjectListNode {
 #define BUILT_TILE_ROTATION_MASK 0x1C000000
 #define BUILT_TILE_ROTATION_SHIFT 26
 
-STATIC_INLINE int builtTileGetTile(int builtTile)
+static inline int builtTileGetTile(int builtTile)
 {
     return builtTile & BUILT_TILE_TILE_MASK;
 }
 
-STATIC_INLINE int builtTileGetElevation(int builtTile)
+static inline int builtTileGetElevation(int builtTile)
 {
     return (builtTile & BUILT_TILE_ELEVATION_MASK) >> BUILT_TILE_ELEVATION_SHIFT;
 }
 
-STATIC_INLINE int builtTileGetRotation(int builtTile)
+static inline int builtTileGetRotation(int builtTile)
 {
     return (builtTile & BUILT_TILE_ROTATION_MASK) >> BUILT_TILE_ROTATION_SHIFT;
 }
 
-STATIC_INLINE int builtTileCreate(int tile, int elevation)
+static inline int builtTileCreate(int tile, int elevation)
 {
     return tile | ((elevation << BUILT_TILE_ELEVATION_SHIFT) & BUILT_TILE_ELEVATION_MASK);
 }

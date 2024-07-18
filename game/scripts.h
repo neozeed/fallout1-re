@@ -71,8 +71,9 @@ typedef enum ScriptProc {
     SCRIPT_PROC_MAP_UPDATE = 23,
     SCRIPT_PROC_COUNT,
 } ScriptProc;
-
-//static_assert(SCRIPT_PROC_COUNT == 24, "wrong count");
+#if _MSC_VER > 1400
+static_assert(SCRIPT_PROC_COUNT == 24, "wrong count");
+#endif
 
 typedef struct Script {
     int scr_id;
@@ -127,8 +128,9 @@ typedef struct Script {
     int field_D8;
     int field_DC;
 } Script;
-
-//static_assert(sizeof(Script) == 0xD0, "wrong size");
+#if _MSC_VER > 1400
+static_assert(sizeof(Script) == 0xD0, "wrong size");
+#endif
 
 extern int num_script_indexes;
 
