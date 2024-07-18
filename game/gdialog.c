@@ -596,6 +596,9 @@ bool dialog_active()
 // 0x43DE28
 void gdialog_enter(Object* target, int a2)
 {
+    Script* script;
+	int tile;
+
     gdDialogWentOff = false;
 
     if (isInCombat()) {
@@ -653,7 +656,6 @@ void gdialog_enter(Object* target, int a2)
         exec_script_proc(target->sid, SCRIPT_PROC_TALK);
     }
 
-    Script* script;
     if (scr_ptr(target->sid, &script) == -1) {
         gmouse_3d_on();
         map_enable_bk_processes();
@@ -697,7 +699,7 @@ void gdialog_enter(Object* target, int a2)
     gdialog_state = 0;
     dialogue_state = 0;
 
-    int tile = obj_dude->tile;
+    tile = obj_dude->tile;
     if (gdPlayerTile != tile) {
         gdCenterTile = tile;
     }
@@ -961,6 +963,8 @@ static int gdialog_unhide_reply()
 // 0x43E524
 void gdialog_display_msg(char* msg)
 {
+	int a4;
+
     if (gd_replyWin == -1) {
         debug_printf("\nError: Reply window doesn't exist!");
     }
@@ -975,7 +979,7 @@ void gdialog_display_msg(char* msg)
 
     demo_copy_title(gReplyWin);
 
-    int a4 = 0;
+    a4 = 0;
 
     // NOTE: Uninline.
     text_to_rect_wrapped(win_get_buf(gReplyWin),
@@ -1001,12 +1005,14 @@ int gDialogStart()
 // 0x43E5F8
 static int gdAddOption(int messageListId, int messageId, int reaction)
 {
+	GameDialogOptionEntry* optionEntry;
+
     if (gdNumOptions >= DIALOG_OPTION_ENTRIES_CAPACITY) {
         debug_printf("\nError: dialog: Ran out of options!");
         return -1;
     }
 
-    GameDialogOptionEntry* optionEntry = &(dialogBlock.options[gdNumOptions]);
+    optionEntry = &(dialogBlock.options[gdNumOptions]);
     optionEntry->messageListId = messageListId;
     optionEntry->messageId = messageId;
     optionEntry->reaction = reaction;
@@ -1021,12 +1027,14 @@ static int gdAddOption(int messageListId, int messageId, int reaction)
 // 0x43E65C
 static int gdAddOptionStr(int messageListId, const char* text, int reaction)
 {
+	GameDialogOptionEntry* optionEntry;
+
     if (gdNumOptions >= DIALOG_OPTION_ENTRIES_CAPACITY) {
         debug_printf("\nError: dialog: Ran out of options!");
         return -1;
     }
 
-    GameDialogOptionEntry* optionEntry = &(dialogBlock.options[gdNumOptions]);
+    optionEntry = &(dialogBlock.options[gdNumOptions]);
     optionEntry->messageListId = -4;
     optionEntry->messageId = -4;
     optionEntry->reaction = reaction;
@@ -1117,11 +1125,13 @@ int gDialogReplyStr(Program* program, int messageListId, const char* text)
 // 0x43E878
 int gDialogGo()
 {
+	int rc;
+
     if (dialogBlock.replyMessageListId == -1) {
         return 0;
     }
 
-    int rc = 0;
+    rc = 0;
 
     if (gdNumOptions < 1) {
         dialogBlock.options[gdNumOptions].proc = 0;
@@ -1144,7 +1154,9 @@ int gDialogGo()
 // 0x43E904
 static void gdReviewFree()
 {
-    for (int index = 0; index < curReviewSlot; index++) {
+	int index;
+
+    for (index = 0; index < curReviewSlot; index++) {
         GameDialogReviewEntry* entry = &(reviewList[index]);
         entry->replyMessageListId = 0;
         entry->replyMessageId = 0;
@@ -1162,12 +1174,14 @@ static void gdReviewFree()
 // 0x43E968
 static int gdAddReviewReply(int messageListId, int messageId)
 {
+	GameDialogReviewEntry* entry;
+
     if (curReviewSlot >= DIALOG_REVIEW_ENTRIES_CAPACITY) {
         debug_printf("\nError: Ran out of review slots!");
         return -1;
     }
 
-    GameDialogReviewEntry* entry = &(reviewList[curReviewSlot]);
+    entry = &(reviewList[curReviewSlot]);
     entry->replyMessageListId = messageListId;
     entry->replyMessageId = messageId;
 
@@ -1186,12 +1200,14 @@ static int gdAddReviewReply(int messageListId, int messageId)
 // 0x43E9DC
 static int gdAddReviewReplyStr(const char* string)
 {
+	GameDialogReviewEntry* entry;
+
     if (curReviewSlot >= DIALOG_REVIEW_ENTRIES_CAPACITY) {
         debug_printf("\nError: Ran out of review slots!");
         return -1;
     }
 
-    GameDialogReviewEntry* entry = &(reviewList[curReviewSlot]);
+    entry = &(reviewList[curReviewSlot]);
     entry->replyMessageListId = -4;
     entry->replyMessageId = -4;
 
@@ -1215,12 +1231,14 @@ static int gdAddReviewReplyStr(const char* string)
 // 0x43EACC
 static int gdAddReviewOptionChosen(int messageListId, int messageId)
 {
+	GameDialogReviewEntry* entry;
+
     if (curReviewSlot >= DIALOG_REVIEW_ENTRIES_CAPACITY) {
         debug_printf("\nError: Ran out of review slots!");
         return -1;
     }
 
-    GameDialogReviewEntry* entry = &(reviewList[curReviewSlot - 1]);
+    entry = &(reviewList[curReviewSlot - 1]);
     entry->optionMessageListId = messageListId;
     entry->optionMessageId = messageId;
     entry->optionText = NULL;
@@ -1231,12 +1249,14 @@ static int gdAddReviewOptionChosen(int messageListId, int messageId)
 // 0x43EB18
 static int gdAddReviewOptionChosenStr(const char* string)
 {
+	GameDialogReviewEntry* entry;
+
     if (curReviewSlot >= DIALOG_REVIEW_ENTRIES_CAPACITY) {
         debug_printf("\nError: Ran out of review slots!");
         return -1;
     }
 
-    GameDialogReviewEntry* entry = &(reviewList[curReviewSlot - 1]);
+    entry = &(reviewList[curReviewSlot - 1]);
     entry->optionMessageListId = -4;
     entry->optionMessageId = -4;
 
@@ -1261,6 +1281,12 @@ int gDialogSayMessage()
 // 0x43EBD8
 static int gDialogProcess()
 {
+	int v18;
+    unsigned int tick;
+    int pageCount;
+    int pageIndex;
+    int pageOffsets[10];
+
     if (gdReenterLevel == 0) {
         if (gDialogProcessInit() == -1) {
             return -1;
@@ -1271,16 +1297,15 @@ static int gDialogProcess()
 
     gDialogProcessUpdate();
 
-    int v18 = 0;
+    v18 = 0;
     if (dialogBlock.offset != 0) {
         v18 = 1;
         gdReplyTooBig = 1;
     }
 
-    unsigned int tick = get_time();
-    int pageCount = 0;
-    int pageIndex = 0;
-    int pageOffsets[10];
+    tick = get_time();
+    pageCount = 0;
+    pageIndex = 0;
     pageOffsets[0] = 0;
     for (;;) {
         int keyCode = get_input();
@@ -1299,11 +1324,12 @@ static int gDialogProcess()
             }
         } else {
             if (dialogue_switch_mode == 3) {
+				int v5;
                 dialogue_state = 4;
                 barter_inventory(dialogueWindow, dialog_target, peon_table_obj, barterer_table_obj, gdBarterMod);
                 dialogue_barter_cleanup_tables();
 
-                int v5 = dialogue_state;
+                v5 = dialogue_state;
                 talk_to_destroy_barter_win();
                 dialogue_state = v5;
 
@@ -1408,7 +1434,8 @@ static int gDialogProcess()
 // 0x43EEEC
 static void gDialogProcessCleanup()
 {
-    for (int index = 0; index < gdNumOptions; index++) {
+	int index;
+    for (index = 0; index < gdNumOptions; index++) {
         GameDialogOptionEntry* optionEntry = &(dialogBlock.options[index]);
 
         if (optionEntry->btn != -1) {
@@ -1421,6 +1448,8 @@ static void gDialogProcessCleanup()
 // 0x43EF30
 static int gDialogProcessChoice(int a1)
 {
+	int v1;
+	GameDialogOptionEntry* dialogOptionEntry;
     // FIXME: There is a buffer underread bug when `a1` is -1 (pressing 0 on the
     // keyboard, see `gDialogProcess`). When it happens the game looks into unused
     // continuation of `dialogBlock.replyText` (within 0x58F868-0x58FF70 range) which
@@ -1436,7 +1465,7 @@ static int gDialogProcessChoice(int a1)
     mouse_hide();
     gDialogProcessCleanup();
 
-    GameDialogOptionEntry* dialogOptionEntry = a1 != -1 ? &(dialogBlock.options[a1]) : &dummy;
+    dialogOptionEntry = a1 != -1 ? &(dialogBlock.options[a1]) : &dummy;
     if (dialogOptionEntry->messageListId == -4) {
         gdAddReviewOptionChosenStr(dialogOptionEntry->text);
     } else {
@@ -1447,7 +1476,7 @@ static int gDialogProcessChoice(int a1)
 
     gdialog_free_speech();
 
-    int v1 = GAME_DIALOG_REACTION_NEUTRAL;
+    v1 = GAME_DIALOG_REACTION_NEUTRAL;
     switch (dialogOptionEntry->reaction) {
     case GAME_DIALOG_REACTION_GOOD:
         v1 = -1;
@@ -1598,11 +1627,13 @@ static void reply_arrow_restore(int btn, int keyCode)
 // 0x43F1C8
 static void gDialogProcessHighlight(int index)
 {
+	GameDialogOptionEntry* dialogOptionEntry;
+	int color;
     // FIXME: See explanation in `gDialogProcessChoice`.
     GameDialogOptionEntry dummy;
     memset(&dummy, 0, sizeof(dummy));
 
-    GameDialogOptionEntry* dialogOptionEntry = index != -1 ? &(dialogBlock.options[index]) : &dummy;
+    dialogOptionEntry = index != -1 ? &(dialogBlock.options[index]) : &dummy;
     if (dialogOptionEntry->btn == 0) {
         return;
     }
@@ -1620,7 +1651,7 @@ static void gDialogProcessHighlight(int index)
     optionRect.ulx = 5;
     optionRect.lrx = 388;
 
-    int color = colorTable[32747] | 0x2000000;
+    color = colorTable[32747] | 0x2000000;
     if (perk_level(PERK_EMPATHY)) {
         color = colorTable[32747] | 0x2000000;
         switch (dialogOptionEntry->reaction) {
@@ -1656,6 +1687,8 @@ static void gDialogProcessHighlight(int index)
 // 0x43F328
 static void gDialogProcessUnHighlight(int index)
 {
+	int color;
+
     GameDialogOptionEntry* dialogOptionEntry = &(dialogBlock.options[index]);
 
     optionRect.ulx = 0;
@@ -1668,7 +1701,7 @@ static void gDialogProcessUnHighlight(int index)
     }
     gDialogRefreshOptionsRect(gOptionWin, &optionRect);
 
-    int color = colorTable[992] | 0x2000000;
+    color = colorTable[992] | 0x2000000;
     if (perk_level(PERK_EMPATHY) != 0) {
         color = colorTable[32747] | 0x2000000;
         switch (dialogOptionEntry->reaction) {
@@ -1732,6 +1765,11 @@ static void gDialogProcessReply()
 // 0x43F51C
 static void gDialogProcessUpdate()
 {
+	MessageListItem messageListItem;
+	int color,width,v21;
+	bool hasEmpathy;
+	int index;
+
     replyRect.ulx = 5;
     replyRect.uly = 10;
     replyRect.lrx = 374;
@@ -1753,17 +1791,15 @@ static void gDialogProcessUpdate()
 
     gDialogProcessReply();
 
-    int color = colorTable[992] | 0x2000000;
+    color = colorTable[992] | 0x2000000;
 
-    bool hasEmpathy = perk_level(PERK_EMPATHY) != 0;
+    hasEmpathy = perk_level(PERK_EMPATHY) != 0;
 
-    int width = optionRect.lrx - optionRect.ulx - 4;
+    width = optionRect.lrx - optionRect.ulx - 4;
 
-    MessageListItem messageListItem;
+    v21 = 0;
 
-    int v21 = 0;
-
-    for (int index = 0; index < gdNumOptions; index++) {
+    for (index = 0; index < gdNumOptions; index++) {
         GameDialogOptionEntry* dialogOptionEntry = &(dialogBlock.options[index]);
 
         if (hasEmpathy) {
@@ -1815,6 +1851,7 @@ static void gDialogProcessUpdate()
         }
 
         if (optionRect.uly < optionRect.lry) {
+			int max_y;
             int y = optionRect.uly;
 
             dialogOptionEntry->field_14 = y;
@@ -1834,7 +1871,7 @@ static void gDialogProcessUpdate()
 
             optionRect.uly += 2;
 
-            int max_y;
+            max_y;
             if (index < gdNumOptions - 1) {
                 max_y = optionRect.uly;
             } else {
@@ -1885,6 +1922,10 @@ static int gDialogProcessExit()
 // 0x43F910
 static void demo_copy_title(int win)
 {
+	int width,height;
+	unsigned char* src;
+	unsigned char* dest;
+
     gd_replyWin = win;
 
     if (win == -1) {
@@ -1892,13 +1933,13 @@ static void demo_copy_title(int win)
         return;
     }
 
-    int width = win_width(win);
+    width = win_width(win);
     if (width < 1) {
         debug_printf("\nError: demo_copy_title: width invalid!");
         return;
     }
 
-    int height = win_height(win);
+    height = win_height(win);
     if (height < 1) {
         debug_printf("\nError: demo_copy_title: length invalid!");
         return;
@@ -1909,13 +1950,13 @@ static void demo_copy_title(int win)
         return;
     }
 
-    unsigned char* src = win_get_buf(dialogueBackWindow);
+    src = win_get_buf(dialogueBackWindow);
     if (src == NULL) {
         debug_printf("\nError: demo_copy_title: couldn't get buffer!");
         return;
     }
 
-    unsigned char* dest = win_get_buf(win);
+    dest = win_get_buf(win);
 
     buf_to_buf(src + 640 * 225 + 135, width, height, 640, dest, width);
 }
@@ -1923,6 +1964,11 @@ static void demo_copy_title(int win)
 // 0x43F9D0
 static void demo_copy_options(int win)
 {
+	int width,height;
+    Rect windowRect;
+	unsigned char* src;
+	unsigned char* dest;
+
     gd_optionsWin = win;
 
     if (win == -1) {
@@ -1930,13 +1976,13 @@ static void demo_copy_options(int win)
         return;
     }
 
-    int width = win_width(win);
+    width = win_width(win);
     if (width < 1) {
         debug_printf("\nError: demo_copy_options: width invalid!");
         return;
     }
 
-    int height = win_height(win);
+    height = win_height(win);
     if (height < 1) {
         debug_printf("\nError: demo_copy_options: length invalid!");
         return;
@@ -1947,22 +1993,26 @@ static void demo_copy_options(int win)
         return;
     }
 
-    Rect windowRect;
     win_get_rect(dialogueWindow, &windowRect);
 
-    unsigned char* src = win_get_buf(dialogueWindow);
+    src = win_get_buf(dialogueWindow);
     if (src == NULL) {
         debug_printf("\nError: demo_copy_options: couldn't get buffer!");
         return;
     }
 
-    unsigned char* dest = win_get_buf(win);
+    dest = win_get_buf(win);
     buf_to_buf(src + 640 * (335 - windowRect.uly) + 127, width, height, 640, dest, width);
 }
 
 // 0x43FACC
 static void gDialogRefreshOptionsRect(int win, Rect* drawRect)
 {
+    Rect windowRect;
+	unsigned char* src;
+	unsigned char* dest;
+	int destWidth;
+
     if (drawRect == NULL) {
         debug_printf("\nError: gDialogRefreshOptionsRect: drawRect NULL!");
         return;
@@ -1978,10 +2028,9 @@ static void gDialogRefreshOptionsRect(int win, Rect* drawRect)
         return;
     }
 
-    Rect windowRect;
     win_get_rect(dialogueWindow, &windowRect);
 
-    unsigned char* src = win_get_buf(dialogueWindow);
+    src = win_get_buf(dialogueWindow);
     if (src == NULL) {
         debug_printf("\nError: gDialogRefreshOptionsRect: couldn't get buffer!");
         return;
@@ -1997,8 +2046,8 @@ static void gDialogRefreshOptionsRect(int win, Rect* drawRect)
         return;
     }
 
-    int destWidth = win_width(win);
-    unsigned char* dest = win_get_buf(win);
+    destWidth = win_width(win);
+    dest = win_get_buf(win);
 
     buf_to_buf(
         src + (640 * (335 - windowRect.uly) + 127) + (640 * drawRect->uly + drawRect->ulx),
@@ -2092,6 +2141,7 @@ static void head_bk()
 // 0x43FE3C
 void talk_to_critter_reacts(int a1)
 {
+	int v3;
     int v1 = a1 + 1;
 
     debug_printf("Dialogue Reaction: ");
@@ -2099,7 +2149,7 @@ void talk_to_critter_reacts(int a1)
         debug_printf("%s\n", react_strs[v1]);
     }
 
-    int v3 = a1 + 50;
+    v3 = a1 + 50;
     dialogue_seconds_since_last_input = 0;
 
     switch (v3) {
@@ -2152,11 +2202,12 @@ static void talk_to_scroll_subwin(int win, int a2, unsigned char* a3, unsigned c
     v9 = a4;
 
     if (a2 == 1) {
+		int v18;
         rect.ulx = 0;
         rect.lrx = GAME_DIALOG_WINDOW_WIDTH - 1;
         rect.lry = a6 - 1;
 
-        int v18 = a6 / 10;
+        v18 = a6 / 10;
         if (a7 == -1) {
             rect.uly = 10;
             v18 = 0;
@@ -2184,12 +2235,13 @@ static void talk_to_scroll_subwin(int win, int a2, unsigned char* a3, unsigned c
             }
         }
     } else {
+		int index;
         rect.lrx = GAME_DIALOG_WINDOW_WIDTH - 1;
         rect.lry = a6 - 1;
         rect.ulx = 0;
         rect.uly = 0;
 
-        for (int index = a6 / 10; index > 0; index--) {
+        for (index = a6 / 10; index > 0; index--) {
             soundUpdate();
 
             buf_to_buf(a5,
@@ -2225,13 +2277,14 @@ static void talk_to_scroll_subwin(int win, int a2, unsigned char* a3, unsigned c
 static int gdialog_review()
 {
     int win;
+	int top_line;
 
     if (gdialog_review_init(&win) == -1) {
         debug_printf("\nError initializing review window!");
         return -1;
     }
 
-    int top_line = 0;
+    top_line = 0;
     gdialog_review_display(win, top_line);
 
     while (true) {
@@ -2268,6 +2321,18 @@ static int gdialog_review()
 // 0x44017C
 static int gdialog_review_init(int* win)
 {
+	int reviewWindowX,reviewWindowY;
+    int fid;
+    unsigned char* backgroundFrmData;
+	unsigned char* windowBuffer;
+    int index;
+	int upBtn;
+	int downBtn;
+	int doneBtn;
+	int backgroundFid;
+    unsigned char* buttonFrmData[GAME_DIALOG_REVIEW_WINDOW_BUTTON_FRM_COUNT];
+
+
     if (gdialog_speech_playing) {
         if (soundPlaying(lip_info.sound)) {
             gdialog_free_speech();
@@ -2280,8 +2345,8 @@ static int gdialog_review_init(int* win)
         return -1;
     }
 
-    int reviewWindowX = 0;
-    int reviewWindowY = 0;
+    reviewWindowX = 0;
+    reviewWindowY = 0;
     *win = win_add(reviewWindowX,
         reviewWindowY,
         GAME_DIALOG_REVIEW_WINDOW_WIDTH,
@@ -2292,15 +2357,15 @@ static int gdialog_review_init(int* win)
         return -1;
     }
 
-    int fid = art_id(OBJ_TYPE_INTERFACE, 102, 0, 0, 0);
-    unsigned char* backgroundFrmData = art_ptr_lock_data(fid, 0, 0, &reviewBackKey);
+    fid = art_id(OBJ_TYPE_INTERFACE, 102, 0, 0, 0);
+    backgroundFrmData = art_ptr_lock_data(fid, 0, 0, &reviewBackKey);
     if (backgroundFrmData == NULL) {
         win_delete(*win);
         *win = -1;
         return -1;
     }
 
-    unsigned char* windowBuffer = win_get_buf(*win);
+    windowBuffer = win_get_buf(*win);
     buf_to_buf(backgroundFrmData,
         GAME_DIALOG_REVIEW_WINDOW_WIDTH,
         GAME_DIALOG_REVIEW_WINDOW_HEIGHT,
@@ -2311,9 +2376,6 @@ static int gdialog_review_init(int* win)
     art_ptr_unlock(reviewBackKey);
     reviewBackKey = INVALID_CACHE_ENTRY;
 
-    unsigned char* buttonFrmData[GAME_DIALOG_REVIEW_WINDOW_BUTTON_FRM_COUNT];
-
-    int index;
     for (index = 0; index < GAME_DIALOG_REVIEW_WINDOW_BUTTON_FRM_COUNT; index++) {
         int fid = art_id(OBJ_TYPE_INTERFACE, reviewFids[index], 0, 0, 0);
         buttonFrmData[index] = art_ptr_lock_data(fid, 0, 0, &(reviewKeys[index]));
@@ -2327,7 +2389,7 @@ static int gdialog_review_init(int* win)
         return -1;
     }
 
-    int upBtn = win_register_button(*win,
+    upBtn = win_register_button(*win,
         475,
         152,
         reviewFidWids[GAME_DIALOG_REVIEW_WINDOW_BUTTON_SCROLL_UP],
@@ -2347,7 +2409,7 @@ static int gdialog_review_init(int* win)
 
     win_register_button_sound_func(upBtn, gsound_med_butt_press, gsound_med_butt_release);
 
-    int downBtn = win_register_button(*win,
+    downBtn = win_register_button(*win,
         475,
         191,
         reviewFidWids[GAME_DIALOG_REVIEW_WINDOW_BUTTON_SCROLL_DOWN],
@@ -2367,7 +2429,7 @@ static int gdialog_review_init(int* win)
 
     win_register_button_sound_func(downBtn, gsound_med_butt_press, gsound_med_butt_release);
 
-    int doneBtn = win_register_button(*win,
+    doneBtn = win_register_button(*win,
         499,
         398,
         reviewFidWids[GAME_DIALOG_REVIEW_WINDOW_BUTTON_DONE],
@@ -2393,7 +2455,7 @@ static int gdialog_review_init(int* win)
 
     remove_bk_process(head_bk);
 
-    int backgroundFid = art_id(OBJ_TYPE_INTERFACE, 102, 0, 0, 0);
+    backgroundFid = art_id(OBJ_TYPE_INTERFACE, 102, 0, 0, 0);
     reviewDispBuf = art_ptr_lock_data(backgroundFid, 0, 0, &reviewDispBackKey);
     if (reviewDispBuf == NULL) {
         gdialog_review_exit(win);
@@ -2406,9 +2468,11 @@ static int gdialog_review_init(int* win)
 // 0x44045C
 static int gdialog_review_exit(int* win)
 {
+	int index;
+
     add_bk_process(head_bk);
 
-    for (int index = 0; index < GAME_DIALOG_REVIEW_WINDOW_BUTTON_FRM_COUNT; index++) {
+    for (index = 0; index < GAME_DIALOG_REVIEW_WINDOW_BUTTON_FRM_COUNT; index++) {
         if (reviewKeys[index] != INVALID_CACHE_ENTRY) {
             art_ptr_unlock(reviewKeys[index]);
             reviewKeys[index] = INVALID_CACHE_ENTRY;
@@ -2436,20 +2500,26 @@ static int gdialog_review_exit(int* win)
 // 0x4404E4
 static void gdialog_review_display(int win, int origin)
 {
+    int v20;
+    unsigned char* windowBuffer;
+	int width,y,index;
+    char* replyText;
+
+
     Rect entriesRect;
     entriesRect.ulx = 113;
     entriesRect.uly = 76;
     entriesRect.lrx = 422;
     entriesRect.lry = 418;
 
-    int v20 = text_height() + 2;
-    unsigned char* windowBuffer = win_get_buf(win);
+    v20 = text_height() + 2;
+    windowBuffer = win_get_buf(win);
     if (windowBuffer == NULL) {
         debug_printf("\nError: gdialog: review: can't find buffer!");
         return;
     }
 
-    int width = GAME_DIALOG_WINDOW_WIDTH;
+    width = GAME_DIALOG_WINDOW_WIDTH;
     buf_to_buf(
         reviewDispBuf + width * entriesRect.uly + entriesRect.ulx,
         width,
@@ -2458,8 +2528,8 @@ static void gdialog_review_display(int win, int origin)
         windowBuffer + width * entriesRect.uly + entriesRect.ulx,
         width);
 
-    int y = 76;
-    for (int index = origin; index < curReviewSlot; index++) {
+    y = 76;
+    for (index = origin; index < curReviewSlot; index++) {
         GameDialogReviewEntry* dialogReviewEntry = &(reviewList[index]);
 
         char name[60];
@@ -2467,7 +2537,6 @@ static void gdialog_review_display(int win, int origin)
         win_print(win, name, 180, 88, y, colorTable[992] | 0x2000000);
         entriesRect.uly += v20;
 
-        char* replyText;
         if (dialogReviewEntry->replyMessageListId <= -3) {
             replyText = dialogReviewEntry->replyText;
         } else {
@@ -2489,11 +2558,12 @@ static void gdialog_review_display(int win, int origin)
             colorTable[768] | 0x2000000);
 
         if (dialogReviewEntry->optionMessageListId != -3) {
+			char* optionText;
+
             sprintf(name, "%s:", object_name(obj_dude));
             win_print(win, name, 180, 88, y, colorTable[21140] | 0x2000000);
             entriesRect.uly += v20;
-
-            char* optionText;
+            
             if (dialogReviewEntry->optionMessageListId <= -3) {
                 optionText = dialogReviewEntry->optionText;
             } else {
@@ -2536,15 +2606,18 @@ static int text_to_rect_wrapped(unsigned char* buffer, Rect* rect, char* string,
 // 0x440768
 static int text_to_rect_func(unsigned char* buffer, Rect* rect, char* string, int* a4, int height, int pitch, int color, int a7)
 {
+	int maxWidth;
+    char* end;
     char* start;
+
     if (a4 != NULL) {
         start = string + *a4;
     } else {
         start = string;
     }
 
-    int maxWidth = rect->lrx - rect->ulx;
-    char* end = NULL;
+    maxWidth = rect->lrx - rect->ulx;
+    end = NULL;
     while (start != NULL && *start != '\0') {
         if (text_width(start) > maxWidth) {
             end = start + 1;
@@ -2603,6 +2676,8 @@ static int text_to_rect_func(unsigned char* buffer, Rect* rect, char* string, in
         }
 
         if (a7 != 0) {
+            unsigned char* dest;
+
             if (rect->lry - text_height() < rect->uly) {
                 if (end != NULL && *end == '\0') {
                     *end = ' ';
@@ -2610,7 +2685,6 @@ static int text_to_rect_func(unsigned char* buffer, Rect* rect, char* string, in
                 return rect->uly;
             }
 
-            unsigned char* dest;
             if (a7 != 1 || start == string) {
                 dest = buffer + 10;
             } else {
@@ -2681,17 +2755,24 @@ static int talk_to_create_barter_win()
     int fid;
     unsigned char* normal;
     unsigned char* pressed;
+    int backgroundFid;
+    CacheEntry* backgroundHandle;
+    Art* backgroundFrm;
+	unsigned char* backgroundData;
+	int barterWindowX,barterWindowY;
+    int width;
+    unsigned char* windowBuffer;
+    unsigned char* backgroundWindowBuffer;
 
     dialogue_state = 4;
 
-    int backgroundFid = art_id(OBJ_TYPE_INTERFACE, 111, 0, 0, 0);
-    CacheEntry* backgroundHandle;
-    Art* backgroundFrm = art_ptr_lock(backgroundFid, &backgroundHandle);
+    backgroundFid = art_id(OBJ_TYPE_INTERFACE, 111, 0, 0, 0);
+	backgroundFrm = art_ptr_lock(backgroundFid, &backgroundHandle);
     if (backgroundFrm == NULL) {
         return -1;
     }
 
-    unsigned char* backgroundData = art_frame_data(backgroundFrm, 0, 0);
+    backgroundData = art_frame_data(backgroundFrm, 0, 0);
     if (backgroundData == NULL) {
         art_ptr_unlock(backgroundHandle);
         return -1;
@@ -2699,8 +2780,8 @@ static int talk_to_create_barter_win()
 
     dialogue_subwin_len = art_frame_length(backgroundFrm, 0, 0);
 
-    int barterWindowX = 0;
-    int barterWindowY = GAME_DIALOG_WINDOW_HEIGHT - dialogue_subwin_len;
+    barterWindowX = 0;
+    barterWindowY = GAME_DIALOG_WINDOW_HEIGHT - dialogue_subwin_len;
     dialogueWindow = win_add(barterWindowX,
         barterWindowY,
         GAME_DIALOG_WINDOW_WIDTH,
@@ -2712,10 +2793,10 @@ static int talk_to_create_barter_win()
         return -1;
     }
 
-    int width = GAME_DIALOG_WINDOW_WIDTH;
+    width = GAME_DIALOG_WINDOW_WIDTH;
 
-    unsigned char* windowBuffer = win_get_buf(dialogueWindow);
-    unsigned char* backgroundWindowBuffer = win_get_buf(dialogueBackWindow);
+    windowBuffer = win_get_buf(dialogueWindow);
+    backgroundWindowBuffer = win_get_buf(dialogueBackWindow);
     buf_to_buf(backgroundWindowBuffer + width * (480 - dialogue_subwin_len), width, dialogue_subwin_len, width, windowBuffer, width);
 
     talk_to_scroll_subwin(dialogueWindow, 1, backgroundData, windowBuffer, NULL, dialogue_subwin_len, 0);
@@ -2794,6 +2875,12 @@ static int talk_to_create_barter_win()
 // 0x440CEC
 static void talk_to_destroy_barter_win()
 {
+	int index;
+	unsigned char* backgroundWindowBuffer;
+	CacheEntry* backgroundFrmHandle;
+    int fid;
+    unsigned char* backgroundFrmData;
+
     if (dialogueWindow == -1) {
         return;
     }
@@ -2802,19 +2889,18 @@ static void talk_to_destroy_barter_win()
     obj_erase_object(barterer_table_obj, 0);
     obj_erase_object(peon_table_obj, 0);
 
-    for (int index = 0; index < 2; index++) {
+    for (index = 0; index < 2; index++) {
         win_delete_button(dialogue_bids[index]);
     }
 
     art_ptr_unlock(dialogue_redbut_Key1);
     art_ptr_unlock(dialogue_redbut_Key2);
 
-    unsigned char* backgroundWindowBuffer = win_get_buf(dialogueBackWindow);
+    backgroundWindowBuffer = win_get_buf(dialogueBackWindow);
     backgroundWindowBuffer += (GAME_DIALOG_WINDOW_WIDTH) * (480 - dialogue_subwin_len);
 
-    CacheEntry* backgroundFrmHandle;
-    int fid = art_id(OBJ_TYPE_INTERFACE, 111, 0, 0, 0);
-    unsigned char* backgroundFrmData = art_ptr_lock_data(fid, 0, 0, &backgroundFrmHandle);
+    fid = art_id(OBJ_TYPE_INTERFACE, 111, 0, 0, 0);
+    backgroundFrmData = art_ptr_lock_data(fid, 0, 0, &backgroundFrmHandle);
     if (backgroundFrmData != NULL) {
         unsigned char* windowBuffer = win_get_buf(dialogueWindow);
         talk_to_scroll_subwin(dialogueWindow, 0, backgroundFrmData, windowBuffer, backgroundWindowBuffer, dialogue_subwin_len, 0);
@@ -2829,10 +2915,11 @@ static void dialogue_barter_cleanup_tables()
 {
     Inventory* inventory;
     int length;
+	int index;
 
     inventory = &(peon_table_obj->data.inventory);
     length = inventory->length;
-    for (int index = 0; index < length; index++) {
+    for (index = 0; index < length; index++) {
         Object* item = inventory->items->item;
         int quantity = item_count(peon_table_obj, item);
         item_move_force(peon_table_obj, obj_dude, item, quantity);
@@ -2840,16 +2927,17 @@ static void dialogue_barter_cleanup_tables()
 
     inventory = &(barterer_table_obj->data.inventory);
     length = inventory->length;
-    for (int index = 0; index < length; index++) {
+    for (index = 0; index < length; index++) {
         Object* item = inventory->items->item;
         int quantity = item_count(barterer_table_obj, item);
         item_move_force(barterer_table_obj, dialog_target, item, quantity);
     }
 
     if (barterer_temp_obj != NULL) {
+		int index;
         inventory = &(barterer_temp_obj->data.inventory);
         length = inventory->length;
-        for (int index = 0; index < length; index++) {
+        for (index = 0; index < length; index++) {
             Object* item = inventory->items->item;
             int quantity = item_count(barterer_temp_obj, item);
             item_move_force(barterer_temp_obj, dialog_target, item, quantity);
@@ -2860,16 +2948,17 @@ static void dialogue_barter_cleanup_tables()
 // 0x440EC4
 static void talk_to_pressed_barter(int btn, int keyCode)
 {
+    Script* script;
+    Proto* proto;
+
     if (PID_TYPE(dialog_target->pid) != OBJ_TYPE_CRITTER) {
         return;
     }
 
-    Script* script;
     if (scr_ptr(dialog_target->sid, &script) == -1) {
         return;
     }
 
-    Proto* proto;
     proto_ptr(dialog_target->pid, &proto);
     if ((proto->critter.data.flags & CRITTER_BARTER) != 0) {
         if (gdialog_speech_playing) {
@@ -2952,6 +3041,13 @@ static int talk_to_create_dialogue_win()
     unsigned char* normal;
     unsigned char* pressed;
     const int screenWidth = GAME_DIALOG_WINDOW_WIDTH;
+    CacheEntry* backgroundFrmHandle;
+    int backgroundFid;
+    Art* backgroundFrm;
+	unsigned char* backgroundFrmData;
+	int dialogSubwindowX,dialogSubwindowY;
+	unsigned char* v10;
+	unsigned char* v14;
 
     if (dial_win_created) {
         return -1;
@@ -2959,22 +3055,21 @@ static int talk_to_create_dialogue_win()
 
     dial_win_created = true;
 
-    CacheEntry* backgroundFrmHandle;
-    int backgroundFid = art_id(OBJ_TYPE_INTERFACE, 99, 0, 0, 0);
-    Art* backgroundFrm = art_ptr_lock(backgroundFid, &backgroundFrmHandle);
+    backgroundFid = art_id(OBJ_TYPE_INTERFACE, 99, 0, 0, 0);
+    backgroundFrm = art_ptr_lock(backgroundFid, &backgroundFrmHandle);
     if (backgroundFrm == NULL) {
         return -1;
     }
 
-    unsigned char* backgroundFrmData = art_frame_data(backgroundFrm, 0, 0);
+    backgroundFrmData = art_frame_data(backgroundFrm, 0, 0);
     if (backgroundFrmData == NULL) {
         return -1;
     }
 
     dialogue_subwin_len = art_frame_length(backgroundFrm, 0, 0);
 
-    int dialogSubwindowX = 0;
-    int dialogSubwindowY = 480 - dialogue_subwin_len;
+    dialogSubwindowX = 0;
+    dialogSubwindowY = 480 - dialogue_subwin_len;
     dialogueWindow = win_add(dialogSubwindowX,
         dialogSubwindowY,
         screenWidth,
@@ -2985,8 +3080,8 @@ static int talk_to_create_dialogue_win()
         return -1;
     }
 
-    unsigned char* v10 = win_get_buf(dialogueWindow);
-    unsigned char* v14 = win_get_buf(dialogueBackWindow);
+    v10 = win_get_buf(dialogueWindow);
+    v14 = win_get_buf(dialogueBackWindow);
     buf_to_buf(v14 + screenWidth * (GAME_DIALOG_WINDOW_HEIGHT - dialogue_subwin_len),
         screenWidth,
         dialogue_subwin_len,
@@ -3088,11 +3183,18 @@ static int talk_to_create_dialogue_win()
 // 0x441430
 static void talk_to_destroy_dialogue_win()
 {
+	int index;
+    int offset;
+    unsigned char* backgroundWindowBuffer;
+    CacheEntry* backgroundFrmHandle;
+    int fid;
+    unsigned char* backgroundFrmData;
+
     if (dialogueWindow == -1) {
         return;
     }
 
-    for (int index = 0; index < 3; index++) {
+    for (index = 0; index < 3; index++) {
         win_delete_button(dialogue_bids[index]);
     }
 
@@ -3101,12 +3203,11 @@ static void talk_to_destroy_dialogue_win()
     art_ptr_unlock(dialogue_rest_Key1);
     art_ptr_unlock(dialogue_rest_Key2);
 
-    int offset = (GAME_DIALOG_WINDOW_WIDTH) * (480 - dialogue_subwin_len);
-    unsigned char* backgroundWindowBuffer = win_get_buf(dialogueBackWindow) + offset;
+    offset = (GAME_DIALOG_WINDOW_WIDTH) * (480 - dialogue_subwin_len);
+    backgroundWindowBuffer = win_get_buf(dialogueBackWindow) + offset;
 
-    CacheEntry* backgroundFrmHandle;
-    int fid = art_id(OBJ_TYPE_INTERFACE, 99, 0, 0, 0);
-    unsigned char* backgroundFrmData = art_ptr_lock_data(fid, 0, 0, &backgroundFrmHandle);
+    fid = art_id(OBJ_TYPE_INTERFACE, 99, 0, 0, 0);
+    backgroundFrmData = art_ptr_lock_data(fid, 0, 0, &backgroundFrmHandle);
     if (backgroundFrmData != NULL) {
         unsigned char* windowBuffer = win_get_buf(dialogueWindow);
         talk_to_scroll_subwin(dialogueWindow, 0, backgroundFrmData, windowBuffer, backgroundWindowBuffer, dialogue_subwin_len, 0);
@@ -3137,7 +3238,10 @@ static int talk_to_create_background_window()
 // 0x441564
 static int talk_to_refresh_background_window()
 {
+    int windowWidth;
+    unsigned char* windowBuffer;
     CacheEntry* backgroundFrmHandle;
+
     // alltlk.frm - dialog screen background
     int fid = art_id(OBJ_TYPE_INTERFACE, 103, 0, 0, 0);
     unsigned char* backgroundFrmData = art_ptr_lock_data(fid, 0, 0, &backgroundFrmHandle);
@@ -3145,8 +3249,8 @@ static int talk_to_refresh_background_window()
         return -1;
     }
 
-    int windowWidth = GAME_DIALOG_WINDOW_WIDTH;
-    unsigned char* windowBuffer = win_get_buf(dialogueBackWindow);
+    windowWidth = GAME_DIALOG_WINDOW_WIDTH;
+    windowBuffer = win_get_buf(dialogueBackWindow);
     buf_to_buf(backgroundFrmData, windowWidth, 480, windowWidth, windowBuffer, windowWidth);
     art_ptr_unlock(backgroundFrmHandle);
 
@@ -3160,28 +3264,35 @@ static int talk_to_refresh_background_window()
 // 0x4415F4
 static int talk_to_create_head_window()
 {
+	int index;
+	int windowWidth;
+	unsigned char* buf;
+
     dialogue_state = 1;
 
-    int windowWidth = GAME_DIALOG_WINDOW_WIDTH;
+    windowWidth = GAME_DIALOG_WINDOW_WIDTH;
 
     // NOTE: Uninline.
     talk_to_create_background_window();
     talk_to_refresh_background_window();
 
-    unsigned char* buf = win_get_buf(dialogueBackWindow);
+    buf = win_get_buf(dialogueBackWindow);
 
-    for (int index = 0; index < 8; index++) {
+    for (index = 0; index < 8; index++) {
+		unsigned char* src;
+		int width,height;
+		Rect* rect;
         soundUpdate();
 
-        Rect* rect = &(backgrndRects[index]);
-        int width = rect->lrx - rect->ulx;
-        int height = rect->lry - rect->uly;
+        rect = &(backgrndRects[index]);
+        width = rect->lrx - rect->ulx;
+        height = rect->lry - rect->uly;
         backgrndBufs[index] = (unsigned char*)mem_malloc(width * height);
         if (backgrndBufs[index] == NULL) {
             return -1;
         }
 
-        unsigned char* src = buf;
+        src = buf;
         src += windowWidth * rect->uly + rect->ulx;
 
         buf_to_buf(src, width, height, windowWidth, backgrndBufs[index], width);
@@ -3202,6 +3313,8 @@ static int talk_to_create_head_window()
 // 0x44172C
 static void talk_to_destroy_head_window()
 {
+	int index;
+
     if (dialogueWindow != -1) {
         headWindowBuffer = NULL;
     }
@@ -3217,7 +3330,7 @@ static void talk_to_destroy_head_window()
         dialogueBackWindow = -1;
     }
 
-    for (int index = 0; index < 8; index++) {
+    for (index = 0; index < 8; index++) {
         mem_free(backgrndBufs[index]);
     }
 }
@@ -3225,6 +3338,12 @@ static void talk_to_destroy_head_window()
 // 0x441798
 static void talk_to_set_up_fidget(int headFrmId, int reaction)
 {
+	int anim;
+	int fid;
+    int fidgetCount;
+    int chance;
+    int fidget;
+
     // 0x505228
     static int phone_anim = 0;
 
@@ -3244,7 +3363,7 @@ static void talk_to_set_up_fidget(int headFrmId, int reaction)
         return;
     }
 
-    int anim = HEAD_ANIMATION_NEUTRAL_PHONEMES;
+    anim = HEAD_ANIMATION_NEUTRAL_PHONEMES;
     switch (reaction) {
     case FIDGET_GOOD:
         anim = HEAD_ANIMATION_GOOD_PHONEMES;
@@ -3270,24 +3389,24 @@ static void talk_to_set_up_fidget(int headFrmId, int reaction)
         lipsFID = art_id(OBJ_TYPE_HEAD, headFrmId, anim, 0, 0);
         lipsFp = art_ptr_lock(lipsFID, &lipsKey);
         if (lipsFp == NULL) {
+            char stats[200];
             debug_printf("failure!\n");
 
-            char stats[200];
             cache_stats(&art_cache, stats);
             debug_printf("%s", stats);
         }
     }
 
-    int fid = art_id(OBJ_TYPE_HEAD, headFrmId, reaction, 0, 0);
-    int fidgetCount = art_head_fidgets(fid);
+    fid = art_id(OBJ_TYPE_HEAD, headFrmId, reaction, 0, 0);
+    fidgetCount = art_head_fidgets(fid);
     if (fidgetCount == -1) {
         debug_printf("\tError - No available fidgets for given frame id\n");
         return;
     }
 
-    int chance = roll_random(1, 100) + dialogue_seconds_since_last_input / 2;
+    chance = roll_random(1, 100) + dialogue_seconds_since_last_input / 2;
 
-    int fidget = fidgetCount;
+    fidget = fidgetCount;
     switch (fidgetCount) {
     case 1:
         fidget = 1;
@@ -3323,9 +3442,9 @@ static void talk_to_set_up_fidget(int headFrmId, int reaction)
     fidgetFrameCounter = 0;
     fidgetFp = art_ptr_lock(fidgetFID, &fidgetKey);
     if (fidgetFp == NULL) {
+        char stats[200];
         debug_printf("failure!\n");
 
-        char stats[200];
         cache_stats(&art_cache, stats);
         debug_printf("%s", stats);
     }
@@ -3362,6 +3481,13 @@ static void talk_to_wait_for_fidget()
 // 0x441AAC
 static void talk_to_play_transition(int anim)
 {
+    CacheEntry* headFrmHandle;
+    int headFid;
+    Art* headFrm;
+    unsigned int delay;
+    int frame;
+    unsigned int time;
+
     if (fidgetFp == NULL) {
         return;
     }
@@ -3383,17 +3509,16 @@ static void talk_to_play_transition(int anim)
         fidgetFp = NULL;
     }
 
-    CacheEntry* headFrmHandle;
-    int headFid = art_id(OBJ_TYPE_HEAD, dialogue_head, anim, 0, 0);
-    Art* headFrm = art_ptr_lock(headFid, &headFrmHandle);
+    headFid = art_id(OBJ_TYPE_HEAD, dialogue_head, anim, 0, 0);
+    headFrm = art_ptr_lock(headFid, &headFrmHandle);
     if (headFrm == NULL) {
         debug_printf("\tError locking transition...\n");
     }
 
-    unsigned int delay = 1000 / art_frame_fps(headFrm);
+    delay = 1000 / art_frame_fps(headFrm);
 
-    int frame = 0;
-    unsigned int time = 0;
+    frame = 0;
+    time = 0;
     while (frame < art_frame_max_frame(headFrm)) {
         if (elapsed_time(time) >= delay) {
             talk_to_display_frame(headFrm, frame);
@@ -3415,17 +3540,20 @@ static void talk_to_translucent_trans_buf_to_buf(unsigned char* src, int srcWidt
 {
     int srcStep = srcPitch - srcWidth;
     int destStep = destPitch - srcWidth;
+	int y;
 
     dest += destPitch * destY + destX;
 
-    for (int y = 0; y < srcHeight; y++) {
-        for (int x = 0; x < srcWidth; x++) {
+    for (y = 0; y < srcHeight; y++) {
+		int x;
+        for (x = 0; x < srcWidth; x++) {
+			unsigned char v15;
             unsigned char v1 = *src++;
             if (v1 != 0) {
                 v1 = (256 - v1) >> 4;
             }
 
-            unsigned char v15 = *dest;
+            v15 = *dest;
             *dest++ = a9[256 * v1 + v15];
         }
         src += srcStep;
@@ -3436,6 +3564,12 @@ static void talk_to_translucent_trans_buf_to_buf(unsigned char* src, int srcWidt
 // 0x441C50
 static void talk_to_display_frame(Art* headFrm, int frame)
 {
+	int index;
+    Rect v27;
+	unsigned char* dest;
+	unsigned char* data1;
+	unsigned char* data2;
+
     // 0x50522C
     static int totalHotx = 0;
 
@@ -3444,19 +3578,27 @@ static void talk_to_display_frame(Art* headFrm, int frame)
     }
 
     if (headFrm != NULL) {
+		int backgroundFid;
+		CacheEntry* backgroundHandle;
+        Art* backgroundFrm;
+		unsigned char* backgroundFrmData;
+        int a3,a4,a5;
+        int v8;
+		int width,height;
+		unsigned char* data;
+
         if (frame == 0) {
             totalHotx = 0;
         }
 
-        int backgroundFid = art_id(OBJ_TYPE_BACKGROUND, backgroundIndex, 0, 0, 0);
+        backgroundFid = art_id(OBJ_TYPE_BACKGROUND, backgroundIndex, 0, 0, 0);
 
-        CacheEntry* backgroundHandle;
-        Art* backgroundFrm = art_ptr_lock(backgroundFid, &backgroundHandle);
+        backgroundFrm = art_ptr_lock(backgroundFid, &backgroundHandle);
         if (backgroundFrm == NULL) {
             debug_printf("\tError locking background in display...\n");
         }
 
-        unsigned char* backgroundFrmData = art_frame_data(backgroundFrm, 0, 0);
+        backgroundFrmData = art_frame_data(backgroundFrm, 0, 0);
         if (backgroundFrmData != NULL) {
             buf_to_buf(backgroundFrmData, 388, 200, 388, headWindowBuffer, GAME_DIALOG_WINDOW_WIDTH);
         } else {
@@ -3465,16 +3607,12 @@ static void talk_to_display_frame(Art* headFrm, int frame)
 
         art_ptr_unlock(backgroundHandle);
 
-        int width = art_frame_width(headFrm, frame, 0);
-        int height = art_frame_length(headFrm, frame, 0);
-        unsigned char* data = art_frame_data(headFrm, frame, 0);
+		width = art_frame_width(headFrm, frame, 0);
+        height = art_frame_length(headFrm, frame, 0);
+        data = art_frame_data(headFrm, frame, 0);
 
-        int a3;
-        int v8;
         art_frame_offset(headFrm, 0, &a3, &v8);
 
-        int a4;
-        int a5;
         art_frame_hot(headFrm, frame, 0, &a4, &a5);
 
         totalHotx += a4;
@@ -3498,12 +3636,13 @@ static void talk_to_display_frame(Art* headFrm, int frame)
             debug_printf("\tError getting head data in display...\n");
         }
     } else {
+		unsigned char* src;
         if (talk_need_to_center == 1) {
             talk_need_to_center = 0;
             tile_refresh_display();
         }
 
-        unsigned char* src = win_get_buf(display_win);
+        src = win_get_buf(display_win);
         buf_to_buf(
             src + ((scr_size.lry - scr_size.uly + 1 - 332) / 2) * (GAME_DIALOG_WINDOW_WIDTH) + (GAME_DIALOG_WINDOW_WIDTH - 388) / 2,
             388,
@@ -3513,21 +3652,20 @@ static void talk_to_display_frame(Art* headFrm, int frame)
             GAME_DIALOG_WINDOW_WIDTH);
     }
 
-    Rect v27;
     v27.ulx = 126;
     v27.uly = 14;
     v27.lrx = 514;
     v27.lry = 214;
 
-    unsigned char* dest = win_get_buf(dialogueBackWindow);
+    dest = win_get_buf(dialogueBackWindow);
 
-    unsigned char* data1 = art_frame_data(upper_hi_fp, 0, 0);
+    data1 = art_frame_data(upper_hi_fp, 0, 0);
     talk_to_translucent_trans_buf_to_buf(data1, upper_hi_wid, upper_hi_len, upper_hi_wid, dest, 426, 15, GAME_DIALOG_WINDOW_WIDTH, light_BlendTable, light_GrayTable);
 
-    unsigned char* data2 = art_frame_data(lower_hi_fp, 0, 0);
+    data2 = art_frame_data(lower_hi_fp, 0, 0);
     talk_to_translucent_trans_buf_to_buf(data2, lower_hi_wid, lower_hi_len, lower_hi_wid, dest, 129, 214 - lower_hi_len - 2, GAME_DIALOG_WINDOW_WIDTH, dark_BlendTable, dark_GrayTable);
 
-    for (int index = 0; index < 8; ++index) {
+    for (index = 0; index < 8; ++index) {
         Rect* rect = &(backgrndRects[index]);
         int width = rect->lrx - rect->ulx;
 
@@ -3545,7 +3683,11 @@ static void talk_to_display_frame(Art* headFrm, int frame)
 // 0x441FD4
 static void talk_to_blend_table_init()
 {
-    for (int color = 0; color < 256; color++) {
+	int color;
+	int upperHighlightFid;
+	int lowerHighlightFid;
+
+    for (color = 0; color < 256; color++) {
         int r = (Color2RGB(color) & 0x7C00) >> 10;
         int g = (Color2RGB(color) & 0x3E0) >> 5;
         int b = Color2RGB(color) & 0x1F;
@@ -3560,13 +3702,13 @@ static void talk_to_blend_table_init()
     dark_BlendTable = getColorBlendTable(colorTable[22187]);
 
     // hilight1.frm - dialogue upper hilight
-    int upperHighlightFid = art_id(OBJ_TYPE_INTERFACE, 115, 0, 0, 0);
+    upperHighlightFid = art_id(OBJ_TYPE_INTERFACE, 115, 0, 0, 0);
     upper_hi_fp = art_ptr_lock(upperHighlightFid, &upper_hi_key);
     upper_hi_wid = art_frame_width(upper_hi_fp, 0, 0);
     upper_hi_len = art_frame_length(upper_hi_fp, 0, 0);
 
     // hilight2.frm - dialogue lower hilight
-    int lowerHighlightFid = art_id(OBJ_TYPE_INTERFACE, 116, 0, 0, 0);
+    lowerHighlightFid = art_id(OBJ_TYPE_INTERFACE, 116, 0, 0, 0);
     lower_hi_fp = art_ptr_lock(lowerHighlightFid, &lower_hi_key);
     lower_hi_wid = art_frame_width(lower_hi_fp, 0, 0);
     lower_hi_len = art_frame_length(lower_hi_fp, 0, 0);

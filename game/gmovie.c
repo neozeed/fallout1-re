@@ -100,7 +100,18 @@ int gmovie_save(DB_FILE* stream)
 // 0x44E690
 int gmovie_play(int game_movie, int game_movie_flags)
 {
+    int gameMovieWindowX;
+    int gameMovieWindowY;
+    int win;
     dir_entry de;
+	bool subtitlesEnabled;
+	bool cursorWasHidden;
+	int movie_flags;
+	int v11;
+    int buttons;
+    int oldTextColor;
+    int oldFont;
+
     char movieFilePath[MAX_PATH];
 
     debug_printf("\nPlaying movie: %s\n", movie_list[game_movie]);
@@ -116,9 +127,9 @@ int gmovie_play(int game_movie, int game_movie_flags)
         palette_fade_to(black_palette);
     }
 
-    int gameMovieWindowX = 0;
-    int gameMovieWindowY = 0;
-    int win = win_add(gameMovieWindowX,
+    gameMovieWindowX = 0;
+    gameMovieWindowY = 0;
+    win = win_add(gameMovieWindowX,
         gameMovieWindowY,
         GAME_MOVIE_WINDOW_WIDTH,
         GAME_MOVIE_WINDOW_HEIGHT,
@@ -136,14 +147,14 @@ int gmovie_play(int game_movie, int game_movie_flags)
 
     win_draw(win);
 
-    bool subtitlesEnabled = false;
+    subtitlesEnabled = false;
     if (game_movie == MOVIE_BOIL3 || game_movie == MOVIE_BOIL1 || game_movie == MOVIE_BOIL2) {
         subtitlesEnabled = true;
     } else {
         configGetBool(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_SUBTITLES_KEY, &subtitlesEnabled);
     }
 
-    int movie_flags = 4;
+    movie_flags = 4;
 
     if (subtitlesEnabled) {
         char* subtitlesFilePath = gmovie_subtitle_func(movieFilePath);
@@ -157,8 +168,6 @@ int gmovie_play(int game_movie, int game_movie_flags)
 
     movieSetFlags(movie_flags);
 
-    int oldTextColor;
-    int oldFont;
     if (subtitlesEnabled) {
         loadColorTable("art\\cuts\\subtitle.pal");
 
@@ -169,7 +178,7 @@ int gmovie_play(int game_movie, int game_movie_flags)
         windowSetFont(101);
     }
 
-    bool cursorWasHidden = mouse_hidden();
+    cursorWasHidden = mouse_hidden();
     if (cursorWasHidden) {
         gmouse_set_cursor(MOUSE_CURSOR_NONE);
         mouse_show();
@@ -186,15 +195,13 @@ int gmovie_play(int game_movie, int game_movie_flags)
 
     movieRun(win, movieFilePath);
 
-    int v11 = 0;
-    int buttons;
+    v11 = 0;
     do {
+		int x;
+        int y;
         if (!moviePlaying() || game_user_wants_to_quit || get_input() != -1) {
             break;
         }
-
-        int x;
-        int y;
         mouse_get_raw_state(&x, &y, &buttons);
 
         v11 |= buttons;
@@ -216,13 +223,14 @@ int gmovie_play(int game_movie, int game_movie_flags)
     }
 
     if (subtitlesEnabled) {
+		float r,g,b;
         loadColorTable("color.pal");
 
         windowSetFont(oldFont);
 
-        float r = (float)((Color2RGB(oldTextColor) & 0x7C00) >> 10) / 31.0f;
-        float g = (float)((Color2RGB(oldTextColor) & 0x3E0) >> 5) / 31.0f;
-        float b = (float)(Color2RGB(oldTextColor) & 0x1F) / 31.0f;
+        r = (float)((Color2RGB(oldTextColor) & 0x7C00) >> 10) / 31.0f;
+        g = (float)((Color2RGB(oldTextColor) & 0x3E0) >> 5) / 31.0f;
+        b = (float)(Color2RGB(oldTextColor) & 0x1F) / 31.0f;
         windowSetTextColor(r, g, b);
     }
 

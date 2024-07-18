@@ -78,6 +78,13 @@ int art_init()
     char string[200];
     int old_db_handle;
     bool critter_db_selected;
+	int objectType;
+	char* critterFileNames;
+	int critterIndex;
+	char* tileFileNames;
+	int tileIndex;
+	int headIndex;
+
 
     int cacheSize;
     if (!config_get_value(&game_config, GAME_CONFIG_SYSTEM_KEY, GAME_CONFIG_ART_CACHE_SIZE_KEY, &cacheSize)) {
@@ -89,7 +96,7 @@ int art_init()
         return -1;
     }
 
-    for (int objectType = 0; objectType < OBJ_TYPE_COUNT; objectType++) {
+    for (objectType = 0; objectType < OBJ_TYPE_COUNT; objectType++) {
         art[objectType].flags = 0;
         sprintf(path, "%s%s%s\\%s.lst",
             cd_path_base,
@@ -143,8 +150,8 @@ int art_init()
         return -1;
     }
 
-    char* critterFileNames = art[OBJ_TYPE_CRITTER].fileNames;
-    for (int critterIndex = 0; critterIndex < art[OBJ_TYPE_CRITTER].fileNamesLength; critterIndex++) {
+    critterFileNames = art[OBJ_TYPE_CRITTER].fileNames;
+    for (critterIndex = 0; critterIndex < art[OBJ_TYPE_CRITTER].fileNamesLength; critterIndex++) {
         if (stricmp(critterFileNames, "hmjmps") == 0) {
             art_vault_person_nums[GENDER_MALE] = critterIndex;
         } else if (stricmp(critterFileNames, "hfjmps") == 0) {
@@ -154,12 +161,13 @@ int art_init()
         critterFileNames += 13;
     }
 
-    for (int critterIndex = 0; critterIndex < art[OBJ_TYPE_CRITTER].fileNamesLength; critterIndex++) {
+    for (critterIndex = 0; critterIndex < art[OBJ_TYPE_CRITTER].fileNamesLength; critterIndex++) {
+		char* sep1;
         if (!db_fgets(string, sizeof(string), stream)) {
             break;
         }
 
-        char* sep1 = strchr(string, ',');
+        sep1 = strchr(string, ',');
         if (sep1 != NULL) {
             anon_alias[critterIndex] = atoi(sep1 + 1);
         } else {
@@ -170,8 +178,8 @@ int art_init()
     db_fclose(stream);
     db_select(old_db_handle);
 
-    char* tileFileNames = art[OBJ_TYPE_TILE].fileNames;
-    for (int tileIndex = 0; tileIndex < art[OBJ_TYPE_TILE].fileNamesLength; tileIndex++) {
+    tileFileNames = art[OBJ_TYPE_TILE].fileNames;
+    for (tileIndex = 0; tileIndex < art[OBJ_TYPE_TILE].fileNamesLength; tileIndex++) {
         if (stricmp(tileFileNames, "grid001.frm") == 0) {
             art_mapper_blank_tile = tileIndex;
         }
@@ -199,7 +207,7 @@ int art_init()
         return -1;
     }
 
-    for (int headIndex = 0; headIndex < art[OBJ_TYPE_HEAD].fileNamesLength; headIndex++) {
+    for (headIndex = 0; headIndex < art[OBJ_TYPE_HEAD].fileNamesLength; headIndex++) {
         char* sep1;
         char* sep2;
         char* sep3;
@@ -255,11 +263,12 @@ void art_reset()
 // 0x418688
 void art_exit()
 {
+	int index;
     cache_exit(&art_cache);
 
     mem_free(anon_alias);
 
-    for (int index = 0; index < OBJ_TYPE_COUNT; index++) {
+    for (index = 0; index < OBJ_TYPE_COUNT; index++) {
         mem_free(art[index].fileNames);
         art[index].fileNames = NULL;
     }
@@ -296,19 +305,23 @@ int art_total(int objectType)
 // 0x418748
 int art_head_fidgets(int headFid)
 {
+	int head;
+	int fidget;
+	HeadDescription* headDescription;
+
     if (FID_TYPE(headFid) != OBJ_TYPE_HEAD) {
         return 0;
     }
 
-    int head = headFid & 0xFFF;
+    head = headFid & 0xFFF;
 
     if (head > art[OBJ_TYPE_HEAD].fileNamesLength) {
         return 0;
     }
 
-    HeadDescription* headDescription = &(head_info[head]);
+    headDescription = &(head_info[head]);
 
-    int fidget = (headFid & 0xFF0000) >> 16;
+    fidget = (headFid & 0xFF0000) >> 16;
     switch (fidget) {
     case FIDGET_GOOD:
         return headDescription->goodFidgetCount;
@@ -323,6 +336,9 @@ int art_head_fidgets(int headFid)
 // 0x4187C8
 void scale_art(int fid, unsigned char* dest, int width, int height, int pitch)
 {
+	unsigned char* frameData;
+	int frameWidth,frameHeight;
+	int remainingWidth,remainingHeight;
     // NOTE: Original code is different. For unknown reason it directly calls
     // many art functions, for example instead of [art_ptr_lock] it calls lower level
     // [cache_lock], instead of [art_frame_width] is calls [frame_ptr], then get
@@ -336,12 +352,12 @@ void scale_art(int fid, unsigned char* dest, int width, int height, int pitch)
         return;
     }
 
-    unsigned char* frameData = art_frame_data(frm, 0, 0);
-    int frameWidth = art_frame_width(frm, 0, 0);
-    int frameHeight = art_frame_length(frm, 0, 0);
+    frameData = art_frame_data(frm, 0, 0);
+    frameWidth = art_frame_width(frm, 0, 0);
+    frameHeight = art_frame_length(frm, 0, 0);
 
-    int remainingWidth = width - frameWidth;
-    int remainingHeight = height - frameHeight;
+    remainingWidth = width - frameWidth;
+    remainingHeight = height - frameHeight;
     if (remainingWidth < 0 || remainingHeight < 0) {
         if (height * frameWidth >= width * frameHeight) {
             trans_cscale(frameData,
@@ -377,11 +393,12 @@ void scale_art(int fid, unsigned char* dest, int width, int height, int pitch)
 // 0x41892C
 Art* art_ptr_lock(int fid, CacheEntry** handlePtr)
 {
+	Art* art;
     if (handlePtr == NULL) {
         return NULL;
     }
 
-    Art* art = NULL;
+    art = NULL;
     cache_lock(&art_cache, fid, (void**)&art, handlePtr);
     return art;
 }
@@ -411,9 +428,10 @@ unsigned char* art_ptr_lock_data(int fid, int frame, int direction, CacheEntry**
 // 0x418998
 unsigned char* art_lock(int fid, CacheEntry** handlePtr, int* widthPtr, int* heightPtr)
 {
+    Art* art;
+
     *handlePtr = NULL;
 
-    Art* art;
     cache_lock(&art_cache, fid, (void**)&art, handlePtr);
 
     if (art == NULL) {
@@ -648,13 +666,15 @@ char* art_get_name(int fid)
 // 0x418E38
 int art_read_lst(const char* path, char** artListPtr, int* artListSizePtr)
 {
+	int count = 0;
+    char string[200];
+	char* artList;
     DB_FILE* stream = db_fopen(path, "rt");
     if (stream == NULL) {
         return -1;
     }
 
-    int count = 0;
-    char string[200];
+
     while (db_fgets(string, sizeof(string), stream)) {
         count++;
     }
@@ -663,7 +683,7 @@ int art_read_lst(const char* path, char** artListPtr, int* artListSizePtr)
 
     *artListSizePtr = count;
 
-    char* artList = (char*)mem_malloc(13 * count);
+    artList = (char*)mem_malloc(13 * count);
     *artListPtr = artList;
     if (artList == NULL) {
         db_fclose(stream);
@@ -809,6 +829,8 @@ unsigned char* art_frame_data(Art* art, int frame, int direction)
 // 0x419008
 ArtFrame* frame_ptr(Art* art, int frame, int rotation)
 {
+	ArtFrame* frm;
+	int index;
     if (rotation < 0 || rotation >= 6) {
         return NULL;
     }
@@ -821,8 +843,8 @@ ArtFrame* frame_ptr(Art* art, int frame, int rotation)
         return NULL;
     }
 
-    ArtFrame* frm = (ArtFrame*)((unsigned char*)art + sizeof(*art) + art->dataOffsets[rotation]);
-    for (int index = 0; index < frame; index++) {
+    frm = (ArtFrame*)((unsigned char*)art + sizeof(*art) + art->dataOffsets[rotation]);
+    for (index = 0; index < frame; index++) {
         frm = (ArtFrame*)((unsigned char*)frm + sizeof(*frm) + frm->size);
     }
     return frm;
@@ -831,6 +853,7 @@ ArtFrame* frame_ptr(Art* art, int frame, int rotation)
 // 0x419050
 bool art_exists(int fid)
 {
+	char* filePath;
     bool result = false;
     int oldDb = -1;
 
@@ -839,7 +862,7 @@ bool art_exists(int fid)
         db_select(critter_db_handle);
     }
 
-    char* filePath = art_get_name(fid);
+    filePath = art_get_name(fid);
     if (filePath != NULL) {
         dir_entry de;
         if (db_dir_entry(filePath, &de) != -1) {
@@ -859,6 +882,7 @@ bool art_exists(int fid)
 // 0x4190B8
 bool art_fid_valid(int fid)
 {
+	char* filePath;
     bool result = false;
     int oldDb = -1;
 
@@ -867,7 +891,7 @@ bool art_fid_valid(int fid)
         db_select(critter_db_handle);
     }
 
-    char* filePath = art_get_name(fid);
+    filePath = art_get_name(fid);
     if (filePath != NULL) {
         dir_entry de;
         if (db_dir_entry(filePath, &de) != -1) {
@@ -915,6 +939,7 @@ int art_alias_fid(int fid)
 // 0x4191D8
 int art_data_size(int fid, int* sizePtr)
 {
+	char* artFilePath;
     int oldDb = -1;
     int result = -1;
 
@@ -923,7 +948,7 @@ int art_data_size(int fid, int* sizePtr)
         db_select(critter_db_handle);
     }
 
-    char* artFilePath = art_get_name(fid);
+    artFilePath = art_get_name(fid);
     if (artFilePath != NULL) {
         dir_entry de;
         if (db_dir_entry(artFilePath, &de) == 0) {
@@ -942,6 +967,7 @@ int art_data_size(int fid, int* sizePtr)
 // 0x41924C
 int art_data_load(int fid, int* sizePtr, unsigned char* data)
 {
+	char* artFileName;
     int oldDb = -1;
     int result = -1;
 
@@ -950,7 +976,7 @@ int art_data_load(int fid, int* sizePtr, unsigned char* data)
         db_select(critter_db_handle);
     }
 
-    char* artFileName = art_get_name(fid);
+    artFileName = art_get_name(fid);
     if (artFileName != NULL) {
         if (load_frame_into(artFileName, data) == 0) {
             // TODO: Why it adds 74?

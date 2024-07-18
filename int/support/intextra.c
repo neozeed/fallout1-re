@@ -169,13 +169,17 @@ static int scripts_tile_is_visible(int tile)
 // 0x44B674
 static int correctFidForRemovedItem(Object* critter, Object* item, int flags)
 {
+    int fid;
+    int anim;
+    int newFid;
+
     if (critter == obj_dude) {
         intface_update_items(true);
     }
 
-    int fid = critter->fid;
-    int anim = (fid & 0xF000) >> 12;
-    int newFid = -1;
+    fid = critter->fid;
+    anim = (fid & 0xF000) >> 12;
+    newFid = -1;
 
     if ((flags & OBJECT_IN_ANY_HAND) != 0) {
         if (critter == obj_dude) {
@@ -231,6 +235,9 @@ static void op_give_exp_points(Program* program)
 // 0x44B7E0
 static void op_scr_return(Program* program)
 {
+    Script* script;
+	int sid;
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -238,9 +245,8 @@ static void op_scr_return(Program* program)
         interpretError("script error: %s: invalid arg to scr_return", program->name);
     }
 
-    int sid = scr_find_sid_from_program(program);
+    sid = scr_find_sid_from_program(program);
 
-    Script* script;
     if (scr_ptr(sid, &script) != -1) {
         script->field_28 = data;
     }
@@ -249,6 +255,8 @@ static void op_scr_return(Program* program)
 // 0x44B838
 static void op_play_sfx(Program* program)
 {
+	char* name;
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -256,17 +264,21 @@ static void op_play_sfx(Program* program)
         interpretError("script error: %s: invalid arg to play_sfx", program->name);
     }
 
-    char* name = interpretGetString(program, opcode, data);
+    name = interpretGetString(program, opcode, data);
     gsound_play_sfx_file(name);
 }
 
 // 0x44B888
 static void op_set_map_start(Program* program)
 {
+	int arg;
+    int x, y;
+    int elevation, rotation;
     opcode_t opcode[4];
     int data[4];
+	int tile;
 
-    for (int arg = 0; arg < 4; arg++) {
+    for (arg = 0; arg < 4; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -275,17 +287,17 @@ static void op_set_map_start(Program* program)
         }
     }
 
-    int x = data[3];
-    int y = data[2];
-    int elevation = data[1];
-    int rotation = data[0];
+    x = data[3];
+    y = data[2];
+    elevation = data[1];
+    rotation = data[0];
 
     if (map_set_elevation(elevation) != 0) {
         int_debug("\nScript Error: %s: op_set_map_start: map_set_elevation failed", program->name);
         return;
     }
 
-    int tile = 200 * y + x;
+    tile = 200 * y + x;
     if (tile_set_center(tile, TILE_SET_CENTER_REFRESH_WINDOW | TILE_SET_CENTER_FLAG_IGNORE_SCROLL_RESTRICTIONS) != 0) {
         int_debug("\nScript Error: %s: op_set_map_start: tile_set_center failed", program->name);
         return;
@@ -297,12 +309,17 @@ static void op_set_map_start(Program* program)
 // 0x44B94C
 static void op_override_map_start(Program* program)
 {
-    program->flags |= PROGRAM_FLAG_0x20;
-
+    char text[60];
     opcode_t opcode[4];
     int data[4];
+	int arg;
+    int x ,y;
+    int elevation, rotation;
+	int tile, previousTile;
 
-    for (int arg = 0; arg < 4; arg++) {
+    program->flags |= PROGRAM_FLAG_0x20;
+
+    for (arg = 0; arg < 4; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -311,17 +328,16 @@ static void op_override_map_start(Program* program)
         }
     }
 
-    int x = data[3];
-    int y = data[2];
-    int elevation = data[1];
-    int rotation = data[0];
+    x = data[3];
+    y = data[2];
+    elevation = data[1];
+    rotation = data[0];
 
-    char text[60];
     sprintf(text, "OVERRIDE_MAP_START: x: %d, y: %d", x, y);
     debug_printf(text);
 
-    int tile = 200 * y + x;
-    int previousTile = tile_center_tile;
+    tile = 200 * y + x;
+    previousTile = tile_center_tile;
     if (tile != -1) {
         if (obj_set_rotation(obj_dude, rotation, NULL) != 0) {
             int_debug("\nError: %s: obj_set_rotation failed in override_map_start!", program->name);
@@ -348,8 +364,11 @@ static void op_has_skill(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* object;
+    int skill, result;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -358,10 +377,10 @@ static void op_has_skill(Program* program)
         }
     }
 
-    Object* object = (Object*)data[1];
-    int skill = data[0];
+    object = (Object*)data[1];
+    skill = data[0];
 
-    int result = 0;
+    result = 0;
     if (object != NULL) {
         if (PID_TYPE(object->pid) == OBJ_TYPE_CRITTER) {
             result = skill_level(object, skill);
@@ -379,8 +398,11 @@ static void op_using_skill(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* object;
+	int skill, result;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -389,13 +411,13 @@ static void op_using_skill(Program* program)
         }
     }
 
-    Object* object = (Object*)data[1];
-    int skill = data[0];
+    object = (Object*)data[1];
+    skill = data[0];
 
     // NOTE: In the original source code this value is left uninitialized, that
     // explains why garbage is returned when using something else than dude and
     // SKILL_SNEAK as arguments.
-    int result = 0;
+    result = 0;
 
     if (skill == SKILL_SNEAK && object == obj_dude) {
         result = is_pc_flag(PC_FLAG_SNEAKING);
@@ -410,8 +432,11 @@ static void op_roll_vs_skill(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+	Object* object;
+	int skill, modifier, roll;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -420,11 +445,11 @@ static void op_roll_vs_skill(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    int skill = data[1];
-    int modifier = data[0];
+    object = (Object*)data[2];
+    skill = data[1];
+    modifier = data[0];
 
-    int roll = ROLL_CRITICAL_FAILURE;
+    roll = ROLL_CRITICAL_FAILURE;
     if (object != NULL) {
         if (PID_TYPE(object->pid) == OBJ_TYPE_CRITTER) {
             int sid = scr_find_sid_from_program(program);
@@ -447,8 +472,9 @@ static void op_skill_contest(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -467,8 +493,11 @@ static void op_do_check(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+	Object* object;
+	int stat, mod, roll;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -477,11 +506,11 @@ static void op_do_check(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    int stat = data[1];
-    int mod = data[0];
+    object = (Object*)data[2];
+    stat = data[1];
+    mod = data[0];
 
-    int roll = 0;
+    roll = 0;
     if (object != NULL) {
         int sid = scr_find_sid_from_program(program);
 
@@ -513,6 +542,8 @@ static void op_do_check(Program* program)
 // 0x44BE3C
 static void op_is_success(Program* program)
 {
+	int result;
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -520,7 +551,7 @@ static void op_is_success(Program* program)
         interpretError("script error: %s: invalid arg to success", program->name);
     }
 
-    int result = -1;
+    result = -1;
 
     switch (data) {
     case ROLL_CRITICAL_FAILURE:
@@ -540,6 +571,8 @@ static void op_is_success(Program* program)
 // 0x44BEB4
 static void op_is_critical(Program* program)
 {
+	int result;
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -547,7 +580,7 @@ static void op_is_critical(Program* program)
         interpretError("script error: %s: invalid arg to critical", program->name);
     }
 
-    int result = -1;
+    result = -1;
 
     switch (data) {
     case ROLL_CRITICAL_FAILURE:
@@ -567,6 +600,9 @@ static void op_is_critical(Program* program)
 // 0x44BF1C
 static void op_how_much(Program* program)
 {
+    Script* script;
+	int result, sid;
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -574,11 +610,10 @@ static void op_how_much(Program* program)
         interpretError("script error: %s: invalid arg to how_much", program->name);
     }
 
-    int result = 0;
+    result = 0;
 
-    int sid = scr_find_sid_from_program(program);
+    sid = scr_find_sid_from_program(program);
 
-    Script* script;
     if (scr_ptr(sid, &script) != -1) {
         result = script->howMuch;
     } else {
@@ -594,8 +629,9 @@ static void op_reaction_roll(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -613,8 +649,9 @@ static void op_reaction_influence(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -632,8 +669,10 @@ static void op_random(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	int result;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -642,7 +681,6 @@ static void op_random(Program* program)
         }
     }
 
-    int result;
     if (vcr_status() == VCR_STATE_TURNED_OFF) {
         result = roll_random(data[1], data[0]);
     } else {
@@ -658,8 +696,9 @@ static void op_roll_dice(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -679,8 +718,11 @@ static void op_move_to(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+	Object* object;
+	int tile, elevation, newTile;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -689,14 +731,14 @@ static void op_move_to(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    int tile = data[1];
-    int elevation = data[0];
-
-    int newTile;
+    object = (Object*)data[2];
+    tile = data[1];
+    elevation = data[0];
 
     if (object != NULL) {
         if (object == obj_dude) {
+            Rect rect;
+
             bool tileLimitingEnabled = tile_get_scroll_limiting();
             bool tileBlockingEnabled = tile_get_scroll_blocking();
 
@@ -708,7 +750,6 @@ static void op_move_to(Program* program)
                 tile_disable_scroll_blocking();
             }
 
-            Rect rect;
             newTile = obj_move_to_tile(object, tile, elevation, &rect);
             if (newTile != -1) {
                 tile_set_center(object->tile, TILE_SET_CENTER_REFRESH_WINDOW);
@@ -723,13 +764,14 @@ static void op_move_to(Program* program)
             }
         } else {
             Rect before;
+            Rect after;
+
             obj_bound(object, &before);
 
             if (object->elevation != elevation && PID_TYPE(object->pid) == OBJ_TYPE_CRITTER) {
                 combat_delete_critter(object);
             }
 
-            Rect after;
             newTile = obj_move_to_tile(object, tile, elevation, &after);
             if (newTile != -1) {
                 rect_min_bound(&before, &after, &before);
@@ -750,8 +792,12 @@ static void op_create_object_sid(Program* program)
 {
     opcode_t opcode[4];
     int data[4];
+	int arg;
+    int pid, tile, elevation, sid;
+	Object* object;
+    Proto* proto;
 
-    for (int arg = 0; arg < 4; arg++) {
+    for (arg = 0; arg < 4; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -760,26 +806,25 @@ static void op_create_object_sid(Program* program)
         }
     }
 
-    int pid = data[3];
-    int tile = data[2];
-    int elevation = data[1];
-    int sid = data[0];
+    pid = data[3];
+    tile = data[2];
+    elevation = data[1];
+    sid = data[0];
 
-    Object* object = NULL;
+    object = NULL;
 
     if (isLoadingGame() != 0) {
         debug_printf("\nError: attempt to Create critter in load/save-game: %s!", program->name);
         goto out;
     }
 
-    Proto* proto;
     if (proto_ptr(pid, &proto) != -1) {
         if (obj_new(&object, proto->fid, pid) != -1) {
+            Rect rect;
             if (tile == -1) {
                 tile = 0;
             }
 
-            Rect rect;
             if (obj_move_to_tile(object, tile, elevation, &rect) != -1) {
                 tile_refresh_rect(&rect, object->elevation);
             }
@@ -787,6 +832,7 @@ static void op_create_object_sid(Program* program)
     }
 
     if (sid != -1) {
+        Script* script;
         int scriptType = 0;
         switch (PID_TYPE(object->pid)) {
         case OBJ_TYPE_CRITTER:
@@ -807,7 +853,6 @@ static void op_create_object_sid(Program* program)
             goto out;
         }
 
-        Script* script;
         if (scr_ptr(object->sid, &script) == -1) {
             goto out;
         }
@@ -829,16 +874,22 @@ out:
 // 0x44C4FC
 static void op_destroy_object(Program* program)
 {
+	Object* owner;
+	opcode_t opcode;
+	int data;
+	Object* object;
+	bool isSelf;
+
     program->flags |= PROGRAM_FLAG_0x20;
 
-    opcode_t opcode = interpretPopShort(program);
-    int data = interpretPopLong(program);
+    opcode = interpretPopShort(program);
+    data = interpretPopLong(program);
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to destroy_object", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
     if (object == NULL) {
         dbg_error(program, "destroy_object", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -854,13 +905,13 @@ static void op_destroy_object(Program* program)
         }
     }
 
-    bool isSelf = object == scr_find_obj_from_program(program);
+    isSelf = object == scr_find_obj_from_program(program);
 
     if (PID_TYPE(object->pid) == OBJ_TYPE_CRITTER) {
         combat_delete_critter(object);
     }
 
-    Object* owner = obj_top_environment(object);
+    owner = obj_top_environment(object);
     if (owner != NULL) {
         int quantity = item_count(owner, object);
         item_remove_mult(owner, object, quantity);
@@ -879,9 +930,10 @@ static void op_destroy_object(Program* program)
             obj_erase_object(object, NULL);
         }
     } else {
+        Rect rect;
+
         register_clear(object);
 
-        Rect rect;
         obj_erase_object(object, &rect);
         tile_refresh_rect(&rect, map_elevation);
     }
@@ -896,17 +948,19 @@ static void op_destroy_object(Program* program)
 // 0x44C668
 static void op_display_msg(Program* program)
 {
+	char* string;
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	bool showScriptMessages;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_STRING) {
         interpretError("script error: %s: invalid arg to display_msg", program->name);
     }
 
-    char* string = interpretGetString(program, opcode, data);
+    string = interpretGetString(program, opcode, data);
     display_print(string);
 
-    bool showScriptMessages = false;
+    showScriptMessages = false;
     configGetBool(&game_config, GAME_CONFIG_DEBUG_KEY, GAME_CONFIG_SHOW_SCRIPT_MESSAGES_KEY, &showScriptMessages);
 
     if (showScriptMessages) {
@@ -933,8 +987,11 @@ static void op_obj_is_carrying_obj_pid(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* obj;
+    int pid, result;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -943,10 +1000,10 @@ static void op_obj_is_carrying_obj_pid(Program* program)
         }
     }
 
-    Object* obj = (Object*)data[1];
-    int pid = data[0];
+    obj = (Object*)data[1];
+    pid = data[0];
 
-    int result = 0;
+    result = 0;
     if (obj != NULL) {
         result = inven_pid_quantity_carried(obj, pid);
     } else {
@@ -962,8 +1019,13 @@ static void op_tile_contains_obj_pid(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+    int tile, elevation, pid, result;
 
-    for (int arg = 0; arg < 3; arg++) {
+    Object* object;
+
+
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -972,13 +1034,13 @@ static void op_tile_contains_obj_pid(Program* program)
         }
     }
 
-    int tile = data[2];
-    int elevation = data[1];
-    int pid = data[0];
+    tile = data[2];
+    elevation = data[1];
+    pid = data[0];
 
-    int result = 0;
+    result = 0;
 
-    Object* object = obj_find_first_at(elevation);
+    object = obj_find_first_at(elevation);
     while (object) {
         if (object->tile == tile && object->pid == pid) {
             result = 1;
@@ -1065,6 +1127,8 @@ static void op_obj_being_used_with(Program* program)
 // 0x44C9BC
 static void op_local_var(Program* program)
 {
+	int value;
+	int sid;
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -1072,9 +1136,9 @@ static void op_local_var(Program* program)
         interpretError("script error: %s: invalid arg to op_local_var", program->name);
     }
 
-    int value = -1;
+    value = -1;
 
-    int sid = scr_find_sid_from_program(program);
+    sid = scr_find_sid_from_program(program);
     scr_get_local_var(sid, data, &value);
 
     interpretPushLong(program, value);
@@ -1086,8 +1150,10 @@ static void op_set_local_var(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+    int variable, value, sid;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1096,10 +1162,10 @@ static void op_set_local_var(Program* program)
         }
     }
 
-    int variable = data[1];
-    int value = data[0];
+    variable = data[1];
+    value = data[0];
 
-    int sid = scr_find_sid_from_program(program);
+    sid = scr_find_sid_from_program(program);
     scr_set_local_var(sid, variable, value);
 }
 
@@ -1108,12 +1174,13 @@ static void op_map_var(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	int value;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to op_map_var", program->name);
     }
 
-    int value = map_get_global_var(data);
+    value = map_get_global_var(data);
 
     interpretPushLong(program, value);
     interpretPushShort(program, VALUE_TYPE_INT);
@@ -1124,8 +1191,9 @@ static void op_set_map_var(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int variable, value, arg;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1134,8 +1202,8 @@ static void op_set_map_var(Program* program)
         }
     }
 
-    int variable = data[1];
-    int value = data[0];
+    variable = data[1];
+    value = data[0];
 
     map_set_global_var(variable, value);
 }
@@ -1145,12 +1213,13 @@ static void op_global_var(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	int value;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to op_global_var", program->name);
     }
 
-    int value = -1;
+    value = -1;
     if (num_game_global_vars != 0) {
         value = game_get_global_var(data);
     } else {
@@ -1166,8 +1235,9 @@ static void op_set_global_var(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, variable, value;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1176,8 +1246,8 @@ static void op_set_global_var(Program* program)
         }
     }
 
-    int variable = data[1];
-    int value = data[0];
+    variable = data[1];
+    value = data[0];
 
     if (num_game_global_vars != 0) {
         game_set_global_var(variable, value);
@@ -1209,14 +1279,16 @@ static void op_obj_type(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
+	int objectType;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to op_obj_type", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
-    int objectType = -1;
+    objectType = -1;
     if (object != NULL) {
         objectType = FID_TYPE(object->fid);
     }
@@ -1230,14 +1302,16 @@ static void op_obj_item_subtype(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* obj;
+	int itemType;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to op_item_subtype", program->name);
     }
 
-    Object* obj = (Object*)data;
+    obj = (Object*)data;
 
-    int itemType = -1;
+    itemType = -1;
     if (obj != NULL) {
         if (PID_TYPE(obj->pid) == OBJ_TYPE_ITEM) {
             Proto* proto;
@@ -1256,8 +1330,10 @@ static void op_get_critter_stat(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, stat, value;
+	Object* object;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1266,10 +1342,10 @@ static void op_get_critter_stat(Program* program)
         }
     }
 
-    Object* object = (Object*)data[1];
-    int stat = data[0];
+    object = (Object*)data[1];
+    stat = data[0];
 
-    int value = -1;
+    value = -1;
     if (object != NULL) {
         value = stat_level(object, stat);
     } else {
@@ -1288,8 +1364,11 @@ static void op_set_critter_stat(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+	Object* object;
+	int stat, value, result;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1298,11 +1377,11 @@ static void op_set_critter_stat(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    int stat = data[1];
-    int value = data[0];
+    object = (Object*)data[2];
+    stat = data[1];
+    value = data[0];
 
-    int result = 0;
+    result = 0;
     if (object != NULL) {
         if (object == obj_dude) {
             int currentValue = stat_get_base(object, stat);
@@ -1326,12 +1405,13 @@ static void op_animate_stand_obj(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to animate_stand_obj", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
     if (object == NULL) {
         int sid = scr_find_sid_from_program(program);
 
@@ -1356,13 +1436,14 @@ static void op_animate_stand_reverse_obj(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         // FIXME: typo in message, should be animate_stand_reverse_obj.
         interpretError("script error: %s: invalid arg to animate_stand_obj", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
     if (object == NULL) {
         int sid = scr_find_sid_from_program(program);
 
@@ -1387,8 +1468,13 @@ static void op_animate_move_obj_to_tile(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+	Object* object;
+	int tile, flags;
+	int sid;
+    Script* script;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1397,9 +1483,9 @@ static void op_animate_move_obj_to_tile(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    int tile = data[1];
-    int flags = data[0];
+    object = (Object*)data[2];
+    tile = data[1];
+    flags = data[0];
 
     if (object == NULL) {
         dbg_error(program, "animate_move_obj_to_tile", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -1410,9 +1496,8 @@ static void op_animate_move_obj_to_tile(Program* program)
         return;
     }
 
-    int sid = scr_find_sid_from_program(program);
+    sid = scr_find_sid_from_program(program);
 
-    Script* script;
     if (scr_ptr(sid, &script) == -1) {
         dbg_error(program, "animate_move_obj_to_tile", SCRIPT_ERROR_CANT_MATCH_PROGRAM_TO_SID);
         return;
@@ -1458,8 +1543,10 @@ static void op_tile_distance(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	int tile1, tile2, distance;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1468,10 +1555,8 @@ static void op_tile_distance(Program* program)
         }
     }
 
-    int tile1 = data[1];
-    int tile2 = data[0];
-
-    int distance;
+    tile1 = data[1];
+    tile2 = data[0];
 
     if (tile1 != -1 && tile2 != -1) {
         distance = tile_dist(tile1, tile2);
@@ -1488,8 +1573,11 @@ static void op_tile_distance_objs(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, distance;
+	Object* object1;
+	Object* object2;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1498,10 +1586,10 @@ static void op_tile_distance_objs(Program* program)
         }
     }
 
-    Object* object1 = (Object*)data[1];
-    Object* object2 = (Object*)data[0];
+    object1 = (Object*)data[1];
+    object2 = (Object*)data[0];
 
-    int distance = 9999;
+    distance = 9999;
     if (object1 != NULL && object2 != NULL) {
         if ((unsigned int)data[1] >= HEX_GRID_SIZE && (unsigned int)data[0] >= HEX_GRID_SIZE) {
             if (object1->elevation == object2->elevation) {
@@ -1524,14 +1612,16 @@ static void op_tile_num(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* obj;
+	int tile;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to tile_num", program->name);
     }
 
-    Object* obj = (Object*)data;
+    obj = (Object*)data;
 
-    int tile = -1;
+    tile = -1;
     if (obj != NULL) {
         tile = obj->tile;
     } else {
@@ -1547,8 +1637,10 @@ static void op_tile_num_in_direction(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+	int origin, rotation, distance, tile;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1557,11 +1649,11 @@ static void op_tile_num_in_direction(Program* program)
         }
     }
 
-    int origin = data[2];
-    int rotation = data[1];
-    int distance = data[0];
+    origin = data[2];
+    rotation = data[1];
+    distance = data[0];
 
-    int tile = -1;
+    tile = -1;
 
     if (origin != -1) {
         if (rotation < ROTATION_COUNT) {
@@ -1590,20 +1682,22 @@ static void op_pickup_obj(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
+	Script* script;
+	int sid;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to pickup_obj", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
     if (object == NULL) {
         return;
     }
 
-    int sid = scr_find_sid_from_program(program);
+    sid = scr_find_sid_from_program(program);
 
-    Script* script;
     if (scr_ptr(sid, &script) == 1) {
         dbg_error(program, "pickup_obj", SCRIPT_ERROR_CANT_MATCH_PROGRAM_TO_SID);
         return;
@@ -1622,20 +1716,22 @@ static void op_drop_obj(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
+	int sid;
+	Script* script;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to drop_obj", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
     if (object == NULL) {
         return;
     }
 
-    int sid = scr_find_sid_from_program(program);
+    sid = scr_find_sid_from_program(program);
 
-    Script* script;
     if (scr_ptr(sid, &script) == -1) {
         // FIXME: Should be SCRIPT_ERROR_CANT_MATCH_PROGRAM_TO_SID.
         dbg_error(program, "drop_obj", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -1656,8 +1752,11 @@ static void op_add_obj_to_inven(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* owner;
+	Object* item;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1666,8 +1765,8 @@ static void op_add_obj_to_inven(Program* program)
         }
     }
 
-    Object* owner = (Object*)data[1];
-    Object* item = (Object*)data[0];
+    owner = (Object*)data[1];
+    item = (Object*)data[0];
 
     if (owner == NULL || item == NULL) {
         return;
@@ -1690,8 +1789,13 @@ static void op_rm_obj_from_inven(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* owner;
+	Object* item;
+	bool updateFlags;
+	int flags;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1700,15 +1804,15 @@ static void op_rm_obj_from_inven(Program* program)
         }
     }
 
-    Object* owner = (Object*)data[1];
-    Object* item = (Object*)data[0];
+    owner = (Object*)data[1];
+    item = (Object*)data[0];
 
     if (owner == NULL || item == NULL) {
         return;
     }
 
-    bool updateFlags = false;
-    int flags = 0;
+    updateFlags = false;
+    flags = 0;
 
     if ((item->flags & OBJECT_EQUIPPED) != 0) {
         if ((item->flags & OBJECT_IN_LEFT_HAND) != 0) {
@@ -1742,8 +1846,15 @@ static void op_wield_obj_critter(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* critter;
+	Object* item;
+	int hand;
+    bool shouldAdjustArmorClass;
+    Object* oldArmor;
+    Object* newArmor;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1752,8 +1863,8 @@ static void op_wield_obj_critter(Program* program)
         }
     }
 
-    Object* critter = (Object*)data[1];
-    Object* item = (Object*)data[0];
+    critter = (Object*)data[1];
+    item = (Object*)data[0];
 
     if (critter == NULL) {
         dbg_error(program, "wield_obj_critter", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -1771,11 +1882,11 @@ static void op_wield_obj_critter(Program* program)
         return;
     }
 
-    int hand = HAND_RIGHT;
+    hand = HAND_RIGHT;
 
-    bool shouldAdjustArmorClass = false;
-    Object* oldArmor = NULL;
-    Object* newArmor = NULL;
+    shouldAdjustArmorClass = false;
+    oldArmor = NULL;
+    newArmor = NULL;
     if (critter == obj_dude) {
         if (intface_is_item_right_hand() == HAND_LEFT) {
             hand = HAND_LEFT;
@@ -1802,21 +1913,24 @@ static void op_use_obj(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
+	Object* self;
+	int sid;
+    Script* script;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to use_obj", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
     if (object == NULL) {
         dbg_error(program, "use_obj", SCRIPT_ERROR_OBJECT_IS_NULL);
         return;
     }
 
-    int sid = scr_find_sid_from_program(program);
+    sid = scr_find_sid_from_program(program);
 
-    Script* script;
     if (scr_ptr(sid, &script) == -1) {
         // FIXME: Should be SCRIPT_ERROR_CANT_MATCH_PROGRAM_TO_SID.
         dbg_error(program, "use_obj", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -1828,7 +1942,7 @@ static void op_use_obj(Program* program)
         return;
     }
 
-    Object* self = scr_find_obj_from_program(program);
+    self = scr_find_obj_from_program(program);
     if (PID_TYPE(self->pid) == OBJ_TYPE_CRITTER) {
         action_use_an_object(script->target, object);
     } else {
@@ -1841,8 +1955,12 @@ static void op_obj_can_see_obj(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* object1;
+	Object* object2;
+	int result;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1851,10 +1969,10 @@ static void op_obj_can_see_obj(Program* program)
         }
     }
 
-    Object* object1 = (Object*)data[1];
-    Object* object2 = (Object*)data[0];
+    object1 = (Object*)data[1];
+    object2 = (Object*)data[0];
 
-    int result = 0;
+    result = 0;
 
     if (object1 != NULL && object2 != NULL) {
         if (object2->tile != -1) {
@@ -1898,8 +2016,11 @@ static void op_attack(Program* program)
 {
     opcode_t opcode[8];
     int data[8];
+	int arg;
+	Object* target;
+	Object* self;
 
-    for (int arg = 0; arg < 8; arg++) {
+    for (arg = 0; arg < 8; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1908,7 +2029,7 @@ static void op_attack(Program* program)
         }
     }
 
-    Object* target = (Object*)data[7];
+    target = (Object*)data[7];
     if (target == NULL) {
         dbg_error(program, "attack", SCRIPT_ERROR_OBJECT_IS_NULL);
         return;
@@ -1916,7 +2037,7 @@ static void op_attack(Program* program)
 
     program->flags |= PROGRAM_FLAG_0x20;
 
-    Object* self = scr_find_obj_from_program(program);
+    self = scr_find_obj_from_program(program);
     if (self == NULL) {
         program->flags &= ~PROGRAM_FLAG_0x20;
         return;
@@ -1987,8 +2108,11 @@ static void op_start_gdialog(Program* program)
 {
     opcode_t opcode[5];
     int data[5];
+	int arg;
+	Object* obj;
+	int reactionLevel, headId, backgroundId;
 
-    for (int arg = 0; arg < 5; arg++) {
+    for (arg = 0; arg < 5; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -1997,10 +2121,10 @@ static void op_start_gdialog(Program* program)
         }
     }
 
-    Object* obj = (Object*)data[3];
-    int reactionLevel = data[2];
-    int headId = data[1];
-    int backgroundId = data[0];
+    obj = (Object*)data[3];
+    reactionLevel = data[2];
+    headId = data[1];
+    backgroundId = data[0];
 
     if (isInCombat()) {
         return;
@@ -2117,8 +2241,9 @@ static void op_turn_off_objs_in_area(Program* program)
 {
     opcode_t opcode[4];
     int data[4];
+	int arg;
 
-    for (int arg = 0; arg < 4; arg++) {
+    for (arg = 0; arg < 4; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2135,8 +2260,9 @@ static void op_turn_on_objs_in_area(Program* program)
 {
     opcode_t opcode[4];
     int data[4];
+	int arg;
 
-    for (int arg = 0; arg < 4; arg++) {
+    for (arg = 0; arg < 4; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2158,8 +2284,11 @@ static void op_set_obj_visibility(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* obj;
+	int invisible;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2168,8 +2297,8 @@ static void op_set_obj_visibility(Program* program)
         }
     }
 
-    Object* obj = (Object*)data[1];
-    int invisible = data[0];
+    obj = (Object*)data[1];
+    invisible = data[0];
 
     if (obj == NULL) {
         dbg_error(program, "set_obj_visibility", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -2194,6 +2323,7 @@ static void op_set_obj_visibility(Program* program)
             tile_refresh_rect(&rect, obj->elevation);
         }
     } else {
+			Rect rect;
         if ((obj->flags & OBJECT_HIDDEN) != 0) {
             if (PID_TYPE(obj->pid) == OBJ_TYPE_CRITTER) {
                 obj->flags &= ~OBJECT_NO_BLOCK;
@@ -2201,7 +2331,6 @@ static void op_set_obj_visibility(Program* program)
 
             obj->flags &= ~OBJECT_HIDDEN;
 
-            Rect rect;
             obj_bound(obj, &rect);
             tile_refresh_rect(&rect, obj->elevation);
         }
@@ -2213,6 +2342,10 @@ static void op_load_map(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+    int param;
+    int mapIndexOrName;
+    char* mapName;
+	int mapIndex;
 
     opcode[0] = interpretPopShort(program);
     data[0] = interpretPopLong(program);
@@ -2224,10 +2357,10 @@ static void op_load_map(Program* program)
     opcode[1] = interpretPopShort(program);
     data[1] = interpretPopLong(program);
 
-    int param = data[0];
-    int mapIndexOrName = data[1];
+    param = data[0];
+    mapIndexOrName = data[1];
 
-    char* mapName = NULL;
+    mapName = NULL;
 
     if ((opcode[1] & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         if ((opcode[1] & VALUE_TYPE_MASK) == VALUE_TYPE_STRING) {
@@ -2237,7 +2370,7 @@ static void op_load_map(Program* program)
         }
     }
 
-    int mapIndex = -1;
+    mapIndex = -1;
 
     if (mapName != NULL) {
         game_global_vars[GVAR_LOAD_MAP_INDEX] = param;
@@ -2264,8 +2397,9 @@ static void op_barter_offer(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2280,8 +2414,9 @@ static void op_barter_asking(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2296,14 +2431,16 @@ static void op_anim_busy(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
+	int rc;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to anim_busy", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
-    int rc = 0;
+    rc = 0;
     if (object != NULL) {
         rc = anim_busy(object);
     } else {
@@ -2319,8 +2456,12 @@ static void op_critter_heal(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* critter;
+    int amount;
+    int rc;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2329,10 +2470,10 @@ static void op_critter_heal(Program* program)
         }
     }
 
-    Object* critter = (Object*)data[1];
-    int amount = data[0];
+    critter = (Object*)data[1];
+    amount = data[0];
 
-    int rc = critter_adjust_hits(critter, amount);
+    rc = critter_adjust_hits(critter, amount);
 
     if (critter == obj_dude) {
         intface_update_hit_points(true);
@@ -2352,6 +2493,8 @@ static void op_set_light_level(Program* program)
     // calculated as percentage from two adjacent light values.
     //
     // 0x44B570
+	int lightLevel;
+    int lightIntensity;
     static const int dword_453F90[3] = {
         0x4000,
         0xA000,
@@ -2365,14 +2508,13 @@ static void op_set_light_level(Program* program)
         interpretError("script error: %s: invalid arg to set_light_level", program->name);
     }
 
-    int lightLevel = data;
+    lightLevel = data;
 
     if (data == 50) {
         light_set_ambient(dword_453F90[1], true);
         return;
     }
 
-    int lightIntensity;
     if (data > 50) {
         lightIntensity = dword_453F90[1] + data * (dword_453F90[2] - dword_453F90[1]) / 100;
     } else {
@@ -2403,14 +2545,17 @@ static void op_elevation(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
+	int elevation;
+
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to elevation", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
-    int elevation = 0;
+    elevation = 0;
     if (object != NULL) {
         elevation = object->elevation;
     } else {
@@ -2426,8 +2571,13 @@ static void op_kill_critter(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* object;
+    int deathFrame;
+    Object* self;
+    bool isSelf;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2436,8 +2586,8 @@ static void op_kill_critter(Program* program)
         }
     }
 
-    Object* object = (Object*)data[1];
-    int deathFrame = data[0];
+    object = (Object*)data[1];
+    deathFrame = data[0];
 
     if (object == NULL) {
         dbg_error(program, "kill_critter", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -2450,8 +2600,8 @@ static void op_kill_critter(Program* program)
 
     program->flags |= PROGRAM_FLAG_0x20;
 
-    Object* self = scr_find_obj_from_program(program);
-    bool isSelf = self == object;
+    self = scr_find_obj_from_program(program);
+    isSelf = self == object;
 
     register_clear(object);
     combat_delete_critter(object);
@@ -2470,10 +2620,11 @@ static void op_kill_critter(Program* program)
 int correctDeath(Object* critter, int anim, bool forceBack)
 {
     if (anim >= ANIM_BIG_HOLE_SF && anim <= ANIM_FALL_FRONT_BLOOD_SF) {
+		bool useStandardDeath;
         int violenceLevel = VIOLENCE_LEVEL_MAXIMUM_BLOOD;
         config_get_value(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_VIOLENCE_LEVEL_KEY, &violenceLevel);
 
-        bool useStandardDeath = false;
+        useStandardDeath = false;
         if (violenceLevel < VIOLENCE_LEVEL_MAXIMUM_BLOOD) {
             useStandardDeath = true;
         } else {
@@ -2520,8 +2671,11 @@ static void op_kill_critter_type(Program* program)
 
     opcode_t opcode[2];
     int data[2];
+	int arg, pid, deathFrame, count, v3;
+	Object* obj;
+	Object* previousObj;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2530,8 +2684,8 @@ static void op_kill_critter_type(Program* program)
         }
     }
 
-    int pid = data[1];
-    int deathFrame = data[0];
+    pid = data[1];
+    deathFrame = data[0];
 
     if (isLoadingGame()) {
         debug_printf("\nError: attempt to destroy critter in load/save-game: %s!", program->name);
@@ -2540,11 +2694,11 @@ static void op_kill_critter_type(Program* program)
 
     program->flags |= PROGRAM_FLAG_0x20;
 
-    Object* previousObj = NULL;
-    int count = 0;
-    int v3 = 0;
+    previousObj = NULL;
+    count = 0;
+    v3 = 0;
 
-    Object* obj = obj_find_first();
+    obj = obj_find_first();
     while (obj != NULL) {
         if (FID_ANIM_TYPE(obj->fid) >= ANIM_FALL_BACK_SF) {
             obj = obj_find_next();
@@ -2574,9 +2728,9 @@ static void op_kill_critter_type(Program* program)
                     critter_kill(obj, ANIM_FALL_BACK_SF, 1);
                 }
             } else {
-                register_clear(obj);
-
                 Rect rect;
+
+                register_clear(obj);
                 obj_erase_object(obj, &rect);
                 tile_refresh_rect(&rect, map_elevation);
             }
@@ -2598,12 +2752,20 @@ static void op_kill_critter_type(Program* program)
 // 0x44E918
 static void op_critter_damage(Program* program)
 {
-    program->flags |= PROGRAM_FLAG_0x20;
-
     opcode_t opcode[3];
     int data[3];
+	int arg;
+    Object* object;
+    int amount;
+    int damageTypeWithFlags;
+	bool animate;
+    bool bypassArmor;
+    int damageType;
+	Object* self;
 
-    for (int arg = 0; arg < 3; arg++) {
+    program->flags |= PROGRAM_FLAG_0x20;
+
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2612,9 +2774,9 @@ static void op_critter_damage(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    int amount = data[1];
-    int damageTypeWithFlags = data[0];
+    object = (Object*)data[2];
+    amount = data[1];
+    damageTypeWithFlags = data[0];
 
     if (object == NULL) {
         dbg_error(program, "critter_damage", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -2627,14 +2789,14 @@ static void op_critter_damage(Program* program)
         return;
     }
 
-    Object* self = scr_find_obj_from_program(program);
+    self = scr_find_obj_from_program(program);
     if (object->data.critter.combat.whoHitMeCid == -1) {
         object->data.critter.combat.whoHitMe = NULL;
     }
 
-    bool animate = (damageTypeWithFlags & 0x200) == 0;
-    bool bypassArmor = (damageTypeWithFlags & 0x100) != 0;
-    int damageType = damageTypeWithFlags & ~(0x100 | 0x200);
+    animate = (damageTypeWithFlags & 0x200) == 0;
+    bypassArmor = (damageTypeWithFlags & 0x100) != 0;
+    damageType = damageTypeWithFlags & ~(0x100 | 0x200);
     action_dmg(object->tile, object->elevation, amount, amount, damageType, animate, bypassArmor);
 
     program->flags &= ~PROGRAM_FLAG_0x20;
@@ -2649,8 +2811,11 @@ static void op_add_timer_event(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, delay, param;
+	Object* object;
 
-    for (int arg = 0; arg < 3; arg++) {
+
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2659,9 +2824,9 @@ static void op_add_timer_event(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    int delay = data[1];
-    int param = data[0];
+    object = (Object*)data[2];
+    delay = data[1];
+    param = data[0];
 
     if (object == NULL) {
         int_debug("\nScript Error: %s: op_add_timer_event: pobj is NULL!", program->name);
@@ -2675,17 +2840,20 @@ static void op_add_timer_event(Program* program)
 static void op_rm_timer_event(Program* program)
 {
     int elevation;
+	opcode_t opcode;
+	int data;
+	Object* object;
 
     elevation = 0;
 
-    opcode_t opcode = interpretPopShort(program);
-    int data = interpretPopLong(program);
+    opcode = interpretPopShort(program);
+    data = interpretPopLong(program);
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to rm_timer_event", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
     if (object == NULL) {
         // FIXME: Should be op_rm_timer_event.
@@ -2703,12 +2871,13 @@ static void op_game_ticks(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	int ticks;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to game_ticks", program->name);
     }
 
-    int ticks = data;
+    ticks = data;
 
     if (ticks < 0) {
         ticks = 0;
@@ -2728,8 +2897,12 @@ static void op_has_trait(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+    int type;
+    int param ,result;
+    Object* object;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2738,11 +2911,11 @@ static void op_has_trait(Program* program)
         }
     }
 
-    int type = data[2];
-    Object* object = (Object*)data[1];
-    int param = data[0];
+    type = data[2];
+    object = (Object*)data[1];
+    param = data[0];
 
-    int result = 0;
+    result = 0;
 
     if (object != NULL) {
         switch (type) {
@@ -2800,8 +2973,12 @@ static void op_obj_can_hear_obj(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* object1;
+	Object* object2;
+	bool canHear;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2810,10 +2987,10 @@ static void op_obj_can_hear_obj(Program* program)
         }
     }
 
-    Object* object1 = (Object*)data[1];
-    Object* object2 = (Object*)data[0];
+    object1 = (Object*)data[1];
+    object2 = (Object*)data[0];
 
-    bool canHear = false;
+    canHear = false;
 
     // FIXME: This is clearly an error. If any of the object is NULL
     // dereferencing will crash the game.
@@ -2862,12 +3039,13 @@ static void op_tile_is_visible(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	int isVisible;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to tile_is_visible", program->name);
     }
 
-    int isVisible = 0;
+    isVisible = 0;
     if (scripts_tile_is_visible(data)) {
         isVisible = 1;
     }
@@ -2882,11 +3060,13 @@ static void op_dialogue_system_enter(Program* program)
     int sid = scr_find_sid_from_program(program);
 
     Script* script;
+	Object* self;
+
     if (scr_ptr(sid, &script) == -1) {
         return;
     }
 
-    Object* self = scr_find_obj_from_program(program);
+    self = scr_find_obj_from_program(program);
     if (PID_TYPE(self->pid) == OBJ_TYPE_CRITTER) {
         if (!critter_is_active(self)) {
             return;
@@ -2927,19 +3107,22 @@ static void op_critter_state(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* critter;
+	int state;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to critter_state", program->name);
     }
 
-    Object* critter = (Object*)data;
+    critter = (Object*)data;
 
-    int state = CRITTER_STATE_DEAD;
+    state = CRITTER_STATE_DEAD;
     if (critter != NULL && PID_TYPE(critter->pid) == OBJ_TYPE_CRITTER) {
         if (critter_is_active(critter)) {
+			int anim;
             state = CRITTER_STATE_NORMAL;
 
-            int anim = FID_ANIM_TYPE(critter->fid);
+            anim = FID_ANIM_TYPE(critter->fid);
             if (anim >= ANIM_FALL_BACK_SF && anim <= ANIM_FALL_FRONT_SF) {
                 state = CRITTER_STATE_PRONE;
             }
@@ -2959,15 +3142,16 @@ static void op_game_time_advance(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	int days, day, remainder;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to game_time_advance", program->name);
     }
 
-    int days = data / GAME_TIME_TICKS_PER_DAY;
-    int remainder = data % GAME_TIME_TICKS_PER_DAY;
+    days = data / GAME_TIME_TICKS_PER_DAY;
+    remainder = data % GAME_TIME_TICKS_PER_DAY;
 
-    for (int day = 0; day < days; day++) {
+    for (day = 0; day < days; day++) {
         inc_game_time(GAME_TIME_TICKS_PER_DAY);
         queue_process();
     }
@@ -2981,8 +3165,10 @@ static void op_radiation_inc(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, amount;
+	Object* object;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -2991,8 +3177,8 @@ static void op_radiation_inc(Program* program)
         }
     }
 
-    Object* object = (Object*)data[1];
-    int amount = data[0];
+    object = (Object*)data[1];
+    amount = data[0];
 
     if (object == NULL) {
         dbg_error(program, "radiation_inc", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -3007,8 +3193,11 @@ static void op_radiation_dec(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* object;
+	int amount, radiation, adjustment;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3017,16 +3206,16 @@ static void op_radiation_dec(Program* program)
         }
     }
 
-    Object* object = (Object*)data[1];
-    int amount = data[0];
+    object = (Object*)data[1];
+    amount = data[0];
 
     if (object == NULL) {
         dbg_error(program, "radiation_dec", SCRIPT_ERROR_OBJECT_IS_NULL);
         return;
     }
 
-    int radiation = critter_get_rads(object);
-    int adjustment = radiation >= 0 ? -amount : 0;
+    radiation = critter_get_rads(object);
+    adjustment = radiation >= 0 ? -amount : 0;
 
     critter_adjust_rads(object, adjustment);
 }
@@ -3036,8 +3225,11 @@ static void op_critter_attempt_placement(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+    Object* critter;
+    int tile, elevation, rc;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3046,9 +3238,9 @@ static void op_critter_attempt_placement(Program* program)
         }
     }
 
-    Object* critter = (Object*)data[2];
-    int tile = data[1];
-    int elevation = data[0];
+    critter = (Object*)data[2];
+    tile = data[1];
+    elevation = data[0];
 
     if (critter == NULL) {
         dbg_error(program, "critter_attempt_placement", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -3061,7 +3253,7 @@ static void op_critter_attempt_placement(Program* program)
 
     obj_move_to_tile(critter, 0, elevation, NULL);
 
-    int rc = obj_attempt_placement(critter, tile, elevation, 1);
+    rc = obj_attempt_placement(critter, tile, elevation, 1);
     interpretPushLong(program, rc);
     interpretPushShort(program, VALUE_TYPE_INT);
 }
@@ -3071,14 +3263,16 @@ static void op_obj_pid(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* obj;
+	int pid;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to obj_pid", program->name);
     }
 
-    Object* obj = (Object*)data;
+    obj = (Object*)data;
 
-    int pid = -1;
+    pid = -1;
     if (obj) {
         pid = obj->pid;
     } else {
@@ -3102,8 +3296,11 @@ static void op_critter_add_trait(Program* program)
 {
     opcode_t opcode[4];
     int data[4];
+	int arg;
+	Object* object;
+    int kind, param, value;
 
-    for (int arg = 0; arg < 4; arg++) {
+    for (arg = 0; arg < 4; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3112,10 +3309,10 @@ static void op_critter_add_trait(Program* program)
         }
     }
 
-    Object* object = (Object*)data[3];
-    int kind = data[2];
-    int param = data[1];
-    int value = data[0];
+    object = (Object*)data[3];
+    kind = data[2];
+    param = data[1];
+    value = data[0];
 
     if (object != NULL) {
         if (PID_TYPE(object->pid) == OBJ_TYPE_CRITTER) {
@@ -3161,8 +3358,11 @@ static void op_critter_rm_trait(Program* program)
 {
     opcode_t opcode[4];
     int data[4];
+	int arg;
+    Object* object;
+    int kind, param, value;
 
-    for (int arg = 0; arg < 4; arg++) {
+    for (arg = 0; arg < 4; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3171,10 +3371,10 @@ static void op_critter_rm_trait(Program* program)
         }
     }
 
-    Object* object = (Object*)data[3];
-    int kind = data[2];
-    int param = data[1];
-    int value = data[0];
+    object = (Object*)data[3];
+    kind = data[2];
+    param = data[1];
+    value = data[0];
 
     if (object == NULL) {
         dbg_error(program, "critter_rm_trait", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -3206,8 +3406,10 @@ static void op_proto_data(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, pid, member, valueType;
+	ProtoDataMemberValue value;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3216,12 +3418,11 @@ static void op_proto_data(Program* program)
         }
     }
 
-    int pid = data[1];
-    int member = data[0];
+    pid = data[1];
+    member = data[0];
 
-    ProtoDataMemberValue value;
     value.integerValue = 0;
-    int valueType = proto_data_member(pid, member, &value);
+    valueType = proto_data_member(pid, member, &value);
     switch (valueType) {
     case PROTO_DATA_MEMBER_TYPE_INT:
         interpretPushLong(program, value.integerValue);
@@ -3246,8 +3447,11 @@ static void op_message_str(Program* program)
 
     opcode_t opcode[2];
     int data[2];
+	int arg;
+    int messageListIndex, messageIndex;
+    char* string;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3256,10 +3460,9 @@ static void op_message_str(Program* program)
         }
     }
 
-    int messageListIndex = data[1];
-    int messageIndex = data[0];
+    messageListIndex = data[1];
+    messageIndex = data[0];
 
-    char* string;
     if (messageIndex >= 1) {
         string = scr_get_msg_str_speech(messageListIndex, messageIndex, 1);
         if (string == NULL) {
@@ -3279,8 +3482,10 @@ static void op_critter_inven_obj(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, type, result;
+	Object* critter;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3289,10 +3494,10 @@ static void op_critter_inven_obj(Program* program)
         }
     }
 
-    Object* critter = (Object*)data[1];
-    int type = data[0];
+    critter = (Object*)data[1];
+    type = data[0];
 
-    int result = 0;
+    result = 0;
 
     if (PID_TYPE(critter->pid) == OBJ_TYPE_CRITTER) {
         switch (type) {
@@ -3338,8 +3543,12 @@ static void op_obj_set_light_level(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+    Object* object;
+    int lightIntensity, lightDistance;
+	Rect rect;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3348,16 +3557,15 @@ static void op_obj_set_light_level(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    int lightIntensity = data[1];
-    int lightDistance = data[0];
+    object = (Object*)data[2];
+    lightIntensity = data[1];
+    lightDistance = data[0];
 
     if (object == NULL) {
         dbg_error(program, "obj_set_light_level", SCRIPT_ERROR_OBJECT_IS_NULL);
         return;
     }
 
-    Rect rect;
     if (lightIntensity != 0) {
         if (obj_set_light(object, lightDistance, (lightIntensity * 65636) / 100, &rect) == -1) {
             return;
@@ -3392,7 +3600,12 @@ static void op_float_msg(Program* program)
     int data[3];
 
     char* string = NULL;
-    for (int arg = 0; arg < 3; arg++) {
+	int arg;
+    Object* obj;
+    int floatingMessageType, color, a5, font;
+    Rect rect;
+
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3407,12 +3620,12 @@ static void op_float_msg(Program* program)
         }
     }
 
-    Object* obj = (Object*)data[2];
-    int floatingMessageType = data[0];
+    obj = (Object*)data[2];
+    floatingMessageType = data[0];
 
-    int color = colorTable[32747];
-    int a5 = colorTable[0];
-    int font = 101;
+    color = colorTable[32747];
+    a5 = colorTable[0];
+    font = 101;
 
     if (obj == NULL) {
         dbg_error(program, "float_msg", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -3478,7 +3691,6 @@ static void op_float_msg(Program* program)
         break;
     }
 
-    Rect rect;
     if (text_object_create(obj, string, font, color, a5, &rect) != -1) {
         tile_refresh_rect(&rect, obj->elevation);
     }
@@ -3489,8 +3701,9 @@ static void op_metarule(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, rule, param;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3499,8 +3712,8 @@ static void op_metarule(Program* program)
         }
     }
 
-    int rule = data[1];
-    int param = data[0];
+    rule = data[1];
+    param = data[0];
 
     switch (rule) {
     case METARULE_SIGNAL_END_GAME:
@@ -3537,8 +3750,10 @@ static void op_anim(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, anim, frame;
+	Object* obj;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3547,9 +3762,9 @@ static void op_anim(Program* program)
         }
     }
 
-    Object* obj = (Object*)data[2];
-    int anim = data[1];
-    int frame = data[0];
+    obj = (Object*)data[2];
+    anim = data[1];
+    frame = data[0];
 
     if (obj == NULL) {
         dbg_error(program, "anim", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -3615,8 +3830,11 @@ static void op_obj_carrying_pid_obj(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg,pid;
+	Object* object;
+	Object* result;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3625,10 +3843,10 @@ static void op_obj_carrying_pid_obj(Program* program)
         }
     }
 
-    Object* object = (Object*)data[1];
-    int pid = data[0];
+    object = (Object*)data[1];
+    pid = data[0];
 
-    Object* result = NULL;
+    result = NULL;
     if (object != NULL) {
         result = inven_pid_is_carried_ptr(object, pid);
     } else {
@@ -3644,8 +3862,9 @@ static void op_reg_anim_func(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, cmd, param;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3654,8 +3873,8 @@ static void op_reg_anim_func(Program* program)
         }
     }
 
-    int cmd = data[1];
-    int param = data[0];
+    cmd = data[1];
+    param = data[0];
 
     if (!isInCombat()) {
         switch (cmd) {
@@ -3677,8 +3896,10 @@ static void op_reg_anim_animate(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, anim, delay;
+	Object* object;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3687,9 +3908,9 @@ static void op_reg_anim_animate(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    int anim = data[1];
-    int delay = data[0];
+    object = (Object*)data[2];
+    anim = data[1];
+    delay = data[0];
 
     if (!isInCombat()) {
         int violenceLevel = VIOLENCE_LEVEL_NONE;
@@ -3708,8 +3929,10 @@ static void op_reg_anim_animate_reverse(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, anim, delay;
+	Object* object;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3718,9 +3941,9 @@ static void op_reg_anim_animate_reverse(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    int anim = data[1];
-    int delay = data[0];
+    object = (Object*)data[2];
+    anim = data[1];
+    delay = data[0];
 
     if (!isInCombat()) {
         if (object != NULL) {
@@ -3736,8 +3959,11 @@ static void op_reg_anim_obj_move_to_obj(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, delay;
+	Object* object;
+	Object* dest;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3746,9 +3972,9 @@ static void op_reg_anim_obj_move_to_obj(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    Object* dest = (Object*)data[1];
-    int delay = data[0];
+    object = (Object*)data[2];
+    dest = (Object*)data[1];
+    delay = data[0];
 
     if (!isInCombat()) {
         if (object != NULL) {
@@ -3764,8 +3990,11 @@ static void op_reg_anim_obj_run_to_obj(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, delay;
+	Object* object;
+	Object* dest;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3774,9 +4003,9 @@ static void op_reg_anim_obj_run_to_obj(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    Object* dest = (Object*)data[1];
-    int delay = data[0];
+    object = (Object*)data[2];
+    dest = (Object*)data[1];
+    delay = data[0];
 
     if (!isInCombat()) {
         if (object != NULL) {
@@ -3792,8 +4021,10 @@ static void op_reg_anim_obj_move_to_tile(Program* prg)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, tile, delay;
+	Object* object;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(prg);
         data[arg] = interpretPopLong(prg);
 
@@ -3802,9 +4033,9 @@ static void op_reg_anim_obj_move_to_tile(Program* prg)
         }
     }
 
-    Object* object = (Object*)data[2];
-    int tile = data[1];
-    int delay = data[0];
+    object = (Object*)data[2];
+    tile = data[1];
+    delay = data[0];
 
     if (!isInCombat()) {
         if (object != NULL) {
@@ -3820,8 +4051,10 @@ static void op_reg_anim_obj_run_to_tile(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, tile, delay;
+	Object* object;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3830,9 +4063,9 @@ static void op_reg_anim_obj_run_to_tile(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    int tile = data[1];
-    int delay = data[0];
+    object = (Object*)data[2];
+    tile = data[1];
+    delay = data[0];
 
     if (!isInCombat()) {
         if (object != NULL) {
@@ -3847,6 +4080,9 @@ static void op_reg_anim_obj_run_to_tile(Program* program)
 static void op_play_gmovie(Program* program)
 {
     // 0x44B57C
+	opcode_t opcode;
+    int data;
+	unsigned short flags;
     static const unsigned short game_movie_flags[MOVIE_COUNT] = {
         /*   IPLOGO */ GAME_MOVIE_FADE_IN | GAME_MOVIE_FADE_OUT | GAME_MOVIE_PAUSE_MUSIC,
         /*   MPLOGO */ GAME_MOVIE_FADE_IN | GAME_MOVIE_FADE_OUT | GAME_MOVIE_PAUSE_MUSIC,
@@ -3866,8 +4102,8 @@ static void op_play_gmovie(Program* program)
 
     program->flags |= PROGRAM_FLAG_0x20;
 
-    opcode_t opcode = interpretPopShort(program);
-    int data = interpretPopLong(program);
+    opcode = interpretPopShort(program);
+    data = interpretPopLong(program);
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to play_gmovie", program->name);
@@ -3875,7 +4111,7 @@ static void op_play_gmovie(Program* program)
 
     gDialogDisableBK();
 
-    unsigned short flags = game_movie_flags[data];
+    flags = game_movie_flags[data];
     if (data == MOVIE_VEXPLD || data == MOVIE_CATHEXP) {
         if (map_data.name[0] == '\0') {
             flags |= GAME_MOVIE_FADE_OUT;
@@ -3896,8 +4132,11 @@ static void op_add_mult_objs_to_inven(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, quantity;
+	Object* object;
+	Object* item;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3906,9 +4145,9 @@ static void op_add_mult_objs_to_inven(Program* program)
         }
     }
 
-    Object* object = (Object*)data[2];
-    Object* item = (Object*)data[1];
-    int quantity = data[0];
+    object = (Object*)data[2];
+    item = (Object*)data[1];
+    quantity = data[0];
 
     if (object == NULL || item == NULL) {
         return;
@@ -3926,8 +4165,12 @@ static void op_rm_mult_objs_from_inven(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, quantityToRemove, quantity;
+	Object* owner;
+	Object* item;
+	bool itemWasEquipped;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -3936,18 +4179,18 @@ static void op_rm_mult_objs_from_inven(Program* program)
         }
     }
 
-    Object* owner = (Object*)data[2];
-    Object* item = (Object*)data[1];
-    int quantityToRemove = data[0];
+    owner = (Object*)data[2];
+    item = (Object*)data[1];
+    quantityToRemove = data[0];
 
     if (owner == NULL || item == NULL) {
         // FIXME: Ruined stack.
         return;
     }
 
-    bool itemWasEquipped = (item->flags & OBJECT_EQUIPPED) != 0;
+    itemWasEquipped = (item->flags & OBJECT_EQUIPPED) != 0;
 
-    int quantity = item_count(owner, item);
+    quantity = item_count(owner, item);
     if (quantity > quantityToRemove) {
         quantity = quantityToRemove;
     }
@@ -3994,8 +4237,9 @@ static void op_explosion(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, tile, elevation, maxDamage, minDamage;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4004,16 +4248,16 @@ static void op_explosion(Program* program)
         }
     }
 
-    int tile = data[2];
-    int elevation = data[1];
-    int maxDamage = data[0];
+    tile = data[2];
+    elevation = data[1];
+    maxDamage = data[0];
 
     if (tile == -1) {
         debug_printf("\nError: explosion: bad tile_num!");
         return;
     }
 
-    int minDamage = 1;
+    minDamage = 1;
     if (maxDamage == 0) {
         minDamage = 0;
     }
@@ -4060,13 +4304,15 @@ static void op_gsay_end(Program* program)
 // 0x4505EC
 static void op_gsay_reply(Program* program)
 {
-    program->flags |= PROGRAM_FLAG_0x20;
-
     opcode_t opcode[2];
     int data[2];
 
     char* string = NULL;
-    for (int arg = 0; arg < 2; arg++) {
+	int arg, messageListId, messageId;
+
+    program->flags |= PROGRAM_FLAG_0x20;
+
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4083,8 +4329,8 @@ static void op_gsay_reply(Program* program)
         }
     }
 
-    int messageListId = data[1];
-    int messageId = data[0];
+    messageListId = data[1];
+    messageId = data[0];
 
     if (string != NULL) {
         gDialogReplyStr(program, messageListId, string);
@@ -4098,15 +4344,17 @@ static void op_gsay_reply(Program* program)
 // 0x4506B0
 static void op_gsay_option(Program* program)
 {
-    program->flags |= PROGRAM_FLAG_0x20;
-
     opcode_t opcode[4];
     int data[4];
+	char* string;
+	int arg, messageListId, messageId, proc, reaction;
+
+    program->flags |= PROGRAM_FLAG_0x20;
 
     // TODO: Original code is slightly different, does not use loop for first
     // two args, but uses loop for two last args.
-    char* string = NULL;
-    for (int arg = 0; arg < 4; arg++) {
+    string = NULL;
+    for (arg = 0; arg < 4; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4123,10 +4371,10 @@ static void op_gsay_option(Program* program)
         }
     }
 
-    int messageListId = data[3];
-    int messageId = data[2];
-    int proc = data[1];
-    int reaction = data[0];
+	messageListId = data[3];
+    messageId = data[2];
+    proc = data[1];
+    reaction = data[0];
 
     // TODO: Not sure about this, needs testing.
     if ((opcode[1] & VALUE_TYPE_MASK) == VALUE_TYPE_STRING) {
@@ -4158,14 +4406,15 @@ static void op_gsay_option(Program* program)
 // 0x450844
 static void op_gsay_message(Program* program)
 {
-    program->flags |= PROGRAM_FLAG_0x20;
-
     opcode_t opcode[3];
     int data[3];
 
     char* string = NULL;
+	int arg, messageListId, messageId, reaction;
 
-    for (int arg = 0; arg < 3; arg++) {
+    program->flags |= PROGRAM_FLAG_0x20;
+
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4182,9 +4431,9 @@ static void op_gsay_message(Program* program)
         }
     }
 
-    int messageListId = data[2];
-    int messageId = data[1];
-    int reaction = data[0];
+    messageListId = data[2];
+    messageId = data[1];
+    reaction = data[0];
 
     if (string != NULL) {
         gDialogReplyStr(program, messageListId, string);
@@ -4201,14 +4450,14 @@ static void op_gsay_message(Program* program)
 // 0x45092C
 static void op_giq_option(Program* program)
 {
-    program->flags |= PROGRAM_FLAG_0x20;
-
     opcode_t opcode[5];
     int data[5];
-
     char* string = NULL;
+	int arg, iq, messageListId, messageId, proc, reaction, intelligence;
 
-    for (int arg = 0; arg < 5; arg++) {
+    program->flags |= PROGRAM_FLAG_0x20;
+
+    for (arg = 0; arg < 5; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4225,13 +4474,13 @@ static void op_giq_option(Program* program)
         }
     }
 
-    int iq = data[4];
-    int messageListId = data[3];
-    int messageId = data[2];
-    int proc = data[1];
-    int reaction = data[0];
+    iq = data[4];
+    messageListId = data[3];
+    messageId = data[2];
+    proc = data[1];
+    reaction = data[0];
 
-    int intelligence = stat_level(obj_dude, STAT_INTELLIGENCE);
+    intelligence = stat_level(obj_dude, STAT_INTELLIGENCE);
     intelligence += perk_level(PERK_SMOOTH_TALKER);
 
     if (iq < 0) {
@@ -4277,8 +4526,10 @@ static void op_poison(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, amount;
+	Object* obj;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4287,8 +4538,8 @@ static void op_poison(Program* program)
         }
     }
 
-    Object* obj = (Object*)data[1];
-    int amount = data[0];
+    obj = (Object*)data[1];
+    amount = data[0];
 
     if (obj == NULL) {
         dbg_error(program, "poison", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -4305,14 +4556,16 @@ static void op_get_poison(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* obj;
+	int poison;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to get_poison", program->name);
     }
 
-    Object* obj = (Object*)data;
+    obj = (Object*)data;
 
-    int poison = 0;
+    poison = 0;
     if (obj != NULL) {
         if (PID_TYPE(obj->pid) == OBJ_TYPE_CRITTER) {
             poison = critter_get_poison(obj);
@@ -4332,12 +4585,13 @@ static void op_party_add(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to party_add", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
     if (object == NULL) {
         dbg_error(program, "party_add", SCRIPT_ERROR_OBJECT_IS_NULL);
         return;
@@ -4351,12 +4605,13 @@ static void op_party_remove(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to party_remove", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
     if (object == NULL) {
         dbg_error(program, "party_remove", SCRIPT_ERROR_OBJECT_IS_NULL);
         return;
@@ -4370,8 +4625,10 @@ static void op_reg_anim_animate_forever(Program* prg)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, anim;
+	Object* obj;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(prg);
         data[arg] = interpretPopLong(prg);
 
@@ -4380,8 +4637,8 @@ static void op_reg_anim_animate_forever(Program* prg)
         }
     }
 
-    Object* obj = (Object*)data[1];
-    int anim = data[0];
+    obj = (Object*)data[1];
+    anim = data[0];
 
     if (!isInCombat()) {
         if (obj != NULL) {
@@ -4397,8 +4654,10 @@ static void op_critter_injure(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, flags;
+	Object* critter;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4407,8 +4666,8 @@ static void op_critter_injure(Program* program)
         }
     }
 
-    Object* critter = (Object*)data[1];
-    int flags = data[0];
+    critter = (Object*)data[1];
+    flags = data[0];
 
     if (critter == NULL) {
         dbg_error(program, "critter_injure", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -4492,14 +4751,16 @@ static void op_obj_is_locked(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
+	bool locked;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to obj_is_locked", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
-    bool locked = false;
+    locked = false;
     if (object != NULL) {
         locked = obj_is_locked(object);
     } else {
@@ -4515,12 +4776,13 @@ static void op_obj_lock(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to obj_lock", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
     if (object != NULL) {
         obj_lock(object);
@@ -4534,12 +4796,13 @@ static void op_obj_unlock(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to obj_unlock", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
     if (object != NULL) {
         obj_unlock(object);
@@ -4553,14 +4816,16 @@ static void op_obj_is_open(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
+	bool isOpen;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to obj_is_open", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
-    bool isOpen = false;
+    isOpen = false;
     if (object != NULL) {
         isOpen = obj_is_open(object);
     } else {
@@ -4576,12 +4841,13 @@ static void op_obj_open(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to obj_open", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
     if (object != NULL) {
         obj_open(object);
@@ -4595,12 +4861,13 @@ static void op_obj_close(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to obj_close", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
     if (object != NULL) {
         obj_close(object);
@@ -4667,14 +4934,16 @@ static void op_item_caps_total(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Object* object;
+	int amount;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to item_caps_total", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
-    int amount = 0;
+    amount = 0;
     if (object != NULL) {
         amount = item_caps_total(object);
     } else {
@@ -4690,8 +4959,10 @@ static void op_item_caps_adjust(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, amount, rc;
+	Object* object;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4700,10 +4971,10 @@ static void op_item_caps_adjust(Program* program)
         }
     }
 
-    Object* object = (Object*)data[1];
-    int amount = data[0];
+    object = (Object*)data[1];
+    amount = data[0];
 
-    int rc = -1;
+    rc = -1;
 
     if (object != NULL) {
         rc = item_caps_adjust(object, amount);
@@ -4720,8 +4991,10 @@ static void op_anim_action_frame(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, anim, actionFrame;
+	Object* object;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4730,10 +5003,10 @@ static void op_anim_action_frame(Program* program)
         }
     }
 
-    Object* object = (Object*)data[1];
-    int anim = data[0];
+    object = (Object*)data[1];
+    anim = data[0];
 
-    int actionFrame = 0;
+    actionFrame = 0;
 
     if (object != NULL) {
         int fid = art_id(FID_TYPE(object->fid), object->fid & 0xFFF, anim, 0, object->rotation);
@@ -4756,8 +5029,11 @@ static void op_reg_anim_play_sfx(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, name, delay;
+	Object* obj;
+	char* soundEffectName;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4772,11 +5048,11 @@ static void op_reg_anim_play_sfx(Program* program)
         }
     }
 
-    Object* obj = (Object*)data[2];
-    int name = data[1];
-    int delay = data[0];
+    obj = (Object*)data[2];
+    name = data[1];
+    delay = data[0];
 
-    char* soundEffectName = interpretGetString(program, opcode[1], name);
+    soundEffectName = interpretGetString(program, opcode[1], name);
     if (soundEffectName == NULL) {
         dbg_error(program, "reg_anim_play_sfx", SCRIPT_ERROR_FOLLOWS);
         debug_printf(" Can't match string!");
@@ -4794,8 +5070,10 @@ static void op_critter_mod_skill(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, skill, points;
+	Object* critter;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4804,15 +5082,16 @@ static void op_critter_mod_skill(Program* program)
         }
     }
 
-    Object* critter = (Object*)data[2];
-    int skill = data[1];
-    int points = data[0];
+    critter = (Object*)data[2];
+    skill = data[1];
+    points = data[0];
 
     if (critter != NULL && points != 0) {
         if (PID_TYPE(critter->pid) == OBJ_TYPE_CRITTER) {
             if (critter == obj_dude) {
                 if (stat_pc_set(PC_STAT_UNSPENT_SKILL_POINTS, stat_pc_get(PC_STAT_UNSPENT_SKILL_POINTS) + points) == 0) {
-                    for (int it = 0; it < points; it++) {
+					int it;
+                    for (it = 0; it < points; it++) {
                         skill_inc_point(obj_dude, skill);
                     }
                 }
@@ -4834,8 +5113,10 @@ static void op_sfx_build_char_name(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, anim, extra, stringOffset;
+	Object* obj;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4844,11 +5125,11 @@ static void op_sfx_build_char_name(Program* program)
         }
     }
 
-    Object* obj = (Object*)data[2];
-    int anim = data[1];
-    int extra = data[0];
+    obj = (Object*)data[2];
+    anim = data[1];
+    extra = data[0];
 
-    int stringOffset = 0;
+    stringOffset = 0;
 
     if (obj != NULL) {
         char soundEffectName[16];
@@ -4867,17 +5148,19 @@ static void op_sfx_build_ambient_name(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	char* baseName;
+    char soundEffectName[16];
+	int stringOffset;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to sfx_build_ambient_name", program->name);
     }
 
-    char* baseName = interpretGetString(program, opcode, data);
+    baseName = interpretGetString(program, opcode, data);
 
-    char soundEffectName[16];
     strcpy(soundEffectName, gsnd_build_ambient_sfx_name(baseName));
 
-    int stringOffset = interpretAddString(program, soundEffectName);
+    stringOffset = interpretAddString(program, soundEffectName);
 
     interpretPushLong(program, stringOffset);
     interpretPushShort(program, VALUE_TYPE_DYNAMIC_STRING);
@@ -4888,17 +5171,19 @@ static void op_sfx_build_interface_name(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	char* baseName;
+    char soundEffectName[16];
+	int stringOffset;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to sfx_build_interface_name", program->name);
     }
 
-    char* baseName = interpretGetString(program, opcode, data);
+    baseName = interpretGetString(program, opcode, data);
 
-    char soundEffectName[16];
     strcpy(soundEffectName, gsnd_build_interface_sfx_name(baseName));
 
-    int stringOffset = interpretAddString(program, soundEffectName);
+    stringOffset = interpretAddString(program, soundEffectName);
 
     interpretPushLong(program, stringOffset);
     interpretPushShort(program, VALUE_TYPE_DYNAMIC_STRING);
@@ -4909,17 +5194,19 @@ static void op_sfx_build_item_name(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	const char* baseName;
+    char soundEffectName[16];
+	int stringOffset;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("script error: %s: invalid arg to sfx_build_item_name", program->name);
     }
 
-    const char* baseName = interpretGetString(program, opcode, data);
+    baseName = interpretGetString(program, opcode, data);
 
-    char soundEffectName[16];
     strcpy(soundEffectName, gsnd_build_interface_sfx_name(baseName));
 
-    int stringOffset = interpretAddString(program, soundEffectName);
+    stringOffset = interpretAddString(program, soundEffectName);
 
     interpretPushLong(program, stringOffset);
     interpretPushShort(program, VALUE_TYPE_DYNAMIC_STRING);
@@ -4930,8 +5217,12 @@ static void op_sfx_build_weapon_name(Program* program)
 {
     opcode_t opcode[4];
     int data[4];
+	int arg, weaponSfxType, hitMode, stringOffset;
+	Object* weapon;
+	Object* target;
+    char soundEffectName[16];
 
-    for (int arg = 0; arg < 4; arg++) {
+    for (arg = 0; arg < 4; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4940,15 +5231,14 @@ static void op_sfx_build_weapon_name(Program* program)
         }
     }
 
-    int weaponSfxType = data[3];
-    Object* weapon = (Object*)data[2];
-    int hitMode = data[1];
-    Object* target = (Object*)data[0];
+    weaponSfxType = data[3];
+    weapon = (Object*)data[2];
+    hitMode = data[1];
+    target = (Object*)data[0];
 
-    char soundEffectName[16];
     strcpy(soundEffectName, gsnd_build_weapon_sfx_name(weaponSfxType, weapon, hitMode, target));
 
-    int stringOffset = interpretAddString(program, soundEffectName);
+    stringOffset = interpretAddString(program, soundEffectName);
 
     interpretPushLong(program, stringOffset);
     interpretPushShort(program, VALUE_TYPE_DYNAMIC_STRING);
@@ -4959,8 +5249,12 @@ static void op_sfx_build_scenery_name(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, action, actionType, stringOffset;
+	char* baseName;
+    char soundEffectName[16];
 
-    for (int arg = 0; arg < 3; arg++) {
+
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4969,15 +5263,14 @@ static void op_sfx_build_scenery_name(Program* program)
         }
     }
 
-    int action = data[1];
-    int actionType = data[0];
+    action = data[1];
+    actionType = data[0];
 
-    char* baseName = interpretGetString(program, opcode[2], data[2]);
+    baseName = interpretGetString(program, opcode[2], data[2]);
 
-    char soundEffectName[16];
     strcpy(soundEffectName, gsnd_build_scenery_sfx_name(actionType, action, baseName));
 
-    int stringOffset = interpretAddString(program, soundEffectName);
+    stringOffset = interpretAddString(program, soundEffectName);
 
     interpretPushLong(program, stringOffset);
     interpretPushShort(program, VALUE_TYPE_DYNAMIC_STRING);
@@ -4988,8 +5281,10 @@ static void op_sfx_build_open_name(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, action, stringOffset;
+	Object* object;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -4998,10 +5293,10 @@ static void op_sfx_build_open_name(Program* program)
         }
     }
 
-    Object* object = (Object*)data[1];
-    int action = data[0];
+    object = (Object*)data[1];
+    action = data[0];
 
-    int stringOffset = 0;
+    stringOffset = 0;
 
     if (object != NULL) {
         char soundEffectName[16];
@@ -5021,8 +5316,11 @@ static void op_attack_setup(Program* program)
 {
     opcode_t opcodes[2];
     int data[2];
+	int arg;
+	Object* attacker;
+	Object* defender;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcodes[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -5031,8 +5329,8 @@ static void op_attack_setup(Program* program)
         }
     }
 
-    Object* attacker = (Object*)data[1];
-    Object* defender = (Object*)data[0];
+    attacker = (Object*)data[1];
+    defender = (Object*)data[0];
 
     program->flags |= PROGRAM_FLAG_0x20;
 
@@ -5095,12 +5393,17 @@ static void op_attack_setup(Program* program)
 // 0x451CC4
 static void op_destroy_mult_objs(Program* program)
 {
-    program->flags |= PROGRAM_FLAG_0x20;
-
     opcode_t opcode[2];
     int data[2];
+	int arg, quantity, result;
+	Object* object;
+	Object* self;
+	Object* owner;
+	bool isSelf;
 
-    for (int arg = 0; arg < 2; arg++) {
+    program->flags |= PROGRAM_FLAG_0x20;
+
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -5109,19 +5412,19 @@ static void op_destroy_mult_objs(Program* program)
         }
     }
 
-    Object* object = (Object*)data[1];
-    int quantity = data[0];
+    object = (Object*)data[1];
+    quantity = data[0];
 
-    Object* self = scr_find_obj_from_program(program);
-    bool isSelf = self == object;
+    self = scr_find_obj_from_program(program);
+    isSelf = self == object;
 
-    int result = 0;
+    result = 0;
 
     if (PID_TYPE(object->pid) == OBJ_TYPE_CRITTER) {
         combat_delete_critter(object);
     }
 
-    Object* owner = obj_top_environment(object);
+    owner = obj_top_environment(object);
     if (owner != NULL) {
         int quantityToDestroy = item_count(owner, object);
         if (quantityToDestroy > quantity) {
@@ -5146,9 +5449,9 @@ static void op_destroy_mult_objs(Program* program)
 
         result = quantityToDestroy;
     } else {
+        Rect rect;
         register_clear(object);
 
-        Rect rect;
         obj_erase_object(object, &rect);
         tile_refresh_rect(&rect, map_elevation);
     }
@@ -5168,8 +5471,13 @@ static void op_use_obj_on_obj(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, sid;
+    Object* item;
+    Object* target;
+	Object* self;
+    Script* script;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -5178,8 +5486,8 @@ static void op_use_obj_on_obj(Program* program)
         }
     }
 
-    Object* item = (Object*)data[1];
-    Object* target = (Object*)data[0];
+    item = (Object*)data[1];
+    target = (Object*)data[0];
 
     if (item == NULL) {
         dbg_error(program, "use_obj_on_obj", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -5191,15 +5499,14 @@ static void op_use_obj_on_obj(Program* program)
         return;
     }
 
-    Script* script;
-    int sid = scr_find_sid_from_program(program);
+    sid = scr_find_sid_from_program(program);
     if (scr_ptr(sid, &script) == -1) {
         // FIXME: Should be SCRIPT_ERROR_CANT_MATCH_PROGRAM_TO_SID.
         dbg_error(program, "use_obj_on_obj", SCRIPT_ERROR_OBJECT_IS_NULL);
         return;
     }
 
-    Object* self = scr_find_obj_from_program(program);
+    self = scr_find_obj_from_program(program);
     if (PID_TYPE(self->pid) == OBJ_TYPE_CRITTER) {
         action_use_an_item_on_object(self, target, item);
     } else {
@@ -5220,8 +5527,13 @@ static void op_move_obj_inven_to_obj(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	Object* object1;
+	Object* object2;
+	Object* oldArmor;
+	Object* item2;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -5230,8 +5542,8 @@ static void op_move_obj_inven_to_obj(Program* program)
         }
     }
 
-    Object* object1 = (Object*)data[1];
-    Object* object2 = (Object*)data[0];
+    object1 = (Object*)data[1];
+    object2 = (Object*)data[0];
 
     if (object1 == NULL) {
         dbg_error(program, "move_obj_inven_to_obj", SCRIPT_ERROR_OBJECT_IS_NULL);
@@ -5243,8 +5555,8 @@ static void op_move_obj_inven_to_obj(Program* program)
         return;
     }
 
-    Object* oldArmor = NULL;
-    Object* item2 = NULL;
+    oldArmor = NULL;
+    item2 = NULL;
     if (object1 == obj_dude) {
         oldArmor = inven_worn(object1);
     } else {
@@ -5288,6 +5600,8 @@ static void op_endgame_movie(Program* program)
 // 0x45209C
 static void op_obj_art_fid(Program* program)
 {
+	Object* object;
+	int fid;
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -5295,9 +5609,9 @@ static void op_obj_art_fid(Program* program)
         interpretError("script error: %s: invalid arg to obj_art_fid", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
-    int fid = 0;
+    fid = 0;
     if (object != NULL) {
         fid = object->fid;
     } else {
@@ -5325,6 +5639,8 @@ static void op_art_anim(Program* program)
 // 0x452160
 static void op_party_member_obj(Program* program)
 {
+	Object* object;
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -5332,7 +5648,7 @@ static void op_party_member_obj(Program* program)
         interpretError("script error: %s: invalid arg to party_member_obj", program->name);
     }
 
-    Object* object = partyMemberFindObjFromPid(data);
+    object = partyMemberFindObjFromPid(data);
     interpretPushLong(program, (int)object);
     interpretPushShort(program, VALUE_TYPE_INT);
 }
@@ -5342,8 +5658,9 @@ static void op_rotation_to_tile(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, tile1, tile2, rotation;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -5352,10 +5669,10 @@ static void op_rotation_to_tile(Program* program)
         }
     }
 
-    int tile1 = data[1];
-    int tile2 = data[0];
+    tile1 = data[1];
+    tile2 = data[0];
 
-    int rotation = tile_dir(tile1, tile2);
+    rotation = tile_dir(tile1, tile2);
     interpretPushLong(program, rotation);
     interpretPushShort(program, VALUE_TYPE_INT);
 }
@@ -5363,6 +5680,8 @@ static void op_rotation_to_tile(Program* program)
 // 0x452234
 static void op_jam_lock(Program* program)
 {
+	Object* object;
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -5370,7 +5689,7 @@ static void op_jam_lock(Program* program)
         interpretError("script error: %s: invalid arg to jam_lock", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
     obj_jam_lock(object);
 }
@@ -5404,6 +5723,8 @@ static void op_combat_difficulty(Program* program)
 static void op_obj_on_screen(Program* program)
 {
     // 0x44B598
+	Object* object;
+	int result;
     static Rect rect = { 0, 0, 640, 480 };
 
     opcode_t opcode = interpretPopShort(program);
@@ -5413,9 +5734,9 @@ static void op_obj_on_screen(Program* program)
         interpretError("script error: %s: invalid arg to obj_on_screen", program->name);
     }
 
-    Object* object = (Object*)data;
+    object = (Object*)data;
 
-    int result = 0;
+    result = 0;
 
     if (object != NULL) {
         if (map_elevation == object->elevation) {
@@ -5437,6 +5758,8 @@ static void op_obj_on_screen(Program* program)
 // 0x4523A8
 static void op_critter_is_fleeing(Program* program)
 {
+	Object* obj;
+	bool fleeing;
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -5444,9 +5767,9 @@ static void op_critter_is_fleeing(Program* program)
         interpretError("script error: %s: invalid arg to critter_is_fleeing", program->name);
     }
 
-    Object* obj = (Object*)data;
+    obj = (Object*)data;
 
-    bool fleeing = false;
+    fleeing = false;
     if (obj != NULL) {
         fleeing = (obj->data.critter.combat.maneuver & CRITTER_MANUEVER_FLEEING) != 0;
     } else {
@@ -5462,8 +5785,10 @@ static void op_critter_set_flee_state(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg, fleeing;
+	Object* object;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -5472,8 +5797,8 @@ static void op_critter_set_flee_state(Program* program)
         }
     }
 
-    Object* object = (Object*)data[1];
-    int fleeing = data[0];
+    object = (Object*)data[1];
+    fleeing = data[0];
 
     if (object != NULL) {
         if (fleeing != 0) {
@@ -5499,12 +5824,13 @@ static void op_debug_msg(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	char* string;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_STRING) {
         interpretError("script error: %s: invalid arg to debug_msg", program->name);
     }
 
-    char* string = interpretGetString(program, opcode, data);
+    string = interpretGetString(program, opcode, data);
 
     if (string != NULL) {
         bool showScriptMessages = false;
@@ -5545,8 +5871,10 @@ static void op_tile_contains_pid_obj(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg, tile, elevation, pid;
+	Object* found;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -5555,10 +5883,10 @@ static void op_tile_contains_pid_obj(Program* program)
         }
     }
 
-    int tile = data[2];
-    int elevation = data[1];
-    int pid = data[0];
-    Object* found = NULL;
+    tile = data[2];
+    elevation = data[1];
+    pid = data[0];
+    found = NULL;
 
     if (tile != -1) {
         Object* object = obj_find_first_at(elevation);
@@ -5579,6 +5907,7 @@ static void op_tile_contains_pid_obj(Program* program)
 static void op_obj_name(Program* program)
 {
     // 0x505504
+	Object* obj;
     static char* strName = _aCritter;
 
     opcode_t opcode = interpretPopShort(program);
@@ -5588,7 +5917,7 @@ static void op_obj_name(Program* program)
         interpretError("script error: %s: invalid arg to obj_name", program->name);
     }
 
-    Object* obj = (Object*)data;
+    obj = (Object*)data;
     if (obj != NULL) {
         strName = object_name(obj);
     } else {
@@ -5813,3 +6142,4 @@ void updateIntExtra()
 void intExtraRemoveProgramReferences(Program* program)
 {
 }
+

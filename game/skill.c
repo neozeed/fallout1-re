@@ -251,11 +251,12 @@ int skill_base(int skill)
 // 0x4984A8
 int skill_points(Object* obj, int skill)
 {
+    Proto* proto;
+
     if (skill < 0 || skill >= SKILL_COUNT) {
         return 0;
     }
 
-    Proto* proto;
     proto_ptr(obj->pid, &proto);
 
     return proto->critter.data.skills[skill];
@@ -394,6 +395,11 @@ int skill_pic(int skill)
 // 0x498738
 static void show_skill_use_messages(Object* obj, int skill, Object* a3, int a4, int criticalChanceModifier)
 {
+	SkillDescription* skillDescription;
+	int baseExperience;
+	int xpToAdd;
+	int before;
+
     if (obj != obj_dude) {
         return;
     }
@@ -402,9 +408,9 @@ static void show_skill_use_messages(Object* obj, int skill, Object* a3, int a4, 
         return;
     }
 
-    SkillDescription* skillDescription = &(skill_data[skill]);
+    skillDescription = &(skill_data[skill]);
 
-    int baseExperience = skillDescription->experience;
+    baseExperience = skillDescription->experience;
     if (baseExperience == 0) {
         return;
     }
@@ -413,9 +419,9 @@ static void show_skill_use_messages(Object* obj, int skill, Object* a3, int a4, 
         baseExperience += abs(criticalChanceModifier);
     }
 
-    int xpToAdd = a4 * baseExperience;
+    xpToAdd = a4 * baseExperience;
 
-    int before = stat_pc_get(PC_STAT_EXPERIENCE);
+    before = stat_pc_get(PC_STAT_EXPERIENCE);
 
     if (stat_pc_add_experience(xpToAdd) == 0 && a4 > 0) {
         MessageListItem messageListItem;
@@ -435,6 +441,12 @@ int skill_use(Object* obj, Object* a2, int skill, int criticalChanceModifier)
 {
     MessageListItem messageListItem;
     char text[60];
+	int criticalChance;
+    int damageHealingAttempts;
+    int v1;
+    int v2;
+	int index;
+	int roll;
 
     bool giveExp = true;
     int currentHp = stat_level(a2, STAT_CURRENT_HIT_POINTS);
@@ -443,6 +455,9 @@ int skill_use(Object* obj, Object* a2, int skill, int criticalChanceModifier)
     int hpToHeal = 0;
     int maximumHpToHeal = 0;
     int minimumHpToHeal = 0;
+           
+	MessageListItem prefix;
+
 
     if (obj == obj_dude) {
         if (skill == SKILL_FIRST_AID || skill == SKILL_DOCTOR) {
@@ -452,11 +467,11 @@ int skill_use(Object* obj, Object* a2, int skill, int criticalChanceModifier)
         }
     }
 
-    int criticalChance = stat_level(obj, STAT_CRITICAL_CHANCE) + criticalChanceModifier;
+    criticalChance = stat_level(obj, STAT_CRITICAL_CHANCE) + criticalChanceModifier;
 
-    int damageHealingAttempts = 1;
-    int v1 = 0;
-    int v2 = 0;
+    damageHealingAttempts = 1;
+    v1 = 0;
+    v2 = 0;
 
     switch (skill) {
     case SKILL_FIRST_AID:
@@ -485,9 +500,10 @@ int skill_use(Object* obj, Object* a2, int skill, int criticalChanceModifier)
         }
 
         if (currentHp < maximumHp) {
+			int roll;
+
             palette_fade_to(black_palette);
 
-            int roll;
             if (critter_body_type(a2) == BODY_TYPE_ROBOTIC) {
                 roll = ROLL_FAILURE;
             } else {
@@ -597,11 +613,12 @@ int skill_use(Object* obj, Object* a2, int skill, int criticalChanceModifier)
                     DAM_CRIP_LEG_LEFT,
                 };
 
-                for (int index = 0; index < HEALABLE_DAMAGE_FLAGS_LENGTH; index++) {
+                for (index = 0; index < HEALABLE_DAMAGE_FLAGS_LENGTH; index++) {
                     if ((a2->data.critter.combat.results & flags[index]) != 0) {
+						int roll;
                         damageHealingAttempts++;
 
-                        int roll = skill_result(obj, skill, criticalChance, &hpToHeal);
+                        roll = skill_result(obj, skill, criticalChance, &hpToHeal);
 
                         // 530: damaged eye
                         // 531: crippled left arm
@@ -613,7 +630,6 @@ int skill_use(Object* obj, Object* a2, int skill, int criticalChanceModifier)
                             return -1;
                         }
 
-                        MessageListItem prefix;
 
                         if (roll == ROLL_SUCCESS || roll == ROLL_CRITICAL_SUCCESS) {
                             a2->data.critter.combat.results &= ~flags[index];
@@ -645,7 +661,6 @@ int skill_use(Object* obj, Object* a2, int skill, int criticalChanceModifier)
                 }
             }
 
-            int roll;
             if (critter_body_type(a2) == BODY_TYPE_ROBOTIC) {
                 roll = ROLL_FAILURE;
             } else {
@@ -778,6 +793,13 @@ int skill_use(Object* obj, Object* a2, int skill, int criticalChanceModifier)
 int skill_check_stealing(Object* a1, Object* a2, Object* item, bool isPlanting)
 {
     int howMuch;
+	int stealChance;
+    int stealRoll;
+	int catchRoll;
+	MessageListItem messageListItem;
+    char text[60];
+
+
 
     int stealModifier = 1 - gStealCount;
 
@@ -797,12 +819,11 @@ int skill_check_stealing(Object* a1, Object* a2, Object* item, bool isPlanting)
         stealModifier += 20;
     }
 
-    int stealChance = stealModifier + skill_level(a1, SKILL_STEAL);
+    stealChance = stealModifier + skill_level(a1, SKILL_STEAL);
     if (stealChance > 95) {
         stealChance = 95;
     }
 
-    int stealRoll;
     if (a1 == obj_dude && isPartyMember(a2)) {
         stealRoll = ROLL_CRITICAL_SUCCESS;
     } else {
@@ -810,7 +831,6 @@ int skill_check_stealing(Object* a1, Object* a2, Object* item, bool isPlanting)
         stealRoll = roll_check(stealChance, criticalChance, &howMuch);
     }
 
-    int catchRoll;
     if (stealRoll == ROLL_CRITICAL_SUCCESS) {
         catchRoll = ROLL_CRITICAL_FAILURE;
     } else if (stealRoll == ROLL_CRITICAL_FAILURE) {
@@ -826,8 +846,6 @@ int skill_check_stealing(Object* a1, Object* a2, Object* item, bool isPlanting)
         catchRoll = roll_check(catchChance, 0, &howMuch);
     }
 
-    MessageListItem messageListItem;
-    char text[60];
 
     if (catchRoll != ROLL_SUCCESS && catchRoll != ROLL_CRITICAL_SUCCESS) {
         // 571: You steal the %s.
@@ -890,14 +908,18 @@ static int skill_game_difficulty(int skill)
 // 0x499428
 static int skill_use_slot_available(int skill)
 {
-    for (int slot = 0; slot < SKILLS_MAX_USES_PER_DAY; slot++) {
+	int slot;
+	int time;
+	int hoursSinceLastUsage;
+
+    for (slot = 0; slot < SKILLS_MAX_USES_PER_DAY; slot++) {
         if (timesSkillUsed[skill][slot] == 0) {
             return slot;
         }
     }
 
-    int time = game_time();
-    int hoursSinceLastUsage = (time - timesSkillUsed[skill][0]) / GAME_TIME_TICKS_PER_HOUR;
+    time = game_time();
+    hoursSinceLastUsage = (time - timesSkillUsed[skill][0]) / GAME_TIME_TICKS_PER_HOUR;
     if (hoursSinceLastUsage <= 24) {
         return -1;
     }
@@ -914,7 +936,8 @@ static int skill_use_slot_add(int skill)
     }
 
     if (timesSkillUsed[skill][slot] != 0) {
-        for (int i = 0; i < slot; i++) {
+		int i;
+        for (i = 0; i < slot; i++) {
             timesSkillUsed[skill][i] = timesSkillUsed[skill][i + 1];
         }
     }

@@ -9,10 +9,16 @@
 // 0x4A91C0
 int word_wrap(const char* string, int width, short* breakpoints, short* breakpointsLengthPtr)
 {
+	int index;
+	int gap;
+    int accum;
+    const char* prevSpaceOrHyphen;
+    const char* pch;
+
     breakpoints[0] = 0;
     *breakpointsLengthPtr = 1;
 
-    for (int index = 1; index < WORD_WRAP_MAX_COUNT; index++) {
+    for (index = 1; index < WORD_WRAP_MAX_COUNT; index++) {
         breakpoints[index] = -1;
     }
 
@@ -26,11 +32,11 @@ int word_wrap(const char* string, int width, short* breakpoints, short* breakpoi
         return 0;
     }
 
-    int gap = text_spacing();
+    gap = text_spacing();
 
-    int accum = 0;
-    const char* prevSpaceOrHyphen = NULL;
-    const char* pch = string;
+    accum = 0;
+    prevSpaceOrHyphen = NULL;
+    pch = string;
     while (*pch != '\0') {
         accum += gap + text_char_width(*pch & 0xFF);
         if (accum <= width) {

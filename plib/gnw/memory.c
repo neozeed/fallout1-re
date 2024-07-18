@@ -78,9 +78,10 @@ static void* my_malloc(size_t size)
     void* ptr = NULL;
 
     if (size != 0) {
+		unsigned char* block;
         size += sizeof(MemoryBlockHeader) + sizeof(MemoryBlockFooter);
 
-        unsigned char* block = (unsigned char*)malloc(size);
+        block = (unsigned char*)malloc(size);
         if (block != NULL) {
             // NOTE: Uninline.
             ptr = mem_prep_block(block, size);
@@ -110,10 +111,14 @@ void* mem_realloc(void* ptr, size_t size)
 static void* my_realloc(void* ptr, size_t size)
 {
     if (ptr != NULL) {
+		MemoryBlockHeader* header;
+		size_t oldSize;
+		unsigned char* newBlock;
+
         unsigned char* block = (unsigned char*)ptr - sizeof(MemoryBlockHeader);
 
-        MemoryBlockHeader* header = (MemoryBlockHeader*)block;
-        size_t oldSize = header->size;
+        header = (MemoryBlockHeader*)block;
+        oldSize = header->size;
 
         mem_allocated -= oldSize;
 
@@ -123,7 +128,7 @@ static void* my_realloc(void* ptr, size_t size)
             size += sizeof(MemoryBlockHeader) + sizeof(MemoryBlockFooter);
         }
 
-        unsigned char* newBlock = (unsigned char*)realloc(block, size);
+        newBlock = (unsigned char*)realloc(block, size);
         if (newBlock != NULL) {
             mem_allocated += size;
             if (mem_allocated > max_allocated) {

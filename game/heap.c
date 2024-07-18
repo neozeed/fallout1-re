@@ -68,11 +68,11 @@ typedef struct HeapMoveableExtent {
     int size;
 } HeapMoveableExtent;
 
-static_assert(sizeof(HeapBlockHeader) == 16, "wrong size");
-static_assert(sizeof(HeapBlockFooter) == 4, "wrong size");
-static_assert(sizeof(HeapMoveableExtent) == 16, "wrong size");
-static_assert(sizeof(HeapHandle) == 8, "wrong size");
-static_assert(sizeof(Heap) == 48, "wrong size");
+//static_assert(sizeof(HeapBlockHeader) == 16, "wrong size");
+//static_assert(sizeof(HeapBlockFooter) == 4, "wrong size");
+//static_assert(sizeof(HeapMoveableExtent) == 16, "wrong size");
+//static_assert(sizeof(HeapHandle) == 8, "wrong size");
+//static_assert(sizeof(Heap) == 48, "wrong size");
 
 static bool heap_create_lists();
 static void heap_destroy_lists();
@@ -161,17 +161,20 @@ bool heap_init(Heap* heap, int a2)
         int size = (a2 >> 10) + a2;
         heap->data = (unsigned char*)mem_malloc(size);
         if (heap->data != NULL) {
+			HeapBlockHeader* blockHeader;
+			HeapBlockFooter* blockFooter;
+
             heap->size = size;
             heap->freeBlocks = 1;
             heap->freeSize = heap->size - HEAP_BLOCK_OVERHEAD_SIZE;
 
-            HeapBlockHeader* blockHeader = (HeapBlockHeader*)heap->data;
+            blockHeader = (HeapBlockHeader*)heap->data;
             blockHeader->guard = HEAP_BLOCK_HEADER_GUARD;
             blockHeader->size = heap->freeSize;
             blockHeader->state = 0;
             blockHeader->handle_index = -1;
 
-            HeapBlockFooter* blockFooter = (HeapBlockFooter*)(heap->data + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
+            blockFooter = (HeapBlockFooter*)(heap->data + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
             blockFooter->guard = HEAP_BLOCK_FOOTER_GUARD;
 
             heap_count++;
@@ -190,11 +193,12 @@ bool heap_init(Heap* heap, int a2)
 // 0x44A01C
 bool heap_exit(Heap* heap)
 {
+	int index;
     if (heap == NULL) {
         return false;
     }
 
-    for (int index = 0; index < heap->handlesLength; index++) {
+    for (index = 0; index < heap->handlesLength; index++) {
         HeapHandle* handle = &(heap->handles[index]);
         if (handle->state == 4 && handle->data != NULL) {
             mem_free(handle->data);
@@ -225,6 +229,8 @@ bool heap_allocate(Heap* heap, int* handleIndexPtr, int size, int a4)
     int state;
     int blockSize;
     HeapHandle* handle;
+	void* block;
+    int handleIndex;
 
     if (heap == NULL || handleIndexPtr == NULL || size == 0) {
         goto err;
@@ -234,7 +240,6 @@ bool heap_allocate(Heap* heap, int* handleIndexPtr, int size, int a4)
         a4 = 0;
     }
 
-    void* block;
     if (!heap_find_free_block(heap, size, &block, a4)) {
         goto err;
     }
@@ -242,7 +247,6 @@ bool heap_allocate(Heap* heap, int* handleIndexPtr, int size, int a4)
     blockHeader = (HeapBlockHeader*)block;
     state = blockHeader->state;
 
-    int handleIndex;
     if (!heap_acquire_handle(heap, &handleIndex)) {
         goto err_no_handle;
     }
@@ -270,27 +274,31 @@ bool heap_allocate(Heap* heap, int* handleIndexPtr, int size, int a4)
     if (state == HEAP_BLOCK_STATE_FREE) {
         int remainingSize = blockSize - size;
         if (remainingSize > HEAP_BLOCK_MIN_SIZE) {
+			HeapBlockFooter* blockFooter;
+			HeapBlockHeader* nextBlockHeader;
+			HeapBlockFooter* nextBlockFooter;
+			unsigned char* nextBlock;
             // The block we've just found is big enough for splitting, first
             // resize it to take just what was requested.
             blockHeader->size = size;
             blockSize = size;
 
             //
-            HeapBlockFooter* blockFooter = (HeapBlockFooter*)((unsigned char*)block + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
+            blockFooter = (HeapBlockFooter*)((unsigned char*)block + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
             blockFooter->guard = HEAP_BLOCK_FOOTER_GUARD;
 
             // Obtain beginning of the next block.
-            unsigned char* nextBlock = (unsigned char*)block + blockHeader->size + HEAP_BLOCK_OVERHEAD_SIZE;
+            nextBlock = (unsigned char*)block + blockHeader->size + HEAP_BLOCK_OVERHEAD_SIZE;
 
             // Setup next block's header...
-            HeapBlockHeader* nextBlockHeader = (HeapBlockHeader*)nextBlock;
+            nextBlockHeader = (HeapBlockHeader*)nextBlock;
             nextBlockHeader->guard = HEAP_BLOCK_HEADER_GUARD;
             nextBlockHeader->size = remainingSize - HEAP_BLOCK_OVERHEAD_SIZE;
             nextBlockHeader->state = HEAP_BLOCK_STATE_FREE;
             nextBlockHeader->handle_index = -1;
 
             // ... and footer.
-            HeapBlockFooter* nextBlockFooter = (HeapBlockFooter*)(nextBlock + nextBlockHeader->size + HEAP_BLOCK_HEADER_SIZE);
+            nextBlockFooter = (HeapBlockFooter*)(nextBlock + nextBlockHeader->size + HEAP_BLOCK_HEADER_SIZE);
             nextBlockFooter->guard = HEAP_BLOCK_FOOTER_GUARD;
 
             // Update heap stats
@@ -338,21 +346,27 @@ err:
 // 0x44A294
 bool heap_deallocate(Heap* heap, int* handleIndexPtr)
 {
+	int handleIndex;
+	HeapHandle* handle;
+	HeapBlockHeader* blockHeader;
+	HeapBlockFooter* blockFooter;
+	int size;
+
     if (heap == NULL || handleIndexPtr == NULL) {
         debug_printf("Heap Error: Could not deallocate block.\n");
         return false;
     }
 
-    int handleIndex = *handleIndexPtr;
+    handleIndex = *handleIndexPtr;
 
-    HeapHandle* handle = &(heap->handles[handleIndex]);
+    handle = &(heap->handles[handleIndex]);
 
-    HeapBlockHeader* blockHeader = (HeapBlockHeader*)handle->data;
+    blockHeader = (HeapBlockHeader*)handle->data;
     if (blockHeader->guard != HEAP_BLOCK_HEADER_GUARD) {
         debug_printf("Heap Error: Bad guard begin detected during deallocate.\n");
     }
 
-    HeapBlockFooter* blockFooter = (HeapBlockFooter*)(handle->data + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
+    blockFooter = (HeapBlockFooter*)(handle->data + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
     if (blockFooter->guard != HEAP_BLOCK_FOOTER_GUARD) {
         debug_printf("Heap Error: Bad guard end detected during deallocate.\n");
     }
@@ -366,7 +380,7 @@ bool heap_deallocate(Heap* heap, int* handleIndexPtr)
         return false;
     }
 
-    int size = blockHeader->size;
+    size = blockHeader->size;
 
     if (handle->state == HEAP_BLOCK_STATE_MOVABLE) {
         // Unbind block from handle and mark it as free.
@@ -407,20 +421,24 @@ bool heap_deallocate(Heap* heap, int* handleIndexPtr)
 // 0x44A3C0
 bool heap_lock(Heap* heap, int handleIndex, unsigned char** bufferPtr)
 {
+	HeapHandle* handle;
+	HeapBlockHeader* blockHeader;
+	HeapBlockFooter* blockFooter;
+
     if (heap == NULL) {
         debug_printf("Heap Error: Could not lock block");
         return false;
     }
 
-    HeapHandle* handle = &(heap->handles[handleIndex]);
+    handle = &(heap->handles[handleIndex]);
 
-    HeapBlockHeader* blockHeader = (HeapBlockHeader*)handle->data;
+    blockHeader = (HeapBlockHeader*)handle->data;
     if (blockHeader->guard != HEAP_BLOCK_HEADER_GUARD) {
         debug_printf("Heap Error: Bad guard begin detected during lock.\n");
         return false;
     }
 
-    HeapBlockFooter* blockFooter = (HeapBlockFooter*)(handle->data + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
+    blockFooter = (HeapBlockFooter*)(handle->data + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
     if (blockFooter->guard != HEAP_BLOCK_FOOTER_GUARD) {
         debug_printf("Heap Error: Bad guard end detected during lock.\n");
         return false;
@@ -437,13 +455,14 @@ bool heap_lock(Heap* heap, int handleIndex, unsigned char** bufferPtr)
     }
 
     if (handle->state == HEAP_BLOCK_STATE_MOVABLE) {
+		int size;
         blockHeader->state = HEAP_BLOCK_STATE_LOCKED;
         handle->state = HEAP_BLOCK_STATE_LOCKED;
 
         heap->moveableBlocks--;
         heap->lockedBlocks++;
 
-        int size = blockHeader->size;
+        size = blockHeader->size;
         heap->moveableSize -= size;
         heap->lockedSize += size;
 
@@ -468,19 +487,24 @@ bool heap_lock(Heap* heap, int handleIndex, unsigned char** bufferPtr)
 // 0x44A4C4
 bool heap_unlock(Heap* heap, int handleIndex)
 {
+	HeapHandle* handle;
+	HeapBlockHeader* blockHeader;
+	HeapBlockFooter* blockFooter;
+	int size;
+
     if (heap == NULL) {
         debug_printf("Heap Error: Could not unlock block.\n");
         return false;
     }
 
-    HeapHandle* handle = &(heap->handles[handleIndex]);
+    handle = &(heap->handles[handleIndex]);
 
-    HeapBlockHeader* blockHeader = (HeapBlockHeader*)handle->data;
+    blockHeader = (HeapBlockHeader*)handle->data;
     if (blockHeader->guard != HEAP_BLOCK_HEADER_GUARD) {
         debug_printf("Heap Error: Bad guard begin detected during unlock.\n");
     }
 
-    HeapBlockFooter* blockFooter = (HeapBlockFooter*)(handle->data + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
+    blockFooter = (HeapBlockFooter*)(handle->data + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
     if (blockFooter->guard != HEAP_BLOCK_FOOTER_GUARD) {
         debug_printf("Heap Error: Bad guard end detected during unlock.\n");
     }
@@ -507,7 +531,7 @@ bool heap_unlock(Heap* heap, int handleIndex)
     heap->moveableBlocks++;
     heap->lockedBlocks--;
 
-    int size = blockHeader->size;
+    size = blockHeader->size;
     heap->moveableSize += size;
     heap->lockedSize -= size;
 
@@ -517,26 +541,35 @@ bool heap_unlock(Heap* heap, int handleIndex)
 // 0x44A5A4
 bool heap_validate(Heap* heap)
 {
-    debug_printf("Validating heap...\n");
-
-    int blocksCount = heap->freeBlocks + heap->moveableBlocks + heap->lockedBlocks;
-    unsigned char* ptr = heap->data;
-
     int freeBlocks = 0;
     int freeSize = 0;
     int moveableBlocks = 0;
     int moveableSize = 0;
     int lockedBlocks = 0;
     int lockedSize = 0;
+	int index;
+	int blocksCount;
+	unsigned char* ptr;
+	int systemBlocks = 0;
+    int systemSize = 0;
+	int handleIndex;
 
-    for (int index = 0; index < blocksCount; index++) {
+    debug_printf("Validating heap...\n");
+
+    blocksCount = heap->freeBlocks + heap->moveableBlocks + heap->lockedBlocks;
+    ptr = heap->data;
+
+
+
+    for (index = 0; index < blocksCount; index++) {
+		HeapBlockFooter* blockFooter;
         HeapBlockHeader* blockHeader = (HeapBlockHeader*)ptr;
         if (blockHeader->guard != HEAP_BLOCK_HEADER_GUARD) {
             debug_printf("Bad guard begin detected during validate.\n");
             return false;
         }
 
-        HeapBlockFooter* blockFooter = (HeapBlockFooter*)(ptr + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
+        blockFooter = (HeapBlockFooter*)(ptr + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
         if (blockFooter->guard != HEAP_BLOCK_FOOTER_GUARD) {
             debug_printf("Bad guard end detected during validate.\n");
             return false;
@@ -594,19 +627,17 @@ bool heap_validate(Heap* heap)
 
     debug_printf("Heap is O.K.\n");
 
-    int systemBlocks = 0;
-    int systemSize = 0;
-
-    for (int handleIndex = 0; handleIndex < heap->handlesLength; handleIndex++) {
+    for (handleIndex = 0; handleIndex < heap->handlesLength; handleIndex++) {
         HeapHandle* handle = &(heap->handles[handleIndex]);
         if (handle->state != HEAP_HANDLE_STATE_INVALID && (handle->state & HEAP_BLOCK_STATE_SYSTEM) != 0) {
+			HeapBlockFooter* blockFooter;
             HeapBlockHeader* blockHeader = (HeapBlockHeader*)handle->data;
             if (blockHeader->guard != HEAP_BLOCK_HEADER_GUARD) {
                 debug_printf("Bad guard begin detected in system block during validate.\n");
                 return false;
             }
 
-            HeapBlockFooter* blockFooter = (HeapBlockFooter*)(handle->data + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
+            blockFooter = (HeapBlockFooter*)(handle->data + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
             if (blockFooter->guard != HEAP_BLOCK_FOOTER_GUARD) {
                 debug_printf("Bad guard end detected in system block during validate.\n");
                 return false;
@@ -633,10 +664,6 @@ bool heap_validate(Heap* heap)
 // 0x44A888
 bool heap_stats(Heap* heap, char* dest)
 {
-    if (heap == NULL || dest == NULL) {
-        return false;
-    }
-
     const char* format = "[Heap]\n"
                          "Total free blocks: %d\n"
                          "Total free size: %d\n"
@@ -648,6 +675,10 @@ bool heap_stats(Heap* heap, char* dest)
                          "Total system size: %d\n"
                          "Total handles: %d\n"
                          "Total heaps: %d";
+
+    if (heap == NULL || dest == NULL) {
+        return false;
+    }
 
     sprintf(dest, format,
         heap->freeBlocks,
@@ -768,9 +799,11 @@ static bool heap_exit_handles(Heap* heap)
 // 0x44AA8C
 static bool heap_acquire_handle(Heap* heap, int* handleIndexPtr)
 {
+	int index;
+	HeapHandle* handles;
     // Loop thru already available handles and find first that is not currently
     // used.
-    for (int index = 0; index < heap->handlesLength; index++) {
+    for (index = 0; index < heap->handlesLength; index++) {
         HeapHandle* handle = &(heap->handles[index]);
         if (handle->state == HEAP_HANDLE_STATE_INVALID) {
             *handleIndexPtr = index;
@@ -779,7 +812,7 @@ static bool heap_acquire_handle(Heap* heap, int* handleIndexPtr)
     }
 
     // If we're here the search above failed, we have to allocate more handles.
-    HeapHandle* handles = (HeapHandle*)mem_realloc(heap->handles, sizeof(*handles) * (heap->handlesLength + HEAP_HANDLES_INITIAL_LENGTH));
+    handles = (HeapHandle*)mem_realloc(heap->handles, sizeof(*handles) * (heap->handlesLength + HEAP_HANDLES_INITIAL_LENGTH));
     if (handles == NULL) {
         return false;
     }
@@ -828,6 +861,12 @@ static bool heap_find_free_block(Heap* heap, int size, void** blockPtr, int a4)
     int reservedFreeBlockIndex;
     HeapBlockHeader* blockHeader;
     HeapBlockFooter* blockFooter;
+	int moveableExtentsCount;
+    int maxBlocksCount;
+	int reservedBlocksLength;
+    int extentIndex;
+	int moveableBlockIndex;
+
 
     if (!heap_build_free_list(heap)) {
         goto system;
@@ -862,8 +901,6 @@ static bool heap_find_free_block(Heap* heap, int size, void** blockPtr, int a4)
         return true;
     }
 
-    int moveableExtentsCount;
-    int maxBlocksCount;
     if (!heap_build_moveable_list(heap, &moveableExtentsCount, &maxBlocksCount)) {
         goto system;
     }
@@ -884,8 +921,8 @@ static bool heap_find_free_block(Heap* heap, int size, void** blockPtr, int a4)
 
     // Loop thru moveable extents and find first one which is big enough for new
     // block and for which we can move every block somewhere.
-    int extentIndex;
     for (extentIndex = 0; extentIndex < moveableExtentsCount; extentIndex++) {
+		int moveableBlockIndex;
         HeapMoveableExtent* extent = &(heap_moveable_list[extentIndex]);
 
         // Calculate extent size including the size of the overhead. Exclude the
@@ -906,10 +943,11 @@ static bool heap_find_free_block(Heap* heap, int size, void** blockPtr, int a4)
         // NOTE: Uninline.
         heap_sort_subblock_list(extent->moveableBlocksLength);
 
-        int reservedBlocksLength = 0;
+        reservedBlocksLength = 0;
 
         // Loop thru sorted moveable blocks and build array of reservations.
-        for (int moveableBlockIndex = 0; moveableBlockIndex < extent->moveableBlocksLength; moveableBlockIndex++) {
+        for (moveableBlockIndex = 0; moveableBlockIndex < extent->moveableBlocksLength; moveableBlockIndex++) {
+            int freeBlockIndex;
             // Grab current moveable block.
             unsigned char* moveableBlock = heap_subblock_list[moveableBlockIndex];
             HeapBlockHeader* moveableBlockHeader = (HeapBlockHeader*)moveableBlock;
@@ -923,8 +961,8 @@ static bool heap_find_free_block(Heap* heap, int size, void** blockPtr, int a4)
             // Loop thru sorted free blocks (smallest -> largest) and find
             // first unreserved free block that can encompass current moveable
             // block.
-            int freeBlockIndex;
             for (freeBlockIndex = 0; freeBlockIndex < heap->freeBlocks; freeBlockIndex++) {
+                int freeBlocksIndexesIndex;
                 // Grab current free block.
                 unsigned char* freeBlock = heap_free_list[freeBlockIndex];
                 HeapBlockHeader* freeBlockHeader = (HeapBlockHeader*)freeBlock;
@@ -943,7 +981,6 @@ static bool heap_find_free_block(Heap* heap, int size, void** blockPtr, int a4)
 
                 // Loop thru reserved free blocks to make to make sure we
                 // can take it.
-                int freeBlocksIndexesIndex;
                 for (freeBlocksIndexesIndex = 0; freeBlocksIndexesIndex < reservedBlocksLength; freeBlocksIndexesIndex++) {
                     if (freeBlockIndex == heap_fake_move_list[freeBlocksIndexesIndex]) {
                         // This free block was already reserved, there is no
@@ -989,7 +1026,11 @@ static bool heap_find_free_block(Heap* heap, int size, void** blockPtr, int a4)
 
     extent = &(heap_moveable_list[extentIndex]);
     reservedFreeBlockIndex = 0;
-    for (int moveableBlockIndex = 0; moveableBlockIndex < extent->moveableBlocksLength; moveableBlockIndex++) {
+    for (moveableBlockIndex = 0; moveableBlockIndex < extent->moveableBlocksLength; moveableBlockIndex++) {
+		unsigned char* freeBlock;
+        HeapBlockHeader* freeBlockHeader;
+        int freeBlockSize;
+		int remainingSize;
         unsigned char* moveableBlock = heap_subblock_list[moveableBlockIndex];
         HeapBlockHeader* moveableBlockHeader = (HeapBlockHeader*)moveableBlock;
         int moveableBlockSize = moveableBlockHeader->size;
@@ -997,21 +1038,22 @@ static bool heap_find_free_block(Heap* heap, int size, void** blockPtr, int a4)
             continue;
         }
 
-        unsigned char* freeBlock = heap_free_list[heap_fake_move_list[reservedFreeBlockIndex++]];
-        HeapBlockHeader* freeBlockHeader = (HeapBlockHeader*)freeBlock;
-        int freeBlockSize = freeBlockHeader->size;
+        freeBlock = heap_free_list[heap_fake_move_list[reservedFreeBlockIndex++]];
+        freeBlockHeader = (HeapBlockHeader*)freeBlock;
+        freeBlockSize = freeBlockHeader->size;
 
         memcpy(freeBlock, moveableBlock, moveableBlockSize + HEAP_BLOCK_OVERHEAD_SIZE);
         heap->handles[freeBlockHeader->handle_index].data = freeBlock;
 
         // Calculate remaining size of the free block after moving.
-        int remainingSize = freeBlockSize - moveableBlockSize;
+        remainingSize = freeBlockSize - moveableBlockSize;
         if (remainingSize != 0) {
             if (remainingSize < HEAP_BLOCK_MIN_SIZE) {
+				HeapBlockFooter* freeBlockFooter;
                 // The remaining size of the former free block is too small to
                 // become a new free block, merge it into the current one.
                 freeBlockHeader->size += remainingSize;
-                HeapBlockFooter* freeBlockFooter = (HeapBlockFooter*)(freeBlock + freeBlockHeader->size + HEAP_BLOCK_HEADER_SIZE);
+                freeBlockFooter = (HeapBlockFooter*)(freeBlock + freeBlockHeader->size + HEAP_BLOCK_HEADER_SIZE);
                 freeBlockFooter->guard = HEAP_BLOCK_FOOTER_GUARD;
 
                 // The remaining size of the free block was merged into moveable
@@ -1063,20 +1105,23 @@ system:
         }
 
         if (a4 == 0) {
+			unsigned char* block;
+			HeapBlockFooter* blockFooter;
+			HeapBlockHeader* blockHeader;
             debug_printf("Allocating block from system memory...\n");
-            unsigned char* block = (unsigned char*)mem_malloc(size + HEAP_BLOCK_OVERHEAD_SIZE);
+            block = (unsigned char*)mem_malloc(size + HEAP_BLOCK_OVERHEAD_SIZE);
             if (block == NULL) {
                 debug_printf("fatal error: internal_malloc() failed in heap_find_free_block()!\n");
                 return false;
             }
 
-            HeapBlockHeader* blockHeader = (HeapBlockHeader*)block;
+            blockHeader = (HeapBlockHeader*)block;
             blockHeader->guard = HEAP_BLOCK_HEADER_GUARD;
             blockHeader->size = size;
             blockHeader->state = HEAP_BLOCK_STATE_SYSTEM;
             blockHeader->handle_index = -1;
 
-            HeapBlockFooter* blockFooter = (HeapBlockFooter*)(block + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
+            blockFooter = (HeapBlockFooter*)(block + blockHeader->size + HEAP_BLOCK_HEADER_SIZE);
             blockFooter->guard = HEAP_BLOCK_FOOTER_GUARD;
 
             *blockPtr = block;
@@ -1091,6 +1136,10 @@ system:
 // 0x44B1A0
 static bool heap_build_free_list(Heap* heap)
 {
+    int blocksLength;
+    unsigned char* ptr;
+    int freeBlockIndex;
+
     if (heap->freeBlocks == 0) {
         return false;
     }
@@ -1105,22 +1154,24 @@ static bool heap_build_free_list(Heap* heap)
         heap_free_list_size = heap->freeBlocks;
     }
 
-    int blocksLength = heap->moveableBlocks + heap->freeBlocks + heap->lockedBlocks;
+    blocksLength = heap->moveableBlocks + heap->freeBlocks + heap->lockedBlocks;
 
-    unsigned char* ptr = heap->data;
+    ptr = heap->data;
 
-    int freeBlockIndex = 0;
+    freeBlockIndex = 0;
     while (blocksLength != 0) {
+		HeapBlockHeader* blockHeader;
         if (freeBlockIndex >= heap->freeBlocks) {
             break;
         }
 
-        HeapBlockHeader* blockHeader = (HeapBlockHeader*)ptr;
+        blockHeader = (HeapBlockHeader*)ptr;
         if (blockHeader->state == HEAP_BLOCK_STATE_FREE) {
             // Join consecutive free blocks if any.
             while (blocksLength > 1) {
+				HeapBlockHeader* nextBlockHeader;
                 // Grab next block and check if's a free block.
-                HeapBlockHeader* nextBlockHeader = (HeapBlockHeader*)(ptr + blockHeader->size + HEAP_BLOCK_OVERHEAD_SIZE);
+                nextBlockHeader = (HeapBlockHeader*)(ptr + blockHeader->size + HEAP_BLOCK_OVERHEAD_SIZE);
                 if (nextBlockHeader->state != HEAP_BLOCK_STATE_FREE) {
                     break;
                 }
@@ -1170,6 +1221,10 @@ static int heap_qsort_compare_free(const void* a1, const void* a2)
 // 0x44B2AC
 static bool heap_build_moveable_list(Heap* heap, int* moveableExtentsLengthPtr, int* maxBlocksLengthPtr)
 {
+    unsigned char* ptr;
+    int blocksLength;
+    int maxBlocksLength;
+    int extentIndex;
     // Calculate max number of extents. It's only possible when every
     // free or moveable block is followed by locked block.
     int maxExtentsCount = heap->moveableBlocks + heap->freeBlocks;
@@ -1188,17 +1243,18 @@ static bool heap_build_moveable_list(Heap* heap, int* moveableExtentsLengthPtr, 
         heap_moveable_list_size = maxExtentsCount;
     }
 
-    unsigned char* ptr = heap->data;
-    int blocksLength = heap->moveableBlocks + heap->freeBlocks + heap->lockedBlocks;
-    int maxBlocksLength = 0;
-    int extentIndex = 0;
+    ptr = heap->data;
+    blocksLength = heap->moveableBlocks + heap->freeBlocks + heap->lockedBlocks;
+    maxBlocksLength = 0;
+    extentIndex = 0;
 
     while (blocksLength != 0) {
+		HeapBlockHeader* blockHeader;
         if (extentIndex >= maxExtentsCount) {
             break;
         }
 
-        HeapBlockHeader* blockHeader = (HeapBlockHeader*)ptr;
+        blockHeader = (HeapBlockHeader*)ptr;
         if (blockHeader->state == HEAP_BLOCK_STATE_FREE || blockHeader->state == HEAP_BLOCK_STATE_MOVABLE) {
             HeapMoveableExtent* extent = &(heap_moveable_list[extentIndex++]);
             extent->data = ptr;
@@ -1272,6 +1328,10 @@ static int heap_qsort_compare_moveable(const void* a1, const void* a2)
 // 0x44B458
 static bool heap_build_subblock_list(int extentIndex)
 {
+    unsigned char* ptr;
+    int moveableBlockIndex;
+	int index;
+
     HeapMoveableExtent* extent = &(heap_moveable_list[extentIndex]);
     if (extent->moveableBlocksLength > heap_subblock_list_size) {
         unsigned char** moveableBlocks = (unsigned char**)mem_realloc(heap_subblock_list, sizeof(*heap_subblock_list) * extent->moveableBlocksLength);
@@ -1283,9 +1343,9 @@ static bool heap_build_subblock_list(int extentIndex)
         heap_subblock_list_size = extent->moveableBlocksLength;
     }
 
-    unsigned char* ptr = extent->data;
-    int moveableBlockIndex = 0;
-    for (int index = 0; index < extent->blocksLength; index++) {
+    ptr = extent->data;
+    moveableBlockIndex = 0;
+    for (index = 0; index < extent->blocksLength; index++) {
         HeapBlockHeader* blockHeader = (HeapBlockHeader*)ptr;
         if (blockHeader->state == HEAP_BLOCK_STATE_MOVABLE) {
             heap_subblock_list[moveableBlockIndex++] = ptr;

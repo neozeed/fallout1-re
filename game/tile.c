@@ -277,6 +277,8 @@ int tile_init(TileData** a1, int squareGridWidth, int squareGridHeight, int hexG
     int v23;
     int v24;
     int v25;
+    char* executable;
+
 
     square_width = squareGridWidth;
     squares = a1;
@@ -415,7 +417,6 @@ int tile_init(TileData** a1, int squareGridWidth, int squareGridHeight, int hexG
     tile_set_center(hexGridWidth * (hexGridHeight / 2) + hexGridWidth / 2, TILE_SET_CENTER_FLAG_IGNORE_SCROLL_RESTRICTIONS);
     tile_set_border(windowWidth, windowHeight, hexGridWidth, hexGridHeight);
 
-    char* executable;
     config_get_string(&game_config, GAME_CONFIG_SYSTEM_KEY, GAME_CONFIG_EXECUTABLE_KEY, &executable);
     if (stricmp(executable, "mapper") == 0) {
         tile_refresh = refresh_mapper;
@@ -489,6 +490,8 @@ void tile_refresh_display()
 // 0x4B12F8
 int tile_set_center(int tile, int flags)
 {
+	int new_tile_x,new_tile_y;
+
     if (!TILE_IS_VALID(tile)) {
         return -1;
     }
@@ -497,14 +500,16 @@ int tile_set_center(int tile, int flags)
         if (scroll_limiting_on) {
             int tileScreenX;
             int tileScreenY;
+			int dudeScreenX;
+            int dudeScreenY;
+			int dx,dy;
+
             tile_coord(tile, &tileScreenX, &tileScreenY, map_elevation);
 
-            int dudeScreenX;
-            int dudeScreenY;
             tile_coord(obj_dude->tile, &dudeScreenX, &dudeScreenY, map_elevation);
 
-            int dx = abs(dudeScreenX - tileScreenX);
-            int dy = abs(dudeScreenY - tileScreenY);
+            dx = abs(dudeScreenX - tileScreenX);
+            dy = abs(dudeScreenY - tileScreenY);
 
             if (dx > abs(dudeScreenX - tile_offx)
                 || dy > abs(dudeScreenY - tile_offy)) {
@@ -521,8 +526,8 @@ int tile_set_center(int tile, int flags)
         }
     }
 
-    int new_tile_x = grid_width - 1 - tile % grid_width;
-    int new_tile_y = tile / grid_width;
+    new_tile_x = grid_width - 1 - tile % grid_width;
+    new_tile_y = tile / grid_width;
 
     if (borderInitialized) {
         if (new_tile_x <= tile_border.ulx || new_tile_x >= tile_border.lrx || new_tile_y <= tile_border.uly || new_tile_y >= tile_border.lry) {
@@ -736,6 +741,9 @@ int tile_dist(int tile1, int tile2)
     int v9;
     int v8;
     int v2;
+    int x1;
+    int y1;
+
 
     if (tile1 == -1) {
         return 9999;
@@ -745,8 +753,6 @@ int tile_dist(int tile1, int tile2)
         return 9999;
     }
 
-    int x1;
-    int y1;
     tile_coord(tile2, &x1, &y1, 0);
 
     v2 = tile1;
@@ -754,10 +760,11 @@ int tile_dist(int tile1, int tile2)
         // TODO: Looks like inlined rotation_to_tile.
         int x2;
         int y2;
+		int dx,dy;
         tile_coord(v2, &x2, &y2, 0);
 
-        int dx = x1 - x2;
-        int dy = y1 - y2;
+        dx = x1 - x2;
+        dy = y1 - y2;
 
         if (x1 == x2) {
             if (dy < 0) {
@@ -789,16 +796,14 @@ int tile_dist(int tile1, int tile2)
 // 0x4B1994
 bool tile_in_front_of(int tile1, int tile2)
 {
-    int x1;
-    int y1;
+    int dx,x1,x2;
+    int dy,y1,y2;
     tile_coord(tile1, &x1, &y1, 0);
 
-    int x2;
-    int y2;
     tile_coord(tile2, &x2, &y2, 0);
 
-    int dx = x2 - x1;
-    int dy = y2 - y1;
+    dx = x2 - x1;
+    dy = y2 - y1;
 
     return (double)dx <= (double)dy * -4.0;
 }
@@ -806,16 +811,15 @@ bool tile_in_front_of(int tile1, int tile2)
 // 0x4B1A00
 bool tile_to_right_of(int tile1, int tile2)
 {
-    int x1;
-    int y1;
+    int dx,x1,x2;
+    int dy,y1,y2;
+
     tile_coord(tile1, &x1, &y1, 0);
 
-    int x2;
-    int y2;
     tile_coord(tile2, &x2, &y2, 0);
 
-    int dx = x2 - x1;
-    int dy = y2 - y1;
+    dx = x2 - x1;
+    dy = y2 - y1;
 
     // NOTE: the value below looks like 4/3, which is 0x3FF55555555555, but it's
     // binary value is slightly different: 0x3FF55555555556. This difference plays
@@ -828,13 +832,15 @@ bool tile_to_right_of(int tile1, int tile2)
 // 0x4B1A6C
 int tile_num_in_direction(int tile, int rotation, int distance)
 {
+	int index;
     int newTile = tile;
-    for (int index = 0; index < distance; index++) {
+    for (index = 0; index < distance; index++) {
+		int parity;
         if (tile_on_edge(newTile)) {
             break;
         }
 
-        int parity = (newTile % grid_width) & 1;
+        parity = (newTile % grid_width) & 1;
         newTile += dir_tile[parity][rotation];
     }
 
@@ -845,15 +851,13 @@ int tile_num_in_direction(int tile, int rotation, int distance)
 // 0x4B1ABC
 int tile_dir(int tile1, int tile2)
 {
-    int x1;
-    int y1;
+    int dx,x1,x2;
+    int dy,y1,y2;
     tile_coord(tile1, &x1, &y1, 0);
 
-    int x2;
-    int y2;
     tile_coord(tile2, &x2, &y2, 0);
 
-    int dy = y2 - y1;
+    dy = y2 - y1;
     x2 -= x1;
     y2 -= y1;
 
@@ -879,46 +883,52 @@ int tile_dir(int tile1, int tile2)
 // 0x4B1B84
 int tile_num_beyond(int from, int to, int distance)
 {
+	int fromX;
+    int fromY;
+    int toX;
+    int toY;
+	int deltaX,deltaY;
+	int v26,v27,v28;
+    int stepX,stepY,tileX,tileY;
+
+    int v6 = 0;
+
     if (distance <= 0 || from == to) {
         return from;
     }
 
-    int fromX;
-    int fromY;
     tile_coord(from, &fromX, &fromY, 0);
     fromX += 16;
     fromY += 8;
 
-    int toX;
-    int toY;
     tile_coord(to, &toX, &toY, 0);
     toX += 16;
     toY += 8;
 
-    int deltaX = toX - fromX;
-    int deltaY = toY - fromY;
+    deltaX = toX - fromX;
+    deltaY = toY - fromY;
 
-    int v27 = 2 * abs(deltaX);
+    v27 = 2 * abs(deltaX);
 
-    int stepX = 0;
+    stepX = 0;
     if (deltaX > 0)
         stepX = 1;
     else if (deltaX < 0)
         stepX = -1;
 
-    int v26 = 2 * abs(deltaY);
+    v26 = 2 * abs(deltaY);
 
-    int stepY = 0;
+    stepY = 0;
     if (deltaY > 0)
         stepY = 1;
     else if (deltaY < 0)
         stepY = -1;
 
-    int v28 = from;
-    int tileX = fromX;
-    int tileY = fromY;
+    v28 = from;
+    tileX = fromX;
+    tileY = fromY;
 
-    int v6 = 0;
+    v6 = 0;
 
     if (v27 > v26) {
         int middle = v26 - v27 / 2;
@@ -1173,15 +1183,19 @@ void square_xy_roof(int screenX, int screenY, int elevation, int* coordX, int* c
 // 0x4B20E8
 void square_render_roof(Rect* rect, int elevation)
 {
-    if (!show_roof) {
-        return;
-    }
-
     int temp;
     int minY;
     int minX;
     int maxX;
     int maxY;
+    int light;
+    int baseSquareTile;
+	int x,y;
+
+
+    if (!show_roof) {
+        return;
+    }
 
     square_xy_roof(rect->ulx, rect->uly, elevation, &temp, &minY);
     square_xy_roof(rect->lrx, rect->uly, elevation, &minX, &temp);
@@ -1205,12 +1219,12 @@ void square_render_roof(Rect* rect, int elevation)
         minY = square_length - 1;
     }
 
-    int light = light_get_ambient();
+    light = light_get_ambient();
 
-    int baseSquareTile = square_width * minY;
+    baseSquareTile = square_width * minY;
 
-    for (int y = minY; y <= maxY; y++) {
-        for (int x = minX; x <= maxX; x++) {
+    for (y = minY; y <= maxY; y++) {
+        for (x = minX; x <= maxX; x++) {
             int squareTile = baseSquareTile + x;
             int frmId = squares[elevation]->field_0[squareTile];
             frmId >>= 16;
@@ -1232,16 +1246,17 @@ void square_render_roof(Rect* rect, int elevation)
 static void roof_fill_on(int a1, int a2, int elevation)
 {
     while ((a1 >= 0 && a1 < square_width) && (a2 >= 0 && a2 < square_length)) {
+		int flag,id;
         int squareTile = square_width * a2 + a1;
         int value = squares[elevation]->field_0[squareTile];
         int upper = (value >> 16) & 0xFFFF;
 
-        int id = upper & 0xFFF;
+        id = upper & 0xFFF;
         if (art_id(OBJ_TYPE_TILE, id, 0, 0, 0) == art_id(OBJ_TYPE_TILE, 1, 0, 0, 0)) {
             break;
         }
 
-        int flag = (upper & 0xF000) >> 12;
+        flag = (upper & 0xF000) >> 12;
         if ((flag & 0x01) == 0) {
             break;
         }
@@ -1272,6 +1287,7 @@ void tile_fill_roof(int a1, int a2, int elevation, int a4)
 static void roof_fill_off(int a1, int a2, int elevation)
 {
     while ((a1 >= 0 && a1 < square_width) && (a2 >= 0 && a2 < square_length)) {
+		int flag;
         int squareTile = square_width * a2 + a1;
         int value = squares[elevation]->field_0[squareTile];
         int upper = (value >> 16) & 0xFFFF;
@@ -1281,7 +1297,7 @@ static void roof_fill_off(int a1, int a2, int elevation)
             break;
         }
 
-        int flag = (upper & 0xF000) >> 12;
+        flag = (upper & 0xF000) >> 12;
         if ((flag & 0x03) != 0) {
             break;
         }
@@ -1301,33 +1317,43 @@ static void roof_fill_off(int a1, int a2, int elevation)
 // 0x4B24E0
 static void roof_draw(int fid, int x, int y, Rect* rect, int light)
 {
-    CacheEntry* tileFrmHandle;
+	int tileWidth;
+    int tileHeight;
+    Rect tileRect;
+    CacheEntry* eggFrmHandle;
+
+    
+	CacheEntry* tileFrmHandle;
     Art* tileFrm = art_ptr_lock(fid, &tileFrmHandle);
     if (tileFrm == NULL) {
         return;
     }
 
-    int tileWidth = art_frame_width(tileFrm, 0, 0);
-    int tileHeight = art_frame_length(tileFrm, 0, 0);
+    tileWidth = art_frame_width(tileFrm, 0, 0);
+    tileHeight = art_frame_length(tileFrm, 0, 0);
 
-    Rect tileRect;
     tileRect.ulx = x;
     tileRect.uly = y;
     tileRect.lrx = x + tileWidth - 1;
     tileRect.lry = y + tileHeight - 1;
 
     if (rect_inside_bound(&tileRect, rect, &tileRect) == 0) {
+		Art* eggFrm;
+		Rect eggRect;
         unsigned char* tileFrmBuffer = art_frame_data(tileFrm, 0, 0);
         tileFrmBuffer += tileWidth * (tileRect.uly - y) + (tileRect.ulx - x);
 
-        CacheEntry* eggFrmHandle;
-        Art* eggFrm = art_ptr_lock(obj_egg->fid, &eggFrmHandle);
+        eggFrm = art_ptr_lock(obj_egg->fid, &eggFrmHandle);
         if (eggFrm != NULL) {
             int eggWidth = art_frame_width(eggFrm, 0, 0);
             int eggHeight = art_frame_length(eggFrm, 0, 0);
 
             int eggScreenX;
             int eggScreenY;
+            Rect intersectedRect;
+			int i;
+			unsigned char* eggBuf;
+
             tile_coord(obj_egg->tile, &eggScreenX, &eggScreenY, obj_egg->elevation);
 
             eggScreenX += 16;
@@ -1339,7 +1365,6 @@ static void roof_draw(int fid, int x, int y, Rect* rect, int light)
             eggScreenX += obj_egg->x;
             eggScreenY += obj_egg->y;
 
-            Rect eggRect;
             eggRect.ulx = eggScreenX - eggWidth / 2;
             eggRect.uly = eggScreenY - eggHeight + 1;
             eggRect.lrx = eggRect.ulx + eggWidth - 1;
@@ -1348,7 +1373,6 @@ static void roof_draw(int fid, int x, int y, Rect* rect, int light)
             obj_egg->sx = eggRect.ulx;
             obj_egg->sy = eggRect.uly;
 
-            Rect intersectedRect;
             if (rect_inside_bound(&eggRect, &tileRect, &intersectedRect) == 0) {
                 Rect rects[4];
 
@@ -1372,7 +1396,7 @@ static void roof_draw(int fid, int x, int y, Rect* rect, int light)
                 rects[3].lrx = tileRect.lrx;
                 rects[3].lry = tileRect.lry;
 
-                for (int i = 0; i < 4; i++) {
+                for (i = 0; i < 4; i++) {
                     Rect* cr = &(rects[i]);
                     if (cr->ulx <= cr->lrx && cr->uly <= cr->lry) {
                         dark_trans_buf_to_buf(tileFrmBuffer + tileWidth * (cr->uly - tileRect.uly) + (cr->ulx - tileRect.ulx),
@@ -1387,7 +1411,7 @@ static void roof_draw(int fid, int x, int y, Rect* rect, int light)
                     }
                 }
 
-                unsigned char* eggBuf = art_frame_data(eggFrm, 0, 0);
+                eggBuf = art_frame_data(eggFrm, 0, 0);
                 intensity_mask_buf_to_buf(tileFrmBuffer + tileWidth * (intersectedRect.uly - tileRect.uly) + (intersectedRect.ulx - tileRect.ulx),
                     intersectedRect.lrx - intersectedRect.ulx + 1,
                     intersectedRect.lry - intersectedRect.uly + 1,
@@ -1416,6 +1440,7 @@ void square_render_floor(Rect* rect, int elevation)
     int maxY;
     int minX;
     int temp;
+	int v15;
 
     square_xy(rect->ulx, rect->uly, elevation, &temp, &minY);
     square_xy(rect->lrx, rect->uly, elevation, &minX, &temp);
@@ -1441,15 +1466,17 @@ void square_render_floor(Rect* rect, int elevation)
     light_get_ambient();
 
     temp = square_width * minY;
-    for (int v15 = minY; v15 <= maxY; v15++) {
-        for (int i = minX; i <= maxX; i++) {
+    for (v15 = minY; v15 <= maxY; v15++) {
+		int i;
+        for (i = minX; i <= maxX; i++) {
             int v3 = temp + i;
             int frmId = squares[elevation]->field_0[v3];
             if ((((frmId & 0xF000) >> 12) & 0x01) == 0) {
                 int v12;
                 int v13;
+				int fid;
                 square_coord(v3, &v12, &v13, elevation);
-                int fid = art_id(OBJ_TYPE_TILE, frmId & 0xFFF, 0, 0, 0);
+                fid = art_id(OBJ_TYPE_TILE, frmId & 0xFFF, 0, 0, 0);
                 floor_draw(fid, v12, v13, rect);
             }
         }
@@ -1460,20 +1487,24 @@ void square_render_floor(Rect* rect, int elevation)
 // 0x4B2B10
 bool square_roof_intersect(int x, int y, int elevation)
 {
+	bool result = false;
+    int tileX;
+    int tileY;
+	TileData* ptr;
+    int idx;
+    int upper;
+    int fid;
+	
     if (!show_roof) {
         return false;
     }
 
-    bool result = false;
-
-    int tileX;
-    int tileY;
     square_xy_roof(x, y, elevation, &tileX, &tileY);
 
-    TileData* ptr = squares[elevation];
-    int idx = square_width * tileY + tileX;
-    int upper = ptr->field_0[square_width * tileY + tileX] >> 16;
-    int fid = art_id(OBJ_TYPE_TILE, upper & 0xFFF, 0, 0, 0);
+    ptr = squares[elevation];
+    idx = square_width * tileY + tileX;
+    upper = ptr->field_0[square_width * tileY + tileX] >> 16;
+    fid = art_id(OBJ_TYPE_TILE, upper & 0xFFF, 0, 0, 0);
     if (fid != art_id(OBJ_TYPE_TILE, 1, 0, 0, 0)) {
         if ((((upper & 0xF000) >> 12) & 1) == 0) {
             int fid = art_id(OBJ_TYPE_TILE, upper & 0xFFF, 0, 0, 0);
@@ -1484,9 +1515,10 @@ bool square_roof_intersect(int x, int y, int elevation)
                 if (data != NULL) {
                     int v18;
                     int v17;
+					int width;
                     square_coord_roof(idx, &v18, &v17, elevation);
 
-                    int width = art_frame_width(art, 0, 0);
+                    width = art_frame_width(art, 0, 0);
                     if (data[width * (y - v17) + x - v18] != 0) {
                         result = true;
                     }
@@ -1532,12 +1564,13 @@ int get_grid_flag()
 // 0x4B2E98
 void grid_render(Rect* rect, int elevation)
 {
+	int x,y;
     if (!show_grid) {
         return;
     }
 
-    for (int y = rect->uly - 12; y < rect->lry + 12; y += 6) {
-        for (int x = rect->ulx - 32; x < rect->lrx + 32; x += 16) {
+    for (y = rect->uly - 12; y < rect->lry + 12; y += 6) {
+        for (x = rect->ulx - 32; x < rect->lrx + 32; x += 16) {
             int tile = tile_num(x, y, elevation);
             draw_grid(tile, elevation, rect);
         }
@@ -1562,15 +1595,16 @@ void grid_draw(int tile, int elevation)
 // 0x4B2F4C
 void draw_grid(int tile, int elevation, Rect* rect)
 {
+    int x;
+    int y;
+    Rect r;
+
     if (tile == -1) {
         return;
     }
 
-    int x;
-    int y;
     tile_coord(tile, &x, &y, elevation);
 
-    Rect r;
     r.ulx = x;
     r.uly = y;
     r.lrx = x + 32 - 1;
@@ -1615,21 +1649,13 @@ void draw_grid(int tile, int elevation, Rect* rect)
 // 0x4B30C4
 void floor_draw(int fid, int x, int y, Rect* rect)
 {
-    if (art_get_disable(FID_TYPE(fid)) != 0) {
-        return;
-    }
-
-    CacheEntry* cacheEntry;
-    Art* art = art_ptr_lock(fid, &cacheEntry);
-    if (art == NULL) {
-        return;
-    }
-
-    int elev = map_elevation;
-    int left = rect->ulx;
-    int top = rect->uly;
-    int width = rect->lrx - rect->ulx + 1;
-    int height = rect->lry - rect->uly + 1;
+	CacheEntry* cacheEntry;
+    Art* art;
+	int elev;
+    int left;
+    int top;
+    int width;
+    int height;
     int frameWidth;
     int frameHeight;
     int v15;
@@ -1637,9 +1663,36 @@ void floor_draw(int fid, int x, int y, Rect* rect)
     int v77;
     int v78;
     int v79;
+	int v23;
+	int i;
 
     int savedX = x;
     int savedY = y;
+
+	unsigned char* v66;
+        unsigned char* v67;
+        int* v68;
+        int v86;
+        int v85;
+        int v87;
+    
+	if (art_get_disable(FID_TYPE(fid)) != 0) {
+        return;
+    }
+
+	art = art_ptr_lock(fid, &cacheEntry);
+    if (art == NULL) {
+        return;
+    }
+
+    elev = map_elevation;
+    left = rect->ulx;
+    top = rect->uly;
+    width = rect->lrx - rect->ulx + 1;
+    height = rect->lry - rect->uly + 1;
+
+    savedX = x;
+    savedY = y;
 
     if (left < 0) {
         left = 0;
@@ -1663,8 +1716,9 @@ void floor_draw(int fid, int x, int y, Rect* rect)
     frameHeight = art_frame_length(art, 0, 0);
 
     if (left < x) {
+		int v12;
         v79 = 0;
-        int v12 = left + width;
+        v12 = left + width;
         v77 = frameWidth + x <= v12 ? frameWidth : v12 - x;
     } else {
         v79 = left - x;
@@ -1692,8 +1746,9 @@ void floor_draw(int fid, int x, int y, Rect* rect)
 
     v15 = tile_num(savedX, savedY + 13, map_elevation);
     if (v15 != -1) {
+		int i;
         int v17 = light_get_ambient();
-        for (int i = v15 & 1; i < 10; i++) {
+        for (i = v15 & 1; i < 10; i++) {
             // NOTE: calling light_get_tile two times, probably a result of using __min kind macro
             int v21 = light_get_tile(elev, v15 + verticies[i].field_4);
             if (v21 <= v17) {
@@ -1703,8 +1758,8 @@ void floor_draw(int fid, int x, int y, Rect* rect)
             verticies[i].field_C = v21;
         }
 
-        int v23 = 0;
-        for (int i = 0; i < 9; i++) {
+        v23 = 0;
+        for (i = 0; i < 9; i++) {
             if (verticies[i + 1].field_C != verticies[i].field_C) {
                 break;
             }
@@ -1718,7 +1773,7 @@ void floor_draw(int fid, int x, int y, Rect* rect)
             goto out;
         }
 
-        for (int i = 0; i < 5; i++) {
+        for (i = 0; i < 5; i++) {
             STRUCT_51DB0C* ptr_51DB0C = &(rightside_up_triangles[i]);
             int v32 = verticies[ptr_51DB0C->field_8].field_C;
             int v33 = verticies[ptr_51DB0C->field_8].field_0;
@@ -1729,22 +1784,25 @@ void floor_draw(int fid, int x, int y, Rect* rect)
             int* v37 = &(intensity_map[v33]);
             if (v35 != 0) {
                 if (v36 != 0) {
-                    for (int i = 0; i < 13; i++) {
+					int i,j;
+                    for (i = 0; i < 13; i++) {
                         int v41 = v32;
                         int v42 = rightside_up_table[i].field_4;
                         v37 += rightside_up_table[i].field_0;
-                        for (int j = 0; j < v42; j++) {
+                        for (j = 0; j < v42; j++) {
                             *v37++ = v41;
                             v41 += v35;
                         }
                         v32 += v36;
                     }
                 } else {
-                    for (int i = 0; i < 13; i++) {
+					int i;
+                    for (i = 0; i < 13; i++) {
+						int j;
                         int v38 = v32;
                         int v39 = rightside_up_table[i].field_4;
                         v37 += rightside_up_table[i].field_0;
-                        for (int j = 0; j < v39; j++) {
+                        for (j = 0; j < v39; j++) {
                             *v37++ = v38;
                             v38 += v35;
                         }
@@ -1752,19 +1810,21 @@ void floor_draw(int fid, int x, int y, Rect* rect)
                 }
             } else {
                 if (v36 != 0) {
-                    for (int i = 0; i < 13; i++) {
+					int i,j;
+                    for (i = 0; i < 13; i++) {
                         int v46 = rightside_up_table[i].field_4;
                         v37 += rightside_up_table[i].field_0;
-                        for (int j = 0; j < v46; j++) {
+                        for (j = 0; j < v46; j++) {
                             *v37++ = v32;
                         }
                         v32 += v36;
                     }
                 } else {
-                    for (int i = 0; i < 13; i++) {
+					int i,j;
+                    for (i = 0; i < 13; i++) {
                         int v44 = rightside_up_table[i].field_4;
                         v37 += rightside_up_table[i].field_0;
-                        for (int j = 0; j < v44; j++) {
+                        for (j = 0; j < v44; j++) {
                             *v37++ = v32;
                         }
                     }
@@ -1772,7 +1832,7 @@ void floor_draw(int fid, int x, int y, Rect* rect)
             }
         }
 
-        for (int i = 0; i < 5; i++) {
+        for (i = 0; i < 5; i++) {
             STRUCT_51DB48* ptr_51DB48 = &(upside_down_triangles[i]);
             int v50 = verticies[ptr_51DB48->field_0].field_C;
             int v51 = verticies[ptr_51DB48->field_0].field_0;
@@ -1783,22 +1843,24 @@ void floor_draw(int fid, int x, int y, Rect* rect)
             int* v55 = &(intensity_map[v51]);
             if (v53 != 0) {
                 if (v54 != 0) {
-                    for (int i = 0; i < 13; i++) {
+					int i,j;
+                    for (i = 0; i < 13; i++) {
                         int v59 = v50;
                         int v60 = upside_down_table[i].field_4;
                         v55 += upside_down_table[i].field_0;
-                        for (int j = 0; j < v60; j++) {
+                        for (j = 0; j < v60; j++) {
                             *v55++ = v59;
                             v59 += v53;
                         }
                         v50 += v54;
                     }
                 } else {
-                    for (int i = 0; i < 13; i++) {
+					int i,j;
+                    for (i = 0; i < 13; i++) {
                         int v56 = v50;
                         int v57 = upside_down_table[i].field_4;
                         v55 += upside_down_table[i].field_0;
-                        for (int j = 0; j < v57; j++) {
+                        for (j = 0; j < v57; j++) {
                             *v55++ = v56;
                             v56 += v53;
                         }
@@ -1806,19 +1868,21 @@ void floor_draw(int fid, int x, int y, Rect* rect)
                 }
             } else {
                 if (v54 != 0) {
-                    for (int i = 0; i < 13; i++) {
+					int i,j;
+                    for (i = 0; i < 13; i++) {
                         int v64 = upside_down_table[i].field_4;
                         v55 += upside_down_table[i].field_0;
-                        for (int j = 0; j < v64; j++) {
+                        for (j = 0; j < v64; j++) {
                             *v55++ = v50;
                         }
                         v50 += v54;
                     }
                 } else {
-                    for (int i = 0; i < 13; i++) {
+					int i,j;
+                    for (i = 0; i < 13; i++) {
                         int v62 = upside_down_table[i].field_4;
                         v55 += upside_down_table[i].field_0;
-                        for (int j = 0; j < v62; j++) {
+                        for (j = 0; j < v62; j++) {
                             *v55++ = v50;
                         }
                     }
@@ -1826,15 +1890,16 @@ void floor_draw(int fid, int x, int y, Rect* rect)
             }
         }
 
-        unsigned char* v66 = buf + buf_full * y + x;
-        unsigned char* v67 = art_frame_data(art, 0, 0) + frameWidth * v78 + v79;
-        int* v68 = &(intensity_map[160 + 80 * v78]) + v79;
-        int v86 = frameWidth - v77;
-        int v85 = buf_full - v77;
-        int v87 = 80 - v77;
+        v66 = buf + buf_full * y + x;
+        v67 = art_frame_data(art, 0, 0) + frameWidth * v78 + v79;
+        v68 = &(intensity_map[160 + 80 * v78]) + v79;
+        v86 = frameWidth - v77;
+        v85 = buf_full - v77;
+        v87 = 80 - v77;
 
         while (--v76 != -1) {
-            for (int kk = 0; kk < v77; kk++) {
+			int kk;
+            for (kk = 0; kk < v77; kk++) {
                 if (*v67 != 0) {
                     *v66 = intensityColorTable[*v67][*v68 >> 9];
                 }
@@ -1856,28 +1921,37 @@ out:
 // 0x4B372C
 int tile_make_line(int from, int to, int* tiles, int tilesCapacity)
 {
+	int count = 0;
+
+    int fromX;
+    int fromY;
+	int toX;
+    int toY;
+	int stepX;
+    int deltaX;
+	int stepY;
+    int deltaY;
+	int v27,v28;
+
+    int tileX, tileY;
+
     if (tilesCapacity <= 1) {
         return 0;
     }
 
-    int count = 0;
-
-    int fromX;
-    int fromY;
     tile_coord(from, &fromX, &fromY, map_elevation);
     fromX += 16;
     fromY += 8;
 
-    int toX;
-    int toY;
+
     tile_coord(to, &toX, &toY, map_elevation);
     toX += 16;
     toY += 8;
 
     tiles[count++] = from;
 
-    int stepX;
-    int deltaX = toX - fromX;
+    stepX;
+    deltaX = toX - fromX;
     if (deltaX > 0)
         stepX = 1;
     else if (deltaX < 0)
@@ -1885,8 +1959,7 @@ int tile_make_line(int from, int to, int* tiles, int tilesCapacity)
     else
         stepX = 0;
 
-    int stepY;
-    int deltaY = toY - fromY;
+    deltaY = toY - fromY;
     if (deltaY > 0)
         stepY = 1;
     else if (deltaY < 0)
@@ -1894,11 +1967,11 @@ int tile_make_line(int from, int to, int* tiles, int tilesCapacity)
     else
         stepY = 0;
 
-    int v28 = 2 * abs(toX - fromX);
-    int v27 = 2 * abs(toY - fromY);
+    v28 = 2 * abs(toX - fromX);
+    v27 = 2 * abs(toY - fromY);
 
-    int tileX = fromX;
-    int tileY = fromY;
+    tileX = fromX;
+    tileY = fromY;
 
     if (v28 <= v27) {
         int middleX = v28 - v27 / 2;
@@ -1968,26 +2041,33 @@ int tile_make_line(int from, int to, int* tiles, int tilesCapacity)
 // 0x4B3924
 int tile_scroll_to(int tile, int flags)
 {
+	int oldCenterTile;
+
+    int v9[200];
+    int count;
+	int index;
+	int rc = 0;
+
+
     if (tile == tile_center_tile) {
         return -1;
     }
 
-    int oldCenterTile = tile_center_tile;
+    oldCenterTile = tile_center_tile;
 
-    int v9[200];
-    int count = tile_make_line(tile_center_tile, tile, v9, 200);
+    v9[200];
+    count = tile_make_line(tile_center_tile, tile, v9, 200);
+
     if (count == 0) {
         return -1;
     }
 
-    int index = 1;
-    for (; index < count; index++) {
+    for (index = 1; index < count; index++) {
         if (tile_set_center(v9[index], 0) == -1) {
             break;
         }
     }
 
-    int rc = 0;
     if ((flags & 0x01) != 0) {
         if (index != count) {
             tile_set_center(oldCenterTile, 0);

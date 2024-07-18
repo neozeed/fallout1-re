@@ -25,7 +25,7 @@ typedef struct AudioFile {
     int position;
 } AudioFile;
 
-static_assert(sizeof(AudioFile) == 28, "wrong size");
+//static_assert(sizeof(AudioFile) == 28, "wrong size");
 
 static bool defaultCompressionFunc(char* filePath);
 static int decodeRead(void* stream, void* buffer, unsigned int size);
@@ -60,21 +60,26 @@ static int decodeRead(void* stream, void* buffer, unsigned int size)
 int audiofOpen(const char* fname, int flags)
 {
     char path[MAX_PATH];
+	AudioFile* audioFile;
+	char* pm;
+    int compression;
+    char mode[4];
+	FILE* stream;
+    int index;
+
     strcpy(path, fname);
 
-    int compression;
     if (queryCompressedFunc(path)) {
         compression = 2;
     } else {
         compression = 0;
     }
 
-    char mode[4];
     memset(mode, '\0', 4);
 
     // NOTE: Original implementation is slightly different, it uses separate
     // variable to track index where to set 't' and 'b'.
-    char* pm = mode;
+    pm = mode;
     if (flags & 0x01) {
         *pm++ = 'w';
     } else if (flags & 0x02) {
@@ -90,12 +95,11 @@ int audiofOpen(const char* fname, int flags)
         *pm++ = 'b';
     }
 
-    FILE* stream = fopen(path, mode);
+    stream = fopen(path, mode);
     if (stream == NULL) {
         return -1;
     }
 
-    int index;
     for (index = 0; index < numAudiof; index++) {
         if ((audiof[index].flags & AUDIO_FILE_IN_USE) == 0) {
             break;
@@ -111,7 +115,7 @@ int audiofOpen(const char* fname, int flags)
         numAudiof++;
     }
 
-    AudioFile* audioFile = &(audiof[index]);
+    audioFile = &(audiof[index]);
     audioFile->flags = AUDIO_FILE_IN_USE;
     audioFile->stream = stream;
 

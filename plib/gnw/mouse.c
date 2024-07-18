@@ -164,7 +164,9 @@ void GNW_mouse_exit()
 // 0x4B485C
 static void mouse_colorize()
 {
-    for (int index = 0; index < 64; index++) {
+	int index;
+
+    for (index = 0; index < 64; index++) {
         switch (or_mask[index]) {
         case 0:
             or_mask[index] = colorTable[0];
@@ -198,6 +200,7 @@ int mouse_set_shape(unsigned char* buf, int width, int length, int full, int hot
     unsigned char* v9;
     int v11, v12;
     int v7, v8;
+	bool cursorWasHidden;
 
     v7 = hotx;
     v8 = hoty;
@@ -208,7 +211,7 @@ int mouse_set_shape(unsigned char* buf, int width, int length, int full, int hot
         return mouse_set_shape(or_mask, MOUSE_DEFAULT_CURSOR_WIDTH, MOUSE_DEFAULT_CURSOR_HEIGHT, MOUSE_DEFAULT_CURSOR_WIDTH, 1, 1, colorTable[0]);
     }
 
-    bool cursorWasHidden = mouse_is_hidden;
+    cursorWasHidden = mouse_is_hidden;
     if (!mouse_is_hidden && have_mouse) {
         mouse_is_hidden = true;
         mouse_get_rect(&rect);
@@ -410,6 +413,9 @@ void mouse_hide()
 // 0x4B4DD8
 void mouse_info()
 {
+	int x, y, buttons;
+    dxinput_mouse_state mouseData;
+
     if (!have_mouse) {
         return;
     }
@@ -422,11 +428,8 @@ void mouse_info()
         return;
     }
 
-    int x;
-    int y;
-    int buttons = 0;
+	buttons = 0;
 
-    dxinput_mouse_state mouseData;
     if (dxinput_get_mouse_state(&mouseData)) {
         x = mouseData.delta_x;
         y = mouseData.delta_y;
@@ -479,12 +482,13 @@ void mouse_simulate_input(int delta_x, int delta_y, int buttons)
     }
 
     if (delta_x || delta_y || buttons != last_buttons) {
+		VcrEntry* vcrEntry;
         if (vcr_state == 0) {
             if (vcr_buffer_index == VCR_BUFFER_CAPACITY - 1) {
                 vcr_dump_buffer();
             }
 
-            VcrEntry* vcrEntry = &(vcr_buffer[vcr_buffer_index]);
+            vcrEntry = &(vcr_buffer[vcr_buffer_index]);
             vcrEntry->type = VCR_ENTRY_TYPE_MOUSE_EVENT;
             vcrEntry->time = vcr_time;
             vcrEntry->counter = vcr_counter;

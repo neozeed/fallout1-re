@@ -74,16 +74,23 @@ int queue_exit()
 int queue_load(DB_FILE* stream)
 {
     int count;
+	QueueListNode** nextPtr;
+	int rc,index;
+	int objectId;
+	Object* obj;
+	EventTypeDescription* eventTypeDescription;
+
+
     if (db_freadInt(stream, &count) == -1) {
         return -1;
     }
 
     queue = NULL;
 
-    QueueListNode** nextPtr = &queue;
+    nextPtr = &queue;
 
-    int rc = 0;
-    for (int index = 0; index < count; index += 1) {
+    rc = 0;
+    for (index = 0; index < count; index += 1) {
         QueueListNode* queueListNode = (QueueListNode*)mem_malloc(sizeof(*queueListNode));
         if (queueListNode == NULL) {
             rc = -1;
@@ -102,14 +109,12 @@ int queue_load(DB_FILE* stream)
             break;
         }
 
-        int objectId;
         if (db_freadInt(stream, &objectId) == -1) {
             mem_free(queueListNode);
             rc = -1;
             break;
         }
 
-        Object* obj;
         if (objectId == -2) {
             obj = NULL;
         } else {
@@ -125,7 +130,7 @@ int queue_load(DB_FILE* stream)
 
         queueListNode->owner = obj;
 
-        EventTypeDescription* eventTypeDescription = &(q_func[queueListNode->type]);
+        eventTypeDescription = &(q_func[queueListNode->type]);
         if (eventTypeDescription->readProc != NULL) {
             if (eventTypeDescription->readProc(stream, &(queueListNode->data)) == -1) {
                 mem_free(queueListNode);
@@ -179,6 +184,8 @@ int queue_save(DB_FILE* stream)
 
     queueListNode = queue;
     while (queueListNode != NULL) {
+		EventTypeDescription* eventTypeDescription;
+
         Object* object = queueListNode->owner;
         int objectId = object != NULL ? object->id : -2;
 
@@ -194,7 +201,7 @@ int queue_save(DB_FILE* stream)
             return -1;
         }
 
-        EventTypeDescription* eventTypeDescription = &(q_func[queueListNode->type]);
+        eventTypeDescription = &(q_func[queueListNode->type]);
         if (eventTypeDescription->writeProc != NULL) {
             if (eventTypeDescription->writeProc(stream, queueListNode->data) == -1) {
                 return -1;
@@ -210,13 +217,16 @@ int queue_save(DB_FILE* stream)
 // 0x4908A0
 int queue_add(int delay, Object* obj, void* data, int eventType)
 {
+	int v1,v2;
+	QueueListNode** v3;
+
     QueueListNode* newQueueListNode = (QueueListNode*)mem_malloc(sizeof(QueueListNode));
     if (newQueueListNode == NULL) {
         return -1;
     }
 
-    int v1 = game_time();
-    int v2 = v1 + delay;
+    v1 = game_time();
+    v2 = v1 + delay;
     newQueueListNode->time = v2;
     newQueueListNode->type = eventType;
     newQueueListNode->owner = obj;
@@ -226,7 +236,7 @@ int queue_add(int delay, Object* obj, void* data, int eventType)
         obj->flags |= OBJECT_USED;
     }
 
-    QueueListNode** v3 = &queue;
+    v3 = &queue;
 
     if (queue != NULL) {
         QueueListNode* v4;
@@ -254,12 +264,14 @@ int queue_remove(Object* owner)
 
     while (queueListNode) {
         if (queueListNode->owner == owner) {
+			EventTypeDescription* eventTypeDescription;
+
             QueueListNode* temp = queueListNode;
 
             queueListNode = queueListNode->next;
             *queueListNodePtr = queueListNode;
 
-            EventTypeDescription* eventTypeDescription = &(q_func[temp->type]);
+            eventTypeDescription = &(q_func[temp->type]);
             if (eventTypeDescription->freeProc != NULL) {
                 eventTypeDescription->freeProc(temp->data);
             }
@@ -282,12 +294,13 @@ int queue_remove_this(Object* owner, int eventType)
 
     while (queueListNode) {
         if (queueListNode->owner == owner && queueListNode->type == eventType) {
+			EventTypeDescription* eventTypeDescription;
             QueueListNode* temp = queueListNode;
 
             queueListNode = queueListNode->next;
             *queueListNodePtr = queueListNode;
 
-            EventTypeDescription* eventTypeDescription = &(q_func[temp->type]);
+            eventTypeDescription = &(q_func[temp->type]);
             if (eventTypeDescription->freeProc != NULL) {
                 eventTypeDescription->freeProc(temp->data);
             }
@@ -326,6 +339,7 @@ int queue_process()
     int v1 = 0;
 
     while (queue != NULL) {
+		EventTypeDescription* eventTypeDescription;
         QueueListNode* queueListNode = queue;
         if (time < queueListNode->time || v1 != 0) {
             break;
@@ -333,7 +347,7 @@ int queue_process()
 
         queue = queueListNode->next;
 
-        EventTypeDescription* eventTypeDescription = &(q_func[queueListNode->type]);
+        eventTypeDescription = &(q_func[queueListNode->type]);
         v1 = eventTypeDescription->handlerProc(queueListNode->owner, queueListNode->data);
 
         if (eventTypeDescription->freeProc != NULL) {

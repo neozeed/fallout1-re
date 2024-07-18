@@ -53,6 +53,8 @@ int selfrun_free_list(char*** fileListPtr)
 // 0x496DA8
 int selfrun_prep_playback(const char* fileName, SelfrunData* selfrunData)
 {
+    char path[MAX_PATH];
+
     if (fileName == NULL) {
         return -1;
     }
@@ -69,7 +71,6 @@ int selfrun_prep_playback(const char* fileName, SelfrunData* selfrunData)
         return -1;
     }
 
-    char path[MAX_PATH];
     sprintf(path, "%s%s", "selfrun\\", fileName);
 
     if (selfrun_load_data(path, selfrunData) != 0) {
@@ -115,6 +116,8 @@ void selfrun_playback_loop(SelfrunData* selfrunData)
 // 0x496EA8
 int selfrun_prep_recording(const char* recordingName, const char* mapFileName, SelfrunData* selfrunData)
 {
+    char path[MAX_PATH];
+
     if (recordingName == NULL) {
         return -1;
     }
@@ -136,7 +139,6 @@ int selfrun_prep_recording(const char* recordingName, const char* mapFileName, S
 
     selfrunData->stopKeyCode = KEY_CTRL_R;
 
-    char path[MAX_PATH];
     sprintf(path, "%s%s%s", "selfrun\\", recordingName, ".sdf");
 
     if (selfrun_save_data(path, selfrunData) != 0) {
@@ -151,6 +153,8 @@ int selfrun_prep_recording(const char* recordingName, const char* mapFileName, S
 // 0x496F5C
 void selfrun_recording_loop(SelfrunData* selfrunData)
 {
+	bool done;
+
     if (selfrun_state == SELFRUN_STATE_RECORDING) {
         char path[MAX_PATH];
         sprintf(path, "%s%s", "selfrun\\", selfrunData->recordingFileName);
@@ -159,7 +163,7 @@ void selfrun_recording_loop(SelfrunData* selfrunData)
                 mouse_show();
             }
 
-            bool done = false;
+            done = false;
             while (!done) {
                 int keyCode = get_input();
                 if (keyCode == selfrunData->stopKeyCode) {
@@ -185,6 +189,9 @@ static void selfrun_playback_callback(int reason)
 // 0x49700C
 static int selfrun_load_data(const char* path, SelfrunData* selfrunData)
 {
+	DB_FILE* stream;
+    int rc = -1;
+
     if (path == NULL) {
         return -1;
     }
@@ -193,12 +200,11 @@ static int selfrun_load_data(const char* path, SelfrunData* selfrunData)
         return -1;
     }
 
-    DB_FILE* stream = db_fopen(path, "rb");
+    stream = db_fopen(path, "rb");
     if (stream == NULL) {
         return -1;
     }
 
-    int rc = -1;
     if (db_freadByteCount(stream, selfrunData->recordingFileName, SELFRUN_RECORDING_FILE_NAME_LENGTH) == 0
         && db_freadByteCount(stream, selfrunData->mapFileName, SELFRUN_MAP_FILE_NAME_LENGTH) == 0
         && db_freadInt(stream, &(selfrunData->stopKeyCode)) == 0) {
@@ -213,6 +219,11 @@ static int selfrun_load_data(const char* path, SelfrunData* selfrunData)
 // 0x497074
 static int selfrun_save_data(const char* path, SelfrunData* selfrunData)
 {
+	char* masterPatches;
+	char selfrunDirectoryPath[MAX_PATH];
+	DB_FILE* stream;
+	int rc;
+
     if (path == NULL) {
         return -1;
     }
@@ -221,20 +232,18 @@ static int selfrun_save_data(const char* path, SelfrunData* selfrunData)
         return -1;
     }
 
-    char* masterPatches;
     config_get_string(&game_config, GAME_CONFIG_SYSTEM_KEY, GAME_CONFIG_MASTER_PATCHES_KEY, &masterPatches);
 
-    char selfrunDirectoryPath[MAX_PATH];
     sprintf(selfrunDirectoryPath, "%s\\%s", masterPatches, "selfrun\\");
 
     mkdir(selfrunDirectoryPath);
 
-    DB_FILE* stream = db_fopen(path, "wb");
+    stream = db_fopen(path, "wb");
     if (stream == NULL) {
         return -1;
     }
 
-    int rc = -1;
+    rc = -1;
     if (db_fwriteByteCount(stream, selfrunData->recordingFileName, SELFRUN_RECORDING_FILE_NAME_LENGTH) == 0
         && db_fwriteByteCount(stream, selfrunData->mapFileName, SELFRUN_MAP_FILE_NAME_LENGTH) == 0
         && db_fwriteInt(stream, selfrunData->stopKeyCode) == 0) {

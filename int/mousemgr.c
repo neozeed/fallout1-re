@@ -156,7 +156,8 @@ static void freeCacheEntry(MouseManagerCacheEntry* entry)
     case MOUSE_MANAGER_MOUSE_TYPE_ANIMATED:
         if (entry->animatedData != NULL) {
             if (entry->animatedData->field_0 != NULL) {
-                for (int index = 0; index < entry->animatedData->frameCount; index++) {
+				int index;
+                for (index = 0; index < entry->animatedData->frameCount; index++) {
                     myfree(entry->animatedData->field_0[index], __FILE__, __LINE__); // "..\\int\\MOUSEMGR.C", 134
                     myfree(entry->animatedData->field_4[index], __FILE__, __LINE__); // "..\\int\\MOUSEMGR.C", 135
                 }
@@ -180,6 +181,8 @@ static int cacheInsert(void** data, int type, unsigned char* palette, const char
 {
     int foundIndex = -1;
     int index;
+	MouseManagerCacheEntry* cacheEntry;
+
     for (index = 0; index < MOUSE_MGR_CACHE_CAPACITY; index++) {
         MouseManagerCacheEntry* cacheEntry = &(Cache[index]);
         if (cacheEntry->type == MOUSE_MANAGER_MOUSE_TYPE_NONE && foundIndex == -1) {
@@ -200,7 +203,9 @@ static int cacheInsert(void** data, int type, unsigned char* palette, const char
     if (index == MOUSE_MGR_CACHE_CAPACITY) {
         int v2 = -1;
         int v1 = curref;
-        for (int index = 0; index < MOUSE_MGR_CACHE_CAPACITY; index++) {
+		int index;
+
+        for (index = 0; index < MOUSE_MGR_CACHE_CAPACITY; index++) {
             MouseManagerCacheEntry* cacheEntry = &(Cache[index]);
             if (v1 > cacheEntry->ref) {
                 v1 = cacheEntry->ref;
@@ -217,7 +222,7 @@ static int cacheInsert(void** data, int type, unsigned char* palette, const char
         freeCacheEntry(&(Cache[index]));
     }
 
-    MouseManagerCacheEntry* cacheEntry = &(Cache[index]);
+    cacheEntry = &(Cache[index]);
     cacheEntry->type = type;
     memcpy(cacheEntry->palette, palette, sizeof(cacheEntry->palette));
     cacheEntry->ref = curref++;
@@ -231,7 +236,9 @@ static int cacheInsert(void** data, int type, unsigned char* palette, const char
 // 0x4771E4
 static void cacheFlush()
 {
-    for (int index = 0; index < MOUSE_MGR_CACHE_CAPACITY; index++) {
+	int index;
+
+    for (index = 0; index < MOUSE_MGR_CACHE_CAPACITY; index++) {
         freeCacheEntry(&(Cache[index]));
     }
 }
@@ -239,7 +246,8 @@ static void cacheFlush()
 // 0x47735C
 static MouseManagerCacheEntry* cacheFind(const char* fileName, unsigned char** palettePtr, int* a3, int* a4, int* widthPtr, int* heightPtr, int* typePtr)
 {
-    for (int index = 0; index < MOUSE_MGR_CACHE_CAPACITY; index++) {
+	int index;
+    for (index = 0; index < MOUSE_MGR_CACHE_CAPACITY; index++) {
         MouseManagerCacheEntry* cacheEntry = &(Cache[index]);
         if (strnicmp(cacheEntry->fileName, fileName, 31) == 0 || strnicmp(cacheEntry->field_32C, fileName, 31) == 0) {
             *palettePtr = cacheEntry->palette;
@@ -338,10 +346,18 @@ void mousemgrUpdate()
 int mouseSetFrame(char* fileName, int a2)
 {
     char* mangledFileName = mouseNameMangler(fileName);
+    char string[80];
 
     unsigned char* palette;
     int temp;
     int type;
+	DB_FILE* stream;
+	char* sep;
+    int v3;
+	int width,height,index;
+    float v4;
+	MouseManagerAnimatedData* animatedData;
+
     MouseManagerCacheEntry* cacheEntry = cacheFind(fileName, &palette, &temp, &temp, &temp, &temp, &type);
     if (cacheEntry != NULL) {
         if (type == MOUSE_MANAGER_MOUSE_TYPE_ANIMATED) {
@@ -401,13 +417,12 @@ int mouseSetFrame(char* fileName, int a2)
         }
     }
 
-    DB_FILE* stream = db_fopen(mangledFileName, "r");
+    stream = db_fopen(mangledFileName, "r");
     if (stream == NULL) {
         debug_printf("mouseSetFrame: couldn't find %s\n", mangledFileName);
         return false;
     }
 
-    char string[80];
     db_fgets(string, sizeof(string), stream);
     if (strnicmp(string, "anim", 4) != 0) {
         db_fclose(stream);
@@ -416,17 +431,15 @@ int mouseSetFrame(char* fileName, int a2)
     }
 
     // NOTE: Uninline.
-    char* sep = strchr(string, ' ');
+    sep = strchr(string, ' ');
     if (sep == NULL) {
         // FIXME: Leaks stream.
         return false;
     }
 
-    int v3;
-    float v4;
     sscanf(sep + 1, "%d %f", &v3, &v4);
 
-    MouseManagerAnimatedData* animatedData = (MouseManagerAnimatedData*)mymalloc(sizeof(*animatedData), __FILE__, __LINE__); // "..\\int\\MOUSEMGR.C", 359
+    animatedData = (MouseManagerAnimatedData*)mymalloc(sizeof(*animatedData), __FILE__, __LINE__); // "..\\int\\MOUSEMGR.C", 359
     animatedData->field_0 = (unsigned char**)mymalloc(sizeof(*animatedData->field_0) * v3, __FILE__, __LINE__); // "..\\int\\MOUSEMGR.C", 360
     animatedData->field_4 = (unsigned char**)mymalloc(sizeof(*animatedData->field_4) * v3, __FILE__, __LINE__); // "..\\int\\MOUSEMGR.C", 361
     animatedData->field_8 = (int*)mymalloc(sizeof(*animatedData->field_8) * v3, __FILE__, __LINE__); // "..\\int\\MOUSEMGR.C", 362
@@ -442,9 +455,10 @@ int mouseSetFrame(char* fileName, int a2)
         animatedData->field_20 = 1;
     }
 
-    int width;
-    int height;
-    for (int index = 0; index < v3; index++) {
+    for (index = 0; index < v3; index++) {
+		char* sep;
+		int v5,v6;
+
         string[0] = '\0';
         db_fgets(string, sizeof(string), stream);
         if (string[0] == '\0') {
@@ -453,7 +467,7 @@ int mouseSetFrame(char* fileName, int a2)
         }
 
         // NOTE: Uninline.
-        char* sep = strchr(string, ' ');
+        sep = strchr(string, ' ');
         if (sep == NULL) {
             debug_printf("Bad line %s in %s\n", string, fileName);
             // FIXME: Leaking stream.
@@ -462,8 +476,6 @@ int mouseSetFrame(char* fileName, int a2)
 
         *sep = '\0';
 
-        int v5;
-        int v6;
         sscanf(sep + 1, "%d %d", &v5, &v6);
 
         animatedData->field_4[index] = loadRawDataFile(mouseNameMangler(string), &width, &height);
@@ -559,6 +571,13 @@ bool mouseSetMousePointer(char* fileName)
     int width;
     int height;
     int type;
+	char* dot;
+    char* mangledFileName;
+	DB_FILE* stream;
+    char string[80];
+    bool rc;
+
+
     MouseManagerCacheEntry* cacheEntry = cacheFind(fileName, &palette, &v1, &v2, &width, &height, &type);
     if (cacheEntry != NULL) {
         if (curMouseBuf != NULL) {
@@ -596,30 +615,29 @@ bool mouseSetMousePointer(char* fileName)
         return true;
     }
 
-    char* dot = strrchr(fileName, '.');
+    dot = strrchr(fileName, '.');
     if (dot != NULL && stricmp(dot + 1, "mou") == 0) {
         return mouseSetMouseShape(fileName, 0, 0);
     }
-
-    char* mangledFileName = mouseNameMangler(fileName);
-    DB_FILE* stream = db_fopen(mangledFileName, "r");
+	mangledFileName = mouseNameMangler(fileName);
+    stream = db_fopen(mangledFileName, "r");
     if (stream == NULL) {
         debug_printf("Can't find %s\n", mangledFileName);
         return false;
     }
 
-    char string[80];
     string[0] = '\0';
     db_fgets(string, sizeof(string) - 1, stream);
     if (string[0] == '\0') {
         return false;
     }
 
-    bool rc;
     if (strnicmp(string, "anim", 4) == 0) {
         db_fclose(stream);
         rc = mouseSetFrame(fileName, 0);
     } else {
+        int v3;
+        int v4;
         // NOTE: Uninline.
         char* sep = strchr(string, ' ');
         if (sep != NULL) {
@@ -628,8 +646,6 @@ bool mouseSetMousePointer(char* fileName)
 
         *sep = '\0';
 
-        int v3;
-        int v4;
         sscanf(sep + 1, "%d %d", &v3, &v4);
 
         db_fclose(stream);
@@ -684,7 +700,8 @@ void mousemgrResetMouse()
         break;
     case MOUSE_MANAGER_MOUSE_TYPE_ANIMATED:
         if (curAnim != NULL) {
-            for (int index = 0; index < curAnim->frameCount; index++) {
+			int index;
+            for (index = 0; index < curAnim->frameCount; index++) {
                 memcpy(curAnim->field_0[index], curAnim->field_4[index], imageWidth * imageHeight);
                 datafileConvertData(curAnim->field_0[index], entry->palette, imageWidth, imageHeight);
             }

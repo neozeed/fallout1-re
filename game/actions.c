@@ -105,6 +105,10 @@ void switch_dude()
 // 0x410468
 int action_knockback(Object* obj, int* anim, int maxDistance, int rotation, int delay)
 {
+    int distance;
+    int tile;
+    const char* soundEffectName = gsnd_build_character_sfx_name(obj, *anim, CHARACTER_SOUND_EFFECT_KNOCKDOWN);
+
     if (*anim == ANIM_FALL_FRONT) {
         int fid = art_id(OBJ_TYPE_CRITTER, obj->fid & 0xFFF, *anim, (obj->fid & 0xF000) >> 12, obj->rotation + 1);
         if (!art_exists(fid)) {
@@ -112,8 +116,7 @@ int action_knockback(Object* obj, int* anim, int maxDistance, int rotation, int 
         }
     }
 
-    int distance;
-    int tile;
+
     for (distance = 1; distance <= maxDistance; distance++) {
         tile = tile_num_in_direction(obj->tile, rotation, distance);
         if (obj_blocking_at(obj, tile, obj->elevation) != NULL) {
@@ -122,7 +125,6 @@ int action_knockback(Object* obj, int* anim, int maxDistance, int rotation, int 
         }
     }
 
-    const char* soundEffectName = gsnd_build_character_sfx_name(obj, *anim, CHARACTER_SOUND_EFFECT_KNOCKDOWN);
     register_object_play_sfx(obj, soundEffectName, delay);
 
     // TODO: Check, probably step back because we've started with 1?
@@ -142,6 +144,8 @@ int action_knockback(Object* obj, int* anim, int maxDistance, int rotation, int 
 // 0x410548
 int action_blood(Object* obj, int anim, int delay)
 {
+    int bloodyAnim;
+    int fid;
 
     int violence_level = VIOLENCE_LEVEL_MAXIMUM_BLOOD;
     config_get_value(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_VIOLENCE_LEVEL_KEY, &violence_level);
@@ -149,7 +153,6 @@ int action_blood(Object* obj, int anim, int delay)
         return anim;
     }
 
-    int bloodyAnim;
     if (anim == ANIM_FALL_BACK) {
         bloodyAnim = ANIM_FALL_BACK_BLOOD;
     } else if (anim == ANIM_FALL_FRONT) {
@@ -158,7 +161,7 @@ int action_blood(Object* obj, int anim, int delay)
         return anim;
     }
 
-    int fid = art_id(OBJ_TYPE_CRITTER, obj->fid & 0xFFF, bloodyAnim, (obj->fid & 0xF000) >> 12, obj->rotation + 1);
+    fid = art_id(OBJ_TYPE_CRITTER, obj->fid & 0xFFF, bloodyAnim, (obj->fid & 0xF000) >> 12, obj->rotation + 1);
     if (art_exists(fid)) {
         register_object_animate(obj, bloodyAnim, delay);
     } else {
@@ -289,6 +292,8 @@ void show_damage_to_object(Object* defender, int damage, int flags, Object* weap
                     }
                 }
             } else {
+                    int randomDistance;
+                    int randomRotation;
                 fid = art_id(OBJ_TYPE_CRITTER, defender->fid & 0xFFF, ANIM_FIRE_DANCE, (defender->fid & 0xF000) >> 12, defender->rotation + 1);
                 if (art_exists(fid)) {
                     sfx_name = gsnd_build_character_sfx_name(defender, anim, CHARACTER_SOUND_EFFECT_UNUSED);
@@ -296,8 +301,8 @@ void show_damage_to_object(Object* defender, int damage, int flags, Object* weap
 
                     register_object_animate(defender, anim, 0);
 
-                    int randomDistance = roll_random(2, 5);
-                    int randomRotation = roll_random(0, 5);
+                    randomDistance = roll_random(2, 5);
+                    randomRotation = roll_random(0, 5);
 
                     while (randomDistance > 0) {
                         int tile = tile_num_in_direction(defender->tile, randomRotation, randomDistance);
@@ -451,8 +456,9 @@ int show_damage_extras(Attack* attack)
     int v6;
     int v8;
     int v9;
+	int index;
 
-    for (int index = 0; index < attack->extrasLength; index++) {
+    for (index = 0; index < attack->extrasLength; index++) {
         Object* obj = attack->extras[index];
         if (FID_TYPE(obj->fid) == OBJ_TYPE_CRITTER) {
             int delta = attack->attacker->rotation - obj->rotation;
@@ -476,9 +482,10 @@ int show_damage_extras(Attack* attack)
 // 0x410FD8
 void show_damage(Attack* attack, int a2, int delay)
 {
+	int index;
     bool hit_from_front;
 
-    for (int index = 0; index < attack->extrasLength; index++) {
+    for (index = 0; index < attack->extrasLength; index++) {
         Object* object = attack->extras[index];
         if (FID_TYPE(object->fid) == OBJ_TYPE_CRITTER) {
             register_ping(2, delay);
@@ -531,6 +538,9 @@ void show_damage(Attack* attack, int a2, int delay)
 // 0x411134
 int action_attack(Attack* attack)
 {
+	int index;
+	int anim;
+
     if (register_clear(attack->attacker) == -2) {
         return -1;
     }
@@ -539,13 +549,13 @@ int action_attack(Attack* attack)
         return -1;
     }
 
-    for (int index = 0; index < attack->extrasLength; index++) {
+    for (index = 0; index < attack->extrasLength; index++) {
         if (register_clear(attack->extras[index]) == -2) {
             return -1;
         }
     }
 
-    int anim = item_w_anim(attack->attacker, attack->hitMode);
+    anim = item_w_anim(attack->attacker, attack->hitMode);
     if (anim < ANIM_FIRE_SINGLE && anim != ANIM_THROW_ANIM) {
         return action_melee(attack, anim);
     } else {
@@ -660,34 +670,42 @@ static int action_melee(Attack* attack, int anim)
 static int action_ranged(Attack* attack, int anim)
 {
     Object* neighboors[6];
+
+    Object* projectile = NULL;
+    Object* v50 = NULL;
+    int weaponFid = -1;
+    Proto* weaponProto;
+	Object* weapon;
+	int fid, actionFrame;
+	Art* art;
+    CacheEntry* artHandle;
+    bool isGrenade = false;
+    char* sfx;
+	int damageType;
+
+
     memset(neighboors, 0, sizeof(neighboors));
 
     register_begin(ANIMATION_REQUEST_RESERVED);
     register_priority(1);
 
-    Object* projectile = NULL;
-    Object* v50 = NULL;
-    int weaponFid = -1;
 
-    Proto* weaponProto;
-    Object* weapon = attack->weapon;
+    weapon = attack->weapon;
     proto_ptr(weapon->pid, &weaponProto);
 
-    int fid = art_id(OBJ_TYPE_CRITTER, attack->attacker->fid & 0xFFF, anim, (attack->attacker->fid & 0xF000) >> 12, attack->attacker->rotation + 1);
-    CacheEntry* artHandle;
-    Art* art = art_ptr_lock(fid, &artHandle);
-    int actionFrame = (art != NULL) ? art_frame_action_frame(art) : 0;
+    fid = art_id(OBJ_TYPE_CRITTER, attack->attacker->fid & 0xFFF, anim, (attack->attacker->fid & 0xF000) >> 12, attack->attacker->rotation + 1);
+    art = art_ptr_lock(fid, &artHandle);
+    actionFrame = (art != NULL) ? art_frame_action_frame(art) : 0;
     art_ptr_unlock(artHandle);
 
     item_w_range(attack->attacker, attack->hitMode);
 
-    int damageType = item_w_damage_type(attack->weapon);
+    damageType = item_w_damage_type(attack->weapon);
 
     tile_num_in_direction(attack->attacker->tile, attack->attacker->rotation, 1);
 
     register_object_turn_towards(attack->attacker, attack->defender->tile);
 
-    bool isGrenade = false;
     if (anim == ANIM_THROW_ANIM) {
         if (damageType == DAMAGE_TYPE_EXPLOSION || damageType == DAMAGE_TYPE_PLASMA || damageType == DAMAGE_TYPE_EMP) {
             isGrenade = true;
@@ -698,7 +716,6 @@ static int action_ranged(Attack* attack, int anim)
 
     combatai_msg(attack->attacker, attack, AI_MESSAGE_TYPE_ATTACK, 0);
 
-    const char* sfx;
     if (((attack->attacker->fid & 0xF000) >> 12) != 0) {
         sfx = gsnd_build_weapon_sfx_name(WEAPON_SOUND_EFFECT_ATTACK, weapon, attack->hitMode, attack->defender);
     } else {
@@ -711,14 +728,19 @@ static int action_ranged(Attack* attack, int anim)
     if (anim != ANIM_FIRE_CONTINUOUS) {
         if ((attack->attackerFlags & DAM_HIT) != 0 || (attack->attackerFlags & DAM_CRITICAL) == 0) {
             bool l56 = false;
+			int projectileOrigin,projectileRotation;
+			char* sfx;
+            int v24;
+
 
             int projectilePid = item_w_proj_pid(weapon);
             Proto* projectileProto;
             if (proto_ptr(projectilePid, &projectileProto) != -1 && projectileProto->fid != -1) {
                 if (anim == ANIM_THROW_ANIM) {
+					int weaponFlags;
                     projectile = weapon;
                     weaponFid = weapon->fid;
-                    int weaponFlags = weapon->flags;
+                    weaponFlags = weapon->flags;
 
                     item_remove_mult(attack->attacker, weapon, 1);
                     v50 = item_replace(attack->attacker, weapon, weaponFlags & OBJECT_IN_ANY_HAND);
@@ -737,18 +759,17 @@ static int action_ranged(Attack* attack, int anim)
 
                 obj_set_light(projectile, 9, projectile->lightIntensity, NULL);
 
-                int projectileOrigin = combat_bullet_start(attack->attacker, attack->defender);
+                projectileOrigin = combat_bullet_start(attack->attacker, attack->defender);
                 obj_move_to_tile(projectile, projectileOrigin, attack->attacker->elevation, NULL);
 
-                int projectileRotation = tile_dir(attack->attacker->tile, attack->defender->tile);
+                projectileRotation = tile_dir(attack->attacker->tile, attack->defender->tile);
                 obj_set_rotation(projectile, projectileRotation, NULL);
 
                 register_object_funset(projectile, OBJECT_HIDDEN, actionFrame);
 
-                const char* sfx = gsnd_build_weapon_sfx_name(WEAPON_SOUND_EFFECT_AMMO_FLYING, weapon, attack->hitMode, attack->defender);
+                sfx = gsnd_build_weapon_sfx_name(WEAPON_SOUND_EFFECT_AMMO_FLYING, weapon, attack->hitMode, attack->defender);
                 register_object_play_sfx(projectile, sfx, 0);
 
-                int v24;
                 if ((attack->attackerFlags & DAM_HIT) != 0) {
                     register_object_move_straight_to_tile(projectile, attack->defender->tile, attack->defender->elevation, ANIM_WALK, 0);
                     actionFrame = make_straight_path(projectile, projectileOrigin, attack->defender->tile, NULL, NULL, 32) - 1;
@@ -760,6 +781,9 @@ static int action_ranged(Attack* attack, int anim)
                 }
 
                 if (isGrenade || damageType == DAMAGE_TYPE_EXPLOSION) {
+					int explosionFid;
+					char* sfx;
+					int rotation;
                     if ((attack->attackerFlags & DAM_DROP) == 0) {
                         int explosionFrmId;
                         if (isGrenade) {
@@ -782,22 +806,23 @@ static int action_ranged(Attack* attack, int anim)
                             register_object_change_fid(projectile, weaponFid, -1);
                         }
 
-                        int explosionFid = art_id(OBJ_TYPE_MISC, explosionFrmId, 0, 0, 0);
+                        explosionFid = art_id(OBJ_TYPE_MISC, explosionFrmId, 0, 0, 0);
                         register_object_change_fid(projectile, explosionFid, -1);
 
-                        const char* sfx = gsnd_build_weapon_sfx_name(WEAPON_SOUND_EFFECT_HIT, weapon, attack->hitMode, attack->defender);
+                        sfx = gsnd_build_weapon_sfx_name(WEAPON_SOUND_EFFECT_HIT, weapon, attack->hitMode, attack->defender);
                         register_object_play_sfx(projectile, sfx, 0);
 
                         register_object_animate_and_hide(projectile, ANIM_STAND, 0);
 
-                        for (int rotation = 0; rotation < ROTATION_COUNT; rotation++) {
+                        for (rotation = 0; rotation < ROTATION_COUNT; rotation++) {
+							int v31,delay;
                             if (obj_new(&(neighboors[rotation]), explosionFid, -1) != -1) {
                                 obj_turn_off(neighboors[rotation], NULL);
 
-                                int v31 = tile_num_in_direction(v24, rotation, 1);
+                                v31 = tile_num_in_direction(v24, rotation, 1);
                                 obj_move_to_tile(neighboors[rotation], v31, projectile->elevation, NULL);
 
-                                int delay;
+                                delay;
                                 if (rotation != ROTATION_NE) {
                                     delay = 0;
                                 } else {
@@ -855,7 +880,7 @@ static int action_ranged(Attack* attack, int anim)
         register_object_change_fid(projectile, weaponFid, -1);
     }
 
-    for (int rotation = 0; rotation < ROTATION_COUNT; rotation++) {
+    for (rotation = 0; rotation < ROTATION_COUNT; rotation++) {
         if (neighboors[rotation] != NULL) {
             register_object_must_erase(neighboors[rotation]);
         }
@@ -882,12 +907,13 @@ static int action_ranged(Attack* attack, int anim)
     }
 
     if (register_end() == -1) {
+		int rotation;
         debug_printf("Something went wrong with a ranged attack sequence!\n");
         if (projectile != NULL && (isGrenade || damageType == DAMAGE_TYPE_EXPLOSION || anim != ANIM_THROW_ANIM)) {
             obj_erase_object(projectile, NULL);
         }
 
-        for (int rotation = 0; rotation < ROTATION_COUNT; rotation++) {
+        for (rotation = 0; rotation < ROTATION_COUNT; rotation++) {
             if (neighboors[rotation] != NULL) {
                 obj_erase_object(neighboors[rotation], NULL);
             }
@@ -929,6 +955,12 @@ static int is_next_to(Object* a1, Object* a2)
 // 0x411C30
 static int action_climb_ladder(Object* a1, Object* a2)
 {
+    int animationRequestOptions;
+    int actionPoints;
+	int tile;
+	int weaponAnimationCode;
+	char* climbingSfx;
+
     if (a1 == obj_dude) {
         int anim = FID_ANIM_TYPE(obj_dude->fid);
         if (anim == ANIM_WALK || anim == ANIM_RUNNING) {
@@ -936,8 +968,6 @@ static int action_climb_ladder(Object* a1, Object* a2)
         }
     }
 
-    int animationRequestOptions;
-    int actionPoints;
     if (isInCombat()) {
         animationRequestOptions = ANIMATION_REQUEST_RESERVED;
         actionPoints = a1->data.critter.combat.ap;
@@ -953,7 +983,7 @@ static int action_climb_ladder(Object* a1, Object* a2)
     animationRequestOptions |= ANIMATION_REQUEST_NO_STAND;
     register_begin(animationRequestOptions);
 
-    int tile = tile_num_in_direction(a2->tile, ROTATION_SE, 1);
+    tile = tile_num_in_direction(a2->tile, ROTATION_SE, 1);
     if (actionPoints != -1 || obj_dist(a1, a2) < 5) {
         register_object_move_to_tile(a1, tile, a2->elevation, actionPoints, 0);
     } else {
@@ -964,14 +994,14 @@ static int action_climb_ladder(Object* a1, Object* a2)
     register_object_turn_towards(a1, a2->tile);
     register_object_must_call(a1, a2, check_scenery_ap_cost, -1);
 
-    int weaponAnimationCode = (a1->fid & 0xF000) >> 12;
+    weaponAnimationCode = (a1->fid & 0xF000) >> 12;
     if (weaponAnimationCode != 0) {
         const char* puttingAwaySfx = gsnd_build_character_sfx_name(a1, ANIM_PUT_AWAY, CHARACTER_SOUND_EFFECT_UNUSED);
         register_object_play_sfx(a1, puttingAwaySfx, -1);
         register_object_animate(a1, ANIM_PUT_AWAY, 0);
     }
 
-    const char* climbingSfx = gsnd_build_character_sfx_name(a1, ANIM_CLIMB_LADDER, CHARACTER_SOUND_EFFECT_UNUSED);
+    climbingSfx = gsnd_build_character_sfx_name(a1, ANIM_CLIMB_LADDER, CHARACTER_SOUND_EFFECT_UNUSED);
     register_object_play_sfx(a1, climbingSfx, -1);
     register_object_animate(a1, ANIM_CLIMB_LADDER, 0);
     register_object_call(a1, a2, obj_use, -1);
@@ -1087,6 +1117,7 @@ int get_an_object(Object* item)
 // 0x411F98
 int action_get_an_object(Object* critter, Object* item)
 {
+	Proto* itemProto;
     if (FID_TYPE(item->fid) != OBJ_TYPE_ITEM) {
         return -1;
     }
@@ -1113,24 +1144,26 @@ int action_get_an_object(Object* critter, Object* item)
     register_object_must_call(critter, item, is_next_to, -1);
     register_object_call(critter, item, check_scenery_ap_cost, -1);
 
-    Proto* itemProto;
     proto_ptr(item->pid, &itemProto);
 
     if (itemProto->item.type != ITEM_TYPE_CONTAINER || proto_action_can_pickup(item->pid)) {
+		int fid;
+		int actionFrame;
+		CacheEntry* cacheEntry;
+		Art* art;
+		char sfx[16];
+
         register_object_animate(critter, ANIM_MAGIC_HANDS_GROUND, 0);
 
-        int fid = art_id(OBJ_TYPE_CRITTER, critter->fid & 0xFFF, ANIM_MAGIC_HANDS_GROUND, (critter->fid & 0xF000) >> 12, critter->rotation + 1);
+        fid = art_id(OBJ_TYPE_CRITTER, critter->fid & 0xFFF, ANIM_MAGIC_HANDS_GROUND, (critter->fid & 0xF000) >> 12, critter->rotation + 1);
 
-        int actionFrame;
-        CacheEntry* cacheEntry;
-        Art* art = art_ptr_lock(fid, &cacheEntry);
+		art = art_ptr_lock(fid, &cacheEntry);
         if (art != NULL) {
             actionFrame = art_frame_action_frame(art);
         } else {
             actionFrame = -1;
         }
 
-        char sfx[16];
         if (art_get_base_name(FID_TYPE(item->fid), item->fid & 0xFFF, sfx) == 0) {
             // NOTE: looks like they copy sfx one more time, what for?
             register_object_play_sfx(item, sfx, actionFrame);
@@ -1138,6 +1171,11 @@ int action_get_an_object(Object* critter, Object* item)
 
         register_object_call(critter, item, obj_pickup, actionFrame);
     } else {
+		int anim,fid;
+        int actionFrame;
+        CacheEntry* cacheEntry;
+		Art* art;
+
         int weaponAnimationCode = (critter->fid & 0xF000) >> 12;
         if (weaponAnimationCode != 0) {
             const char* sfx = gsnd_build_character_sfx_name(critter, ANIM_PUT_AWAY, CHARACTER_SOUND_EFFECT_UNUSED);
@@ -1146,16 +1184,15 @@ int action_get_an_object(Object* critter, Object* item)
         }
 
         // ground vs middle animation
-        int anim = (itemProto->item.data.container.openFlags & 0x01) == 0
+        anim = (itemProto->item.data.container.openFlags & 0x01) == 0
             ? ANIM_MAGIC_HANDS_MIDDLE
             : ANIM_MAGIC_HANDS_GROUND;
         register_object_animate(critter, anim, 0);
 
-        int fid = art_id(OBJ_TYPE_CRITTER, critter->fid & 0xFFF, anim, 0, critter->rotation + 1);
+        fid = art_id(OBJ_TYPE_CRITTER, critter->fid & 0xFFF, anim, 0, critter->rotation + 1);
 
-        int actionFrame;
-        CacheEntry* cacheEntry;
-        Art* art = art_ptr_lock(fid, &cacheEntry);
+
+        art = art_ptr_lock(fid, &cacheEntry);
         if (art == NULL) {
             actionFrame = art_frame_action_frame(art);
             art_ptr_unlock(cacheEntry);
@@ -1242,6 +1279,10 @@ int action_use_skill_in_combat_error(Object* critter)
 // 0x4123C8
 int action_use_skill_on(Object* a1, Object* a2, int skill)
 {
+	int anim,fid;
+	CacheEntry* artHandle;
+    Art* art;
+
     switch (skill) {
     case SKILL_FIRST_AID:
     case SKILL_DOCTOR:
@@ -1348,13 +1389,12 @@ int action_use_skill_on(Object* a1, Object* a2, int skill)
 
     register_object_must_call(a1, a2, is_next_to, -1);
 
-    int anim = (FID_TYPE(a2->fid) == OBJ_TYPE_CRITTER && critter_is_prone(a2))
+    anim = (FID_TYPE(a2->fid) == OBJ_TYPE_CRITTER && critter_is_prone(a2))
         ? ANIM_MAGIC_HANDS_GROUND
         : ANIM_MAGIC_HANDS_MIDDLE;
-    int fid = art_id(OBJ_TYPE_CRITTER, a1->fid & 0xFFF, anim, 0, a1->rotation + 1);
+    fid = art_id(OBJ_TYPE_CRITTER, a1->fid & 0xFFF, anim, 0, a1->rotation + 1);
 
-    CacheEntry* artHandle;
-    Art* art = art_ptr_lock(fid, &artHandle);
+	art = art_ptr_lock(fid, &artHandle);
     if (art != NULL) {
         art_frame_action_frame(art);
         art_ptr_unlock(artHandle);
@@ -1545,17 +1585,22 @@ int pick_fall(Object* obj, int anim)
 // 0x412A6C
 int action_explode(int tile, int elevation, int minDamage, int maxDamage, Object* a5, bool premature)
 {
+	Attack* attack;
+    Object* explosion;
+	int fid,rotation,index;
+	Object* adjacentExplosions[ROTATION_COUNT];
+	Object* critter;
+
     if (premature && action_in_explode) {
         return -2;
     }
 
-    Attack* attack = (Attack*)mem_malloc(sizeof(*attack));
+    attack = (Attack*)mem_malloc(sizeof(*attack));
     if (attack == NULL) {
         return -1;
     }
 
-    Object* explosion;
-    int fid = art_id(OBJ_TYPE_MISC, 10, 0, 0, 0);
+    fid = art_id(OBJ_TYPE_MISC, 10, 0, 0, 0);
     if (obj_new(&explosion, fid, -1) == -1) {
         mem_free(attack);
         return -1;
@@ -1566,8 +1611,8 @@ int action_explode(int tile, int elevation, int minDamage, int maxDamage, Object
 
     obj_move_to_tile(explosion, tile, elevation, NULL);
 
-    Object* adjacentExplosions[ROTATION_COUNT];
-    for (int rotation = 0; rotation < ROTATION_COUNT; rotation++) {
+    for (rotation = 0; rotation < ROTATION_COUNT; rotation++) {
+		int adjacentTile;
         int fid = art_id(OBJ_TYPE_MISC, 10, 0, 0, 0);
         if (obj_new(&(adjacentExplosions[rotation]), fid, -1) == -1) {
             while (--rotation >= 0) {
@@ -1582,11 +1627,11 @@ int action_explode(int tile, int elevation, int minDamage, int maxDamage, Object
         obj_turn_off(adjacentExplosions[rotation], NULL);
         adjacentExplosions[rotation]->flags |= OBJECT_TEMPORARY;
 
-        int adjacentTile = tile_num_in_direction(tile, rotation, 1);
+        adjacentTile = tile_num_in_direction(tile, rotation, 1);
         obj_move_to_tile(adjacentExplosions[rotation], adjacentTile, elevation, NULL);
     }
 
-    Object* critter = obj_blocking_at(NULL, tile, elevation);
+    critter = obj_blocking_at(NULL, tile, elevation);
     if (critter != NULL) {
         if (FID_TYPE(critter->fid) != OBJ_TYPE_CRITTER || (critter->data.critter.combat.results & DAM_DEAD) != 0) {
             critter = NULL;
@@ -1609,7 +1654,7 @@ int action_explode(int tile, int elevation, int minDamage, int maxDamage, Object
 
     compute_explosion_on_extras(attack, 0, 0, 1);
 
-    for (int index = 0; index < attack->extrasLength; index++) {
+    for (index = 0; index < attack->extrasLength; index++) {
         Object* critter = attack->extras[index];
         if (register_clear(critter) == -2) {
             debug_printf("Cannot clear extra's animation for action_explode!\n");
@@ -1621,6 +1666,7 @@ int action_explode(int tile, int elevation, int minDamage, int maxDamage, Object
     death_checks(attack);
 
     if (premature) {
+		int rotation;
         action_in_explode = true;
 
         register_begin(ANIMATION_REQUEST_RESERVED);
@@ -1630,7 +1676,7 @@ int action_explode(int tile, int elevation, int minDamage, int maxDamage, Object
         register_object_animate_and_hide(explosion, ANIM_STAND, 0);
         show_damage(attack, 0, 1);
 
-        for (int rotation = 0; rotation < ROTATION_COUNT; rotation++) {
+        for (rotation = 0; rotation < ROTATION_COUNT; rotation++) {
             register_object_funset(adjacentExplosions[rotation], OBJECT_HIDDEN, 0);
             register_object_animate_and_hide(adjacentExplosions[rotation], ANIM_STAND, 0);
         }
@@ -1638,18 +1684,19 @@ int action_explode(int tile, int elevation, int minDamage, int maxDamage, Object
         register_object_must_call(explosion, 0, combat_explode_scenery, -1);
         register_object_must_erase(explosion);
 
-        for (int rotation = 0; rotation < ROTATION_COUNT; rotation++) {
+        for (rotation = 0; rotation < ROTATION_COUNT; rotation++) {
             register_object_must_erase(adjacentExplosions[rotation]);
         }
 
         register_object_must_call(attack, a5, report_explosion, -1);
         register_object_must_call(NULL, NULL, finished_explosion, -1);
         if (register_end() == -1) {
+			int rotation;
             action_in_explode = false;
 
             obj_erase_object(explosion, NULL);
 
-            for (int rotation = 0; rotation < ROTATION_COUNT; rotation++) {
+            for (rotation = 0; rotation < ROTATION_COUNT; rotation++) {
                 obj_erase_object(adjacentExplosions[rotation], NULL);
             }
 
@@ -1661,13 +1708,14 @@ int action_explode(int tile, int elevation, int minDamage, int maxDamage, Object
 
         show_damage_extras(attack);
     } else {
+		int index,rotation;
         if (critter != NULL) {
             if ((attack->defenderFlags & DAM_DEAD) != 0) {
                 critter_kill(critter, -1, false);
             }
         }
 
-        for (int index = 0; index < attack->extrasLength; index++) {
+        for (index = 0; index < attack->extrasLength; index++) {
             if ((attack->extrasFlags[index] & DAM_DEAD) != 0) {
                 critter_kill(attack->extras[index], -1, false);
             }
@@ -1679,7 +1727,7 @@ int action_explode(int tile, int elevation, int minDamage, int maxDamage, Object
 
         obj_erase_object(explosion, NULL);
 
-        for (int rotation = 0; rotation < ROTATION_COUNT; rotation++) {
+        for (rotation = 0; rotation < ROTATION_COUNT; rotation++) {
             obj_erase_object(adjacentExplosions[rotation], NULL);
         }
     }
@@ -1690,15 +1738,21 @@ int action_explode(int tile, int elevation, int minDamage, int maxDamage, Object
 // 0x412EBC
 static int report_explosion(Attack* attack, Object* a2)
 {
+    bool extrasWasDead[6];
     bool mainTargetWasDead;
+	int index;
+    Object* anyDefender = NULL;
+    int xp = 0;
+
+
+
     if (attack->defender != NULL) {
         mainTargetWasDead = (attack->defender->data.critter.combat.results & DAM_DEAD) != 0;
     } else {
         mainTargetWasDead = false;
     }
 
-    bool extrasWasDead[6];
-    for (int index = 0; index < attack->extrasLength; index++) {
+    for (index = 0; index < attack->extrasLength; index++) {
         extrasWasDead[index] = (attack->extras[index]->data.critter.combat.results & DAM_DEAD) != 0;
     }
 
@@ -1706,8 +1760,6 @@ static int report_explosion(Attack* attack, Object* a2)
     combat_display(attack);
     apply_damage(attack, false);
 
-    Object* anyDefender = NULL;
-    int xp = 0;
     if (a2 != NULL) {
         if (attack->defender != NULL && attack->defender != a2) {
             if ((attack->defender->data.critter.combat.results & DAM_DEAD) != 0) {
@@ -1720,7 +1772,7 @@ static int report_explosion(Attack* attack, Object* a2)
             }
         }
 
-        for (int index = 0; index < attack->extrasLength; index++) {
+        for (index = 0; index < attack->extrasLength; index++) {
             Object* critter = attack->extras[index];
             if (critter != a2) {
                 if ((critter->data.critter.combat.results & DAM_DEAD) != 0) {
@@ -1795,6 +1847,7 @@ static int compute_explosion_damage(int min, int max, Object* a3, int* a4)
 // 0x4130A8
 int action_talk_to(Object* a1, Object* a2)
 {
+	int anim;
     if (a1 != obj_dude) {
         return -1;
     }
@@ -1803,7 +1856,7 @@ int action_talk_to(Object* a1, Object* a2)
         return -1;
     }
 
-    int anim = FID_ANIM_TYPE(obj_dude->fid);
+    anim = FID_ANIM_TYPE(obj_dude->fid);
     if (anim == ANIM_WALK || anim == ANIM_RUNNING) {
         register_clear(obj_dude);
     }
@@ -1854,12 +1907,13 @@ static int talk_to(Object* a1, Object* a2)
 // 0x41320C
 void action_dmg(int tile, int elevation, int minDamage, int maxDamage, int damageType, bool animated, bool bypassArmor)
 {
+    Object* attacker;
+	Object* defender;
     Attack* attack = (Attack*)mem_malloc(sizeof(*attack));
     if (attack == NULL) {
         return;
     }
 
-    Object* attacker;
     if (obj_new(&attacker, FID_0x20001F5, -1) == -1) {
         mem_free(attack);
         return;
@@ -1871,16 +1925,16 @@ void action_dmg(int tile, int elevation, int minDamage, int maxDamage, int damag
 
     obj_move_to_tile(attacker, tile, elevation, NULL);
 
-    Object* defender = obj_blocking_at(NULL, tile, elevation);
+    defender = obj_blocking_at(NULL, tile, elevation);
     combat_ctd_init(attack, attacker, defender, HIT_MODE_PUNCH, HIT_LOCATION_TORSO);
     attack->tile = tile;
     attack->attackerFlags = DAM_HIT;
     game_ui_disable(1);
 
     if (defender != NULL) {
+		int damage;
         register_clear(defender);
 
-        int damage;
         if (bypassArmor) {
             damage = maxDamage;
         } else {

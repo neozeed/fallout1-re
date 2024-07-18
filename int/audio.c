@@ -58,21 +58,26 @@ static int decodeRead(void* stream, void* buffer, unsigned int size)
 int audioOpen(const char* fname, int flags)
 {
     char path[80];
+    int compression;
+    char mode[4];
+	char* pm;
+	DB_FILE* stream;
+    int index;
+	Audio* audioFile;
+
     sprintf(path, fname);
 
-    int compression;
     if (queryCompressedFunc(path)) {
         compression = 2;
     } else {
         compression = 0;
     }
 
-    char mode[4];
     memset(mode, 0, 4);
 
     // NOTE: Original implementation is slightly different, it uses separate
     // variable to track index where to set 't' and 'b'.
-    char* pm = mode;
+    pm = mode;
     if (flags & 1) {
         *pm++ = 'w';
     } else if (flags & 2) {
@@ -88,13 +93,12 @@ int audioOpen(const char* fname, int flags)
         *pm++ = 'b';
     }
 
-    DB_FILE* stream = db_fopen(path, mode);
+    stream = db_fopen(path, mode);
     if (stream == NULL) {
         debug_printf("AudioOpen: Couldn't open %s for read\n", path);
         return -1;
     }
 
-    int index;
     for (index = 0; index < numAudio; index++) {
         if ((audio[index].flags & AUDIO_FILE_IN_USE) == 0) {
             break;
@@ -110,7 +114,7 @@ int audioOpen(const char* fname, int flags)
         numAudio++;
     }
 
-    Audio* audioFile = &(audio[index]);
+    audioFile = &(audio[index]);
     audioFile->flags = AUDIO_FILE_IN_USE;
     audioFile->stream = stream;
 

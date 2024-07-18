@@ -183,6 +183,10 @@ bool cycle_is_enabled()
 // 0x428F5C
 static void cycle_colors()
 {
+    bool changed;
+    unsigned char* palette;
+    unsigned int time;
+
     // 0x504E94
     static int slime_start = 0;
 
@@ -208,22 +212,25 @@ static void cycle_colors()
         return;
     }
 
-    bool changed = false;
+    changed = false;
 
-    unsigned char* palette = getSystemPalette();
-    unsigned int time = get_time();
+    palette = getSystemPalette();
+    time = get_time();
 
     if (elapsed_tocks(time, last_cycle_slow) >= COLOR_CYCLE_PERIOD_SLOW * cycle_speed_factor) {
+		int paletteIndex;
+		int index;
+
         changed = true;
         last_cycle_slow = time;
 
-        int paletteIndex = 229 * 3;
+        paletteIndex = 229 * 3;
 
-        for (int index = slime_start; index < 12; index++) {
+        for (index = slime_start; index < 12; index++) {
             palette[paletteIndex++] = slime[index];
         }
 
-        for (int index = 0; index < slime_start; index++) {
+        for (index = 0; index < slime_start; index++) {
             palette[paletteIndex++] = slime[index];
         }
 
@@ -234,11 +241,11 @@ static void cycle_colors()
 
         paletteIndex = 248 * 3;
 
-        for (int index = shoreline_start; index < 18; index++) {
+        for (index = shoreline_start; index < 18; index++) {
             palette[paletteIndex++] = shoreline[index];
         }
 
-        for (int index = 0; index < shoreline_start; index++) {
+        for (index = 0; index < shoreline_start; index++) {
             palette[paletteIndex++] = shoreline[index];
         }
 
@@ -249,11 +256,11 @@ static void cycle_colors()
 
         paletteIndex = 238 * 3;
 
-        for (int index = fire_slow_start; index < 15; index++) {
+        for (index = fire_slow_start; index < 15; index++) {
             palette[paletteIndex++] = fire_slow[index];
         }
 
-        for (int index = 0; index < fire_slow_start; index++) {
+        for (index = 0; index < fire_slow_start; index++) {
             palette[paletteIndex++] = fire_slow[index];
         }
 
@@ -264,16 +271,19 @@ static void cycle_colors()
     }
 
     if (elapsed_tocks(time, last_cycle_medium) >= COLOR_CYCLE_PERIOD_MEDIUM * cycle_speed_factor) {
+		int paletteIndex;
+		int index;
+
         changed = true;
         last_cycle_medium = time;
 
-        int paletteIndex = 243 * 3;
+        paletteIndex = 243 * 3;
 
-        for (int index = fire_fast_start; index < 15; index++) {
+        for (index = fire_fast_start; index < 15; index++) {
             palette[paletteIndex++] = fire_fast[index];
         }
 
-        for (int index = 0; index < fire_fast_start; index++) {
+        for (index = 0; index < fire_fast_start; index++) {
             palette[paletteIndex++] = fire_fast[index];
         }
 
@@ -284,16 +294,19 @@ static void cycle_colors()
     }
 
     if (elapsed_tocks(time, last_cycle_fast) >= COLOR_CYCLE_PERIOD_FAST * cycle_speed_factor) {
+		int paletteIndex;
+		int index;
+
         changed = true;
         last_cycle_fast = time;
 
-        int paletteIndex = 233 * 3;
+        paletteIndex = 233 * 3;
 
-        for (int index = monitors_start; index < 15; index++) {
+        for (index = monitors_start; index < 15; index++) {
             palette[paletteIndex++] = monitors[index];
         }
 
-        for (int index = 0; index < monitors_start; index++) {
+        for (index = 0; index < monitors_start; index++) {
             palette[paletteIndex++] = monitors[index];
         }
 
@@ -305,6 +318,8 @@ static void cycle_colors()
     }
 
     if (elapsed_tocks(time, last_cycle_very_fast) >= COLOR_CYCLE_PERIOD_VERY_FAST * cycle_speed_factor) {
+		int paletteIndex;
+
         changed = true;
         last_cycle_very_fast = time;
 
@@ -314,7 +329,7 @@ static void cycle_colors()
 
         bobber_red += bobber_diff;
 
-        int paletteIndex = 254 * 3;
+        paletteIndex = 254 * 3;
         palette[paletteIndex++] = bobber_red;
         palette[paletteIndex++] = 0;
         palette[paletteIndex++] = 0;

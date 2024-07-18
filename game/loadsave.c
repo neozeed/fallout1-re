@@ -333,6 +333,9 @@ void ResetLoadSave()
 // 0x46D9C4
 int SaveGame(int mode)
 {
+	int rc = -1;
+    int doubleClickSlot = -1;
+	int windowType;
     MessageListItem messageListItem;
 
     ls_error_code = 0;
@@ -343,6 +346,12 @@ int SaveGame(int mode)
     }
 
     if (mode == LOAD_SAVE_MODE_QUICK && quick_done) {
+		int v6;
+        char path[MAX_PATH];
+        const char* body[] = {
+            str1,
+        };
+
         sprintf(gmpath, "%s\\%s%.2d\\", "SAVEGAME", "SLOT", slot_cursor + 1);
         strcat(gmpath, "SAVE.DAT");
 
@@ -353,7 +362,7 @@ int SaveGame(int mode)
         }
 
         thumbnail_image[1] = NULL;
-        int v6 = QuickSnapShot();
+        v6 = QuickSnapShot();
         if (v6 == 1) {
             int v7 = SaveSlot();
             if (v7 != -1) {
@@ -375,7 +384,6 @@ int SaveGame(int mode)
             return -1;
         }
 
-        char path[MAX_PATH];
         sprintf(path, "%s%s", msg_path, "LSGAME.MSG");
         if (!message_load(&lsgame_msgfl, path)) {
             return -1;
@@ -388,9 +396,6 @@ int SaveGame(int mode)
         // Unable to save game.
         strcpy(str1, getmsg(&lsgame_msgfl, &messageListItem, 133));
 
-        const char* body[] = {
-            str1,
-        };
         dialog_out(str0, body, 1, 169, 116, colorTable[32328], NULL, colorTable[32328], DIALOG_BOX_LARGE);
 
         message_exit(&lsgame_msgfl);
@@ -400,7 +405,7 @@ int SaveGame(int mode)
 
     quick_done = false;
 
-    int windowType = mode == LOAD_SAVE_MODE_QUICK
+    windowType = mode == LOAD_SAVE_MODE_QUICK
         ? LOAD_SAVE_WINDOW_TYPE_PICK_QUICK_SAVE_SLOT
         : LOAD_SAVE_WINDOW_TYPE_SAVE_GAME;
     if (LSGameStart(windowType) == -1) {
@@ -409,6 +414,11 @@ int SaveGame(int mode)
     }
 
     if (GetSlotList() == -1) {
+        const char* body[] = {
+            str1,
+            str2,
+        };
+
         win_draw(lsgwin);
 
         gsound_play_sfx_file("iisxxxx1");
@@ -423,10 +433,6 @@ int SaveGame(int mode)
         // TODO: Check.
         strcpy(str2, getmsg(&lsgame_msgfl, &messageListItem, 108));
 
-        const char* body[] = {
-            str1,
-            str2,
-        };
         dialog_out(str0, body, 2, 169, 116, colorTable[32328], NULL, colorTable[32328], DIALOG_BOX_LARGE);
 
         LSGameEnd(0);
@@ -462,8 +468,6 @@ int SaveGame(int mode)
 
     dbleclkcntr = 24;
 
-    int rc = -1;
-    int doubleClickSlot = -1;
     while (rc == -1) {
         unsigned int tick = get_time();
         int keyCode = get_input();
@@ -556,9 +560,10 @@ int SaveGame(int mode)
 
         if (keyCode == 500) {
             if (LSstatus[slot_cursor] == SLOT_STATE_OCCUPIED) {
+				char* title;
                 rc = 1;
                 // Save game already exists, overwrite?
-                const char* title = getmsg(&lsgame_msgfl, &lsgmesg, 131);
+                title = getmsg(&lsgame_msgfl, &lsgmesg, 131);
                 if (dialog_out(title, NULL, 0, 169, 131, colorTable[32328], NULL, colorTable[32328], DIALOG_BOX_YES_NO) == 0) {
                     rc = -1;
                 }
@@ -679,6 +684,9 @@ int SaveGame(int mode)
         if (rc == 1) {
             int v50 = GetComment(slot_cursor);
             if (v50 == -1) {
+                const char* body[1] = {
+                    str1,
+                };
                 gmouse_set_cursor(MOUSE_CURSOR_ARROW);
                 gsound_play_sfx_file("iisxxxx1");
                 debug_printf("\nLOADSAVE: ** Error getting save file comment **\n");
@@ -688,9 +696,6 @@ int SaveGame(int mode)
                 // Unable to save game.
                 strcpy(str1, getmsg(&lsgame_msgfl, &lsgmesg, 133));
 
-                const char* body[1] = {
-                    str1,
-                };
                 dialog_out(str0, body, 1, 169, 116, colorTable[32328], NULL, colorTable[32328], DIALOG_BOX_LARGE);
                 rc = -1;
             } else if (v50 == 0) {
@@ -698,6 +703,9 @@ int SaveGame(int mode)
                 rc = -1;
             } else if (v50 == 1) {
                 if (SaveSlot() == -1) {
+                    char* body[1] = {
+                        str1,
+                    };
                     gmouse_set_cursor(MOUSE_CURSOR_ARROW);
                     gsound_play_sfx_file("iisxxxx1");
 
@@ -708,12 +716,15 @@ int SaveGame(int mode)
 
                     rc = -1;
 
-                    const char* body[1] = {
-                        str1,
-                    };
                     dialog_out(str0, body, 1, 169, 116, colorTable[32328], NULL, colorTable[32328], DIALOG_BOX_LARGE);
 
                     if (GetSlotList() == -1) {
+                        char text[260];
+                        char* body[2] = {
+                            str1,
+                            str2,
+                        };
+
                         win_draw(lsgwin);
                         gsound_play_sfx_file("iisxxxx1");
 
@@ -724,14 +735,9 @@ int SaveGame(int mode)
 
                         sprintf(str2, "\"%s\\\"", "SAVEGAME");
 
-                        char text[260];
                         // Doesn't exist or is corrupted.
                         strcpy(text, getmsg(&lsgame_msgfl, &lsgmesg, 107));
 
-                        const char* body[2] = {
-                            str1,
-                            str2,
-                        };
                         dialog_out(str0, body, 2, 169, 116, colorTable[32328], NULL, colorTable[32328], DIALOG_BOX_LARGE);
 
                         LSGameEnd(0);
@@ -788,12 +794,14 @@ int SaveGame(int mode)
 // 0x46E6C8
 static int QuickSnapShot()
 {
+	bool gameMouseWasVisible;
+	unsigned char* windowBuffer;
     snapshot = (unsigned char*)mem_malloc(LS_PREVIEW_SIZE);
     if (snapshot == NULL) {
         return -1;
     }
 
-    bool gameMouseWasVisible = gmouse_3d_is_on();
+    gameMouseWasVisible = gmouse_3d_is_on();
     if (gameMouseWasVisible) {
         gmouse_3d_off();
     }
@@ -806,7 +814,7 @@ static int QuickSnapShot()
         gmouse_3d_on();
     }
 
-    unsigned char* windowBuffer = win_get_buf(display_win);
+    windowBuffer = win_get_buf(display_win);
     cscale(windowBuffer, 640, 380, 640, snapshot, LS_PREVIEW_WIDTH, LS_PREVIEW_HEIGHT, LS_PREVIEW_WIDTH);
 
     thumbnail_image[1] = snapshot;
@@ -817,6 +825,9 @@ static int QuickSnapShot()
 // 0x46E754
 int LoadGame(int mode)
 {
+	int rc = -1;
+    int doubleClickSlot = -1;
+    int windowType;
     MessageListItem messageListItem;
 
     const char* body[] = {
@@ -832,6 +843,7 @@ int LoadGame(int mode)
     }
 
     if (mode == LOAD_SAVE_MODE_QUICK && quick_done) {
+        char path[MAX_PATH];
         int quickSaveWindowX = 0;
         int quickSaveWindowY = 0;
         int window = win_add(quickSaveWindowX,
@@ -858,7 +870,6 @@ int LoadGame(int mode)
             return -1;
         }
 
-        char path[MAX_PATH];
         sprintf(path, "%s\\%s", msg_path, "LSGAME.MSG");
         if (!message_load(&lsgame_msgfl, path)) {
             return -1;
@@ -883,7 +894,6 @@ int LoadGame(int mode)
 
     quick_done = false;
 
-    int windowType;
     switch (mode) {
     case LOAD_SAVE_MODE_FROM_MAIN_MENU:
         windowType = LOAD_SAVE_WINDOW_TYPE_LOAD_GAME_FROM_MAIN_MENU;
@@ -942,8 +952,6 @@ int LoadGame(int mode)
     win_draw(lsgwin);
     dbleclkcntr = 24;
 
-    int rc = -1;
-    int doubleClickSlot = -1;
     while (rc == -1) {
         unsigned int time = get_time();
         int keyCode = get_input();
@@ -988,9 +996,10 @@ int LoadGame(int mode)
                 if (1) {
                     int mouseX;
                     int mouseY;
+					int clickedSlot;
                     mouse_get_position(&mouseX, &mouseY);
 
-                    int clickedSlot = (mouseY - 79) / (3 * text_height() + 4);
+                    clickedSlot = (mouseY - 79) / (3 * text_height() + 4);
                     if (clickedSlot < 0) {
                         clickedSlot = 0;
                     } else if (clickedSlot > 9) {
@@ -1206,6 +1215,15 @@ int LoadGame(int mode)
 // 0x46F3D0
 static int LSGameStart(int windowType)
 {
+	int index;
+    int lsWindowX = 0;
+    int lsWindowY = 0;
+    int messageId;
+    char* msg;
+    int btn;
+
+
+
     fontsave = text_curr();
     text_font(103);
 
@@ -1238,6 +1256,7 @@ static int LSGameStart(int windowType)
     gmouse_set_cursor(MOUSE_CURSOR_ARROW);
 
     if (windowType == LOAD_SAVE_WINDOW_TYPE_SAVE_GAME || windowType == LOAD_SAVE_WINDOW_TYPE_PICK_QUICK_SAVE_SLOT) {
+		unsigned char* windowBuf;
         bool gameMouseWasVisible = gmouse_3d_is_on();
         if (gameMouseWasVisible) {
             gmouse_3d_off();
@@ -1251,11 +1270,11 @@ static int LSGameStart(int windowType)
             gmouse_3d_on();
         }
 
-        unsigned char* windowBuf = win_get_buf(display_win);
+        windowBuf = win_get_buf(display_win);
         cscale(windowBuf, 640, 380, 640, thumbnail_image[1], LS_PREVIEW_WIDTH, LS_PREVIEW_HEIGHT, LS_PREVIEW_WIDTH);
     }
 
-    for (int index = 0; index < LOAD_SAVE_FRM_COUNT; index++) {
+    for (index = 0; index < LOAD_SAVE_FRM_COUNT; index++) {
         int fid = art_id(OBJ_TYPE_INTERFACE, lsgrphs[index], 0, 0, 0);
         lsbmp[index] = art_lock(fid,
             &(grphkey[index]),
@@ -1282,8 +1301,7 @@ static int LSGameStart(int windowType)
         }
     }
 
-    int lsWindowX = 0;
-    int lsWindowY = 0;
+
     lsgwin = win_add(lsWindowX,
         lsWindowY,
         LS_WINDOW_WIDTH,
@@ -1310,7 +1328,6 @@ static int LSGameStart(int windowType)
     lsgbuf = win_get_buf(lsgwin);
     memcpy(lsgbuf, lsbmp[LOAD_SAVE_FRM_BACKGROUND], LS_WINDOW_WIDTH * LS_WINDOW_HEIGHT);
 
-    int messageId;
     switch (windowType) {
     case LOAD_SAVE_WINDOW_TYPE_SAVE_GAME:
         // SAVE GAME
@@ -1333,8 +1350,6 @@ static int LSGameStart(int windowType)
         assert(false && "Should be unreachable");
     }
 
-    char* msg;
-
     msg = getmsg(&lsgame_msgfl, &lsgmesg, messageId);
     text_to_buf(lsgbuf + LS_WINDOW_WIDTH * 27 + 48, msg, LS_WINDOW_WIDTH, LS_WINDOW_WIDTH, colorTable[18979]);
 
@@ -1346,7 +1361,6 @@ static int LSGameStart(int windowType)
     msg = getmsg(&lsgame_msgfl, &lsgmesg, 105);
     text_to_buf(lsgbuf + LS_WINDOW_WIDTH * 348 + 515, msg, LS_WINDOW_WIDTH, LS_WINDOW_WIDTH, colorTable[18979]);
 
-    int btn;
 
     btn = win_register_button(lsgwin,
         391,
@@ -1425,11 +1439,12 @@ static int LSGameStart(int windowType)
 // 0x46F910
 static int LSGameEnd(int windowType)
 {
+	int index;
     win_delete(lsgwin);
     text_font(fontsave);
     message_exit(&lsgame_msgfl);
 
-    for (int index = 0; index < LOAD_SAVE_FRM_COUNT; index++) {
+    for (index = 0; index < LOAD_SAVE_FRM_COUNT; index++) {
         art_ptr_unlock(grphkey[index]);
     }
 
@@ -1450,6 +1465,8 @@ static int LSGameEnd(int windowType)
 // 0x46F978
 static int SaveSlot()
 {
+	long pos;
+	int index;
     ls_error_code = 0;
     map_backup_count = -1;
     gmouse_set_cursor(MOUSE_CURSOR_WAIT_PLANET);
@@ -1482,7 +1499,7 @@ static int SaveSlot()
         return -1;
     }
 
-    long pos = db_ftell(flptr);
+    pos = db_ftell(flptr);
     if (SaveHeader(slot_cursor) == -1) {
         debug_printf("\nLOADSAVE: ** Error writing save game header! **\n");
         debug_printf("LOADSAVE: Save file header size written: %d bytes.\n", db_ftell(flptr) - pos);
@@ -1495,7 +1512,7 @@ static int SaveSlot()
         return -1;
     }
 
-    for (int index = 0; index < LOAD_SAVE_HANDLER_COUNT; index++) {
+    for (index = 0; index < LOAD_SAVE_HANDLER_COUNT; index++) {
         long pos = db_ftell(flptr);
         SaveGameHandler* handler = master_save_list[index];
         if (handler(flptr) == -1) {
@@ -1540,6 +1557,10 @@ int isLoadingGame()
 // 0x46FCCC
 static int LoadSlot(int slot)
 {
+	LoadSaveSlotData* ptr;
+	long pos;
+	int index;
+
     gmouse_set_cursor(MOUSE_CURSOR_WAIT_PLANET);
 
     if (isInCombat()) {
@@ -1553,7 +1574,7 @@ static int LoadSlot(int slot)
     sprintf(gmpath, "%s\\%s%.2d\\", "SAVEGAME", "SLOT", slot_cursor + 1);
     strcat(gmpath, "SAVE.DAT");
 
-    LoadSaveSlotData* ptr = &(LSData[slot]);
+    ptr = &(LSData[slot]);
     debug_printf("\nLOADSAVE: Load name: %s\n", ptr->description);
 
     flptr = db_fopen(gmpath, "rb");
@@ -1563,7 +1584,7 @@ static int LoadSlot(int slot)
         return -1;
     }
 
-    long pos = db_ftell(flptr);
+    pos = db_ftell(flptr);
     if (LoadHeader(slot) == -1) {
         debug_printf("\nLOADSAVE: ** Error reading save  game header! **\n");
         db_fclose(flptr);
@@ -1574,12 +1595,13 @@ static int LoadSlot(int slot)
 
     debug_printf("LOADSAVE: Load file header size read: %d bytes.\n", db_ftell(flptr) - pos);
 
-    for (int index = 0; index < LOAD_SAVE_HANDLER_COUNT; index += 1) {
+    for (index = 0; index < LOAD_SAVE_HANDLER_COUNT; index += 1) {
         long pos = db_ftell(flptr);
         LoadGameHandler* handler = master_load_list[index];
         if (handler(flptr) == -1) {
+			int v12;
             debug_printf("\nLOADSAVE: ** Error reading load function #%d data! **\n", index);
-            int v12 = db_ftell(flptr);
+            v12 = db_ftell(flptr);
             debug_printf("LOADSAVE: Load function #%d data size read: %d bytes.\n", index, db_ftell(flptr) - pos);
             db_fclose(flptr);
             game_reset();
@@ -1616,6 +1638,7 @@ static void GetTimeDate(short* day, short* month, short* year, int* hour)
     time_t now;
     struct tm* local;
 
+
     now = time(NULL);
     local = localtime(&now);
 
@@ -1628,16 +1651,26 @@ static void GetTimeDate(short* day, short* month, short* year, int* hour)
 // 0x46FF80
 static int SaveHeader(int slot)
 {
+	LoadSaveSlotData* ptr;
+    short temp[3];
+	char* characterName;
+	int file_time;
+	int month;
+    int day;
+    int year;
+    char mapName[128];
+	char* v1;
+
+
     ls_error_code = 4;
 
-    LoadSaveSlotData* ptr = &(LSData[slot]);
+    ptr = &(LSData[slot]);
     strncpy(ptr->signature, LOAD_SAVE_SIGNATURE, 24);
 
     if (db_fwrite(ptr->signature, 1, 24, flptr) == -1) {
         return -1;
     }
 
-    short temp[3];
     temp[0] = VERSION_MAJOR;
     temp[1] = VERSION_MINOR;
 
@@ -1653,7 +1686,7 @@ static int SaveHeader(int slot)
         return -1;
     }
 
-    char* characterName = critter_name(obj_dude);
+    characterName = critter_name(obj_dude);
     strncpy(ptr->characterName, characterName, 32);
 
     if (db_fwrite(ptr->characterName, 32, 1, flptr) != 1) {
@@ -1665,7 +1698,6 @@ static int SaveHeader(int slot)
     }
 
     // NOTE: Uninline.
-    int file_time;
     GetTimeDate(&(temp[0]), &(temp[1]), &(temp[2]), &file_time);
 
     ptr->fileDay = temp[0];
@@ -1681,9 +1713,6 @@ static int SaveHeader(int slot)
         return -1;
     }
 
-    int month;
-    int day;
-    int year;
     game_time_date(&month, &day, &year);
 
     temp[0] = month;
@@ -1709,10 +1738,9 @@ static int SaveHeader(int slot)
         return -1;
     }
 
-    char mapName[128];
     strcpy(mapName, map_data.name);
 
-    char* v1 = strmfe(str, mapName, "sav");
+    v1 = strmfe(str, mapName, "sav");
     strncpy(ptr->fileName, v1, 16);
     if (db_fwrite(ptr->fileName, 16, 1, flptr) != 1) {
         return -1;
@@ -1735,9 +1763,12 @@ static int SaveHeader(int slot)
 // 0x470350
 static int LoadHeader(int slot)
 {
+    short v8[3];
+	LoadSaveSlotData* ptr;
+
     ls_error_code = 3;
 
-    LoadSaveSlotData* ptr = &(LSData[slot]);
+    ptr = &(LSData[slot]);
 
     if (db_fread(ptr->signature, 1, 24, flptr) != 24) {
         return -1;
@@ -1749,7 +1780,6 @@ static int LoadHeader(int slot)
         return -1;
     }
 
-    short v8[3];
     if (db_freadShortCount(flptr, v8, 2) == -1) {
         return -1;
     }
@@ -1857,10 +1887,11 @@ static int GetSlotList()
 // 0x4706CC
 static void ShowSlotList(int a1)
 {
+    int y = 87;
+	int index;
     buf_fill(lsgbuf + LS_WINDOW_WIDTH * 87 + 55, 230, 353, LS_WINDOW_WIDTH, lsgbuf[LS_WINDOW_WIDTH * 86 + 55] & 0xFF);
 
-    int y = 87;
-    for (int index = 0; index < 10; index += 1) {
+    for (index = 0; index < 10; index += 1) {
 
         int color = index == slot_cursor ? colorTable[32747] : colorTable[992];
         const char* text = getmsg(&lsgame_msgfl, &lsgmesg, a1 != 0 ? 110 : 109);
@@ -1899,38 +1930,47 @@ static void ShowSlotList(int a1)
 // 0x4708D4
 static void DrawInfoBox(int a1)
 {
-    buf_to_buf(lsbmp[LOAD_SAVE_FRM_BACKGROUND] + LS_WINDOW_WIDTH * 254 + 396, 164, 60, LS_WINDOW_WIDTH, lsgbuf + LS_WINDOW_WIDTH * 254 + 396, 640);
-
     unsigned char* dest;
     const char* text;
     int color = colorTable[992];
 
+    buf_to_buf(lsbmp[LOAD_SAVE_FRM_BACKGROUND] + LS_WINDOW_WIDTH * 254 + 396, 164, 60, LS_WINDOW_WIDTH, lsgbuf + LS_WINDOW_WIDTH * 254 + 396, 640);
+
     switch (LSstatus[a1]) {
     case SLOT_STATE_OCCUPIED:
         do {
+            int v4;
+            int minutes;
+            int v2,v6;
+            int time;
+			char* v9,v22;
+			int y;
+			short beginnings[WORD_WRAP_MAX_COUNT];
+            short count;
+
             LoadSaveSlotData* ptr = &(LSData[a1]);
             text_to_buf(lsgbuf + LS_WINDOW_WIDTH * 254 + 396, ptr->characterName, LS_WINDOW_WIDTH, LS_WINDOW_WIDTH, color);
 
-            int v4 = ptr->gameTime / 600;
-            int minutes = v4 % 60;
-            int v6 = 25 * (v4 / 60 % 24);
-            int time = 4 * v6 + minutes;
+            v4 = ptr->gameTime / 600;
+            minutes = v4 % 60;
+            v6 = 25 * (v4 / 60 % 24);
+            time = 4 * v6 + minutes;
 
             text = getmsg(&lsgame_msgfl, &lsgmesg, 116 + ptr->gameMonth);
             sprintf(str, "%.2d %s %.4d   %.4d", ptr->gameDay, text, ptr->gameYear, time);
 
-            int v2 = text_height();
+            v2 = text_height();
             text_to_buf(lsgbuf + LS_WINDOW_WIDTH * (256 + v2) + 397, str, LS_WINDOW_WIDTH, LS_WINDOW_WIDTH, color);
 
-            const char* v22 = map_get_elev_idx(ptr->map, ptr->elevation);
-            const char* v9 = map_get_short_name(ptr->map);
+            v22 = map_get_elev_idx(ptr->map, ptr->elevation);
+            v9 = map_get_short_name(ptr->map);
             sprintf(str, "%s %s", v9, v22);
 
-            int y = v2 + 3 + v2 + 256;
-            short beginnings[WORD_WRAP_MAX_COUNT];
-            short count;
+            y = v2 + 3 + v2 + 256;
+
             if (word_wrap(str, 164, beginnings, &count) == 0) {
-                for (int index = 0; index < count - 1; index += 1) {
+				int index;
+                for (index = 0; index < count - 1; index += 1) {
                     char* beginning = str + beginnings[index];
                     char* ending = str + beginnings[index + 1];
                     char c = *ending;
@@ -2003,6 +2043,15 @@ static int LoadTumbSlot(int a1)
 // 0x470D50
 static int GetComment(int a1)
 {
+	unsigned char* windowBuffer;
+    char* msg;
+    int btn;
+    char title[260];
+	int width;
+    char description[LOAD_SAVE_DESCRIPTION_LENGTH];
+    int rc;
+
+
     int commentWindowX = LS_COMMENT_WINDOW_X;
     int commentWindowY = LS_COMMENT_WINDOW_Y;
     int window = win_add(commentWindowX,
@@ -2015,14 +2064,12 @@ static int GetComment(int a1)
         return -1;
     }
 
-    unsigned char* windowBuffer = win_get_buf(window);
+    windowBuffer = win_get_buf(window);
     memcpy(windowBuffer,
         lsbmp[LOAD_SAVE_FRM_BOX],
         ginfo[LOAD_SAVE_FRM_BOX].height * ginfo[LOAD_SAVE_FRM_BOX].width);
 
     text_font(103);
-
-    const char* msg;
 
     // DONE
     msg = getmsg(&lsgame_msgfl, &lsgmesg, 104);
@@ -2043,10 +2090,9 @@ static int GetComment(int a1)
     // DESCRIPTION
     msg = getmsg(&lsgame_msgfl, &lsgmesg, 130);
 
-    char title[260];
     strcpy(title, msg);
 
-    int width = text_width(title);
+    width = text_width(title);
     text_to_buf(windowBuffer + ginfo[LOAD_SAVE_FRM_BOX].width * 7 + (ginfo[LOAD_SAVE_FRM_BOX].width - width) / 2,
         title,
         ginfo[LOAD_SAVE_FRM_BOX].width,
@@ -2055,7 +2101,6 @@ static int GetComment(int a1)
 
     text_font(101);
 
-    int btn;
 
     // DONE
     btn = win_register_button(window,
@@ -2095,14 +2140,12 @@ static int GetComment(int a1)
 
     win_draw(window);
 
-    char description[LOAD_SAVE_DESCRIPTION_LENGTH];
     if (LSstatus[slot_cursor] == SLOT_STATE_OCCUPIED) {
         strncpy(description, LSData[a1].description, LOAD_SAVE_DESCRIPTION_LENGTH);
     } else {
         memset(description, '\0', LOAD_SAVE_DESCRIPTION_LENGTH);
     }
 
-    int rc;
 
     if (get_input_str2(window, 507, 508, description, LOAD_SAVE_DESCRIPTION_LENGTH - 1, 24, 35, colorTable[992], lsbmp[LOAD_SAVE_FRM_BOX][ginfo[1].width * 35 + 24], 0) == 0) {
         strncpy(LSData[a1].description, description, LOAD_SAVE_DESCRIPTION_LENGTH);
@@ -2120,6 +2163,13 @@ static int GetComment(int a1)
 // 0x471070
 static int get_input_str2(int win, int doneKeyCode, int cancelKeyCode, char* description, int maxLength, int x, int y, int textColor, int backgroundColor, int flags)
 {
+    char text[256];
+	int textLength,nameWidth;
+    int blinkCounter = 3;
+    bool blink = false;
+    int v1 = 0;
+    int rc = 1;
+
     int cursorWidth = text_width("_") - 4;
     int windowWidth = win_width(win);
     int lineHeight = text_height();
@@ -2128,26 +2178,20 @@ static int get_input_str2(int win, int doneKeyCode, int cancelKeyCode, char* des
         maxLength = 255;
     }
 
-    char text[256];
     strcpy(text, description);
 
-    int textLength = strlen(text);
+    textLength = strlen(text);
     text[textLength] = ' ';
     text[textLength + 1] = '\0';
 
-    int nameWidth = text_width(text);
+    nameWidth = text_width(text);
 
     buf_fill(windowBuffer + windowWidth * y + x, nameWidth, lineHeight, windowWidth, backgroundColor);
     text_to_buf(windowBuffer + windowWidth * y + x, text, windowWidth, windowWidth, textColor);
 
     win_draw(win);
 
-    int blinkCounter = 3;
-    bool blink = false;
 
-    int v1 = 0;
-
-    int rc = 1;
     while (rc == 1) {
         int tick = get_time();
 
@@ -2194,10 +2238,11 @@ static int get_input_str2(int win, int doneKeyCode, int cancelKeyCode, char* des
 
         blinkCounter -= 1;
         if (blinkCounter == 0) {
+			int color;
             blinkCounter = 3;
             blink = !blink;
 
-            int color = blink ? backgroundColor : textColor;
+            color = blink ? backgroundColor : textColor;
             buf_fill(windowBuffer + windowWidth * y + x + text_width(text) - cursorWidth, cursorWidth, lineHeight - 2, windowWidth, color);
             win_draw(win);
         }
@@ -2246,6 +2291,12 @@ static int EndLoad(DB_FILE* stream)
 // 0x4714BC
 static int GameMap2Slot(DB_FILE* stream)
 {
+    char** fileNameList;
+	int fileNameListLength;
+	int index;
+	int automap_size;
+	DB_FILE* automap_stream;
+
     if (partyMemberPrepSave() == -1) {
         return -1;
     }
@@ -2256,8 +2307,7 @@ static int GameMap2Slot(DB_FILE* stream)
 
     sprintf(str0, "%s\\*.%s", "MAPS", "SAV");
 
-    char** fileNameList;
-    int fileNameListLength = db_get_file_list(str0, &fileNameList, NULL, 0);
+    fileNameListLength = db_get_file_list(str0, &fileNameList, NULL, 0);
     if (fileNameListLength == -1) {
         return -1;
     }
@@ -2284,7 +2334,7 @@ static int GameMap2Slot(DB_FILE* stream)
     strcat(gmpath, str0);
     remove(gmpath);
 
-    for (int index = 0; index < fileNameListLength; index += 1) {
+    for (index = 0; index < fileNameListLength; index += 1) {
         char* string = fileNameList[index];
         if (db_fwrite(string, strlen(string) + 1, 1, stream) == -1) {
             db_free_file_list(&fileNameList, NULL);
@@ -2310,12 +2360,12 @@ static int GameMap2Slot(DB_FILE* stream)
     }
 
     sprintf(str0, "%s\\%s", "MAPS", "AUTOMAP.DB");
-    DB_FILE* automap_stream = db_fopen(str0, "rb");
+    automap_stream = db_fopen(str0, "rb");
     if (automap_stream == NULL) {
         return -1;
     }
 
-    int automap_size = db_filelength(automap_stream);
+    automap_size = db_filelength(automap_stream);
     if (automap_size == -1) {
         db_fclose(automap_stream);
         return -1;
@@ -2337,7 +2387,13 @@ static int GameMap2Slot(DB_FILE* stream)
 // 0x4717E0
 static int SlotMap2Game(DB_FILE* stream)
 {
+	int index;
     int fileNameListLength;
+	char* automapFileName;
+	DB_FILE* automap_stream;
+    int saved_automap_size;
+	int automap_size;
+
     if (db_freadInt(stream, &fileNameListLength) == -1) {
         return -1;
     }
@@ -2354,7 +2410,7 @@ static int SlotMap2Game(DB_FILE* stream)
     sprintf(str0, "%s\\%s\\%s", patches, "MAPS", "AUTOMAP.DB");
     remove(str0);
 
-    for (int index = 0; index < fileNameListLength; index += 1) {
+    for (index = 0; index < fileNameListLength; index += 1) {
         char fileName[MAX_PATH];
         if (mygets(fileName, stream) == -1) {
             break;
@@ -2369,24 +2425,23 @@ static int SlotMap2Game(DB_FILE* stream)
         }
     }
 
-    const char* automapFileName = strmfe(str1, "AUTOMAP.DB", "SAV");
+    automapFileName = strmfe(str1, "AUTOMAP.DB", "SAV");
     sprintf(str0, "%s\\%s%.2d\\%s", "SAVEGAME", "SLOT", slot_cursor + 1, automapFileName);
     sprintf(str1, "%s\\%s", "MAPS", "AUTOMAP.DB");
     if (copy_file(str0, str1) == -1) {
         return -1;
     }
 
-    int saved_automap_size;
     if (db_freadInt(stream, &saved_automap_size) == -1) {
         return -1;
     }
 
-    DB_FILE* automap_stream = db_fopen(str1, "rb");
+    automap_stream = db_fopen(str1, "rb");
     if (automap_stream == NULL) {
         return -1;
     }
 
-    int automap_size = db_filelength(automap_stream);
+    automap_size = db_filelength(automap_stream);
     if (automap_size == -1) {
         db_fclose(automap_stream);
         return -1;
@@ -2514,11 +2569,12 @@ void KillOldMaps()
 // 0x471C68
 int MapDirErase(const char* relativePath, const char* extension)
 {
+    char** fileList;
+    int fileListLength;
     char path[MAX_PATH];
     sprintf(path, "%s*.%s", relativePath, extension);
 
-    char** fileList;
-    int fileListLength = db_get_file_list(path, &fileList, NULL, 0);
+    fileListLength = db_get_file_list(path, &fileList, NULL, 0);
     if (fileListLength == -1) {
         return -1;
     }
@@ -2551,6 +2607,13 @@ int MapDirEraseFile(const char* a1, const char* a2)
 // 0x471D38
 static int SaveBackup()
 {
+	char** fileList;
+    int fileListLength;
+	DB_FILE* stream1;
+	DB_FILE* stream2;
+	int index;
+	char* v1,v2;
+
     debug_printf("\nLOADSAVE: Backing up save slot files..\n");
 
     sprintf(gmpath, "%s\\%s\\%s%.2d\\", patches, "SAVEGAME", "SLOT", slot_cursor + 1);
@@ -2560,7 +2623,7 @@ static int SaveBackup()
 
     strmfe(str1, str0, "BAK");
 
-    DB_FILE* stream1 = db_fopen(str0, "rb");
+    stream1 = db_fopen(str0, "rb");
     if (stream1 != NULL) {
         db_fclose(stream1);
         if (rename(str0, str1) != 0) {
@@ -2571,8 +2634,7 @@ static int SaveBackup()
     sprintf(gmpath, "%s\\%s%.2d\\", "SAVEGAME", "SLOT", slot_cursor + 1);
     sprintf(str0, "%s*.%s", gmpath, "SAV");
 
-    char** fileList;
-    int fileListLength = db_get_file_list(str0, &fileList, NULL, 0);
+    fileListLength = db_get_file_list(str0, &fileList, NULL, 0);
     if (fileListLength == -1) {
         return -1;
     }
@@ -2580,7 +2642,7 @@ static int SaveBackup()
     map_backup_count = fileListLength;
 
     sprintf(gmpath, "%s\\%s\\%s%.2d\\", patches, "SAVEGAME", "SLOT", slot_cursor + 1);
-    for (int index = fileListLength - 1; index >= 0; index--) {
+    for (index = fileListLength - 1; index >= 0; index--) {
         strcpy(str0, gmpath);
         strcat(str0, fileList[index]);
 
@@ -2597,15 +2659,15 @@ static int SaveBackup()
 
     sprintf(gmpath, "%s\\%s%.2d\\", "SAVEGAME", "SLOT", slot_cursor + 1);
 
-    char* v1 = strmfe(str2, "AUTOMAP.DB", "SAV");
+    v1 = strmfe(str2, "AUTOMAP.DB", "SAV");
     sprintf(str0, "%s\\%s", gmpath, v1);
 
-    char* v2 = strmfe(str2, "AUTOMAP.DB", "BAK");
+    v2 = strmfe(str2, "AUTOMAP.DB", "BAK");
     sprintf(str1, "%s\\%s", gmpath, v2);
 
     automap_db_flag = 0;
 
-    DB_FILE* stream2 = db_fopen(str0, "rb");
+    stream2 = db_fopen(str0, "rb");
     if (stream2 != NULL) {
         db_fclose(stream2);
 
@@ -2622,6 +2684,11 @@ static int SaveBackup()
 // 0x47200C
 static int RestoreSave()
 {
+    char** fileList;
+    int fileListLength;
+	int index;
+	char* v1,v2;
+
     debug_printf("\nLOADSAVE: Restoring save file backup...\n");
 
     EraseSave();
@@ -2640,8 +2707,7 @@ static int RestoreSave()
     sprintf(gmpath, "%s\\%s%.2d\\", "SAVEGAME", "SLOT", slot_cursor + 1);
     sprintf(str0, "%s*.%s", gmpath, "BAK");
 
-    char** fileList;
-    int fileListLength = db_get_file_list(str0, &fileList, NULL, 0);
+    fileListLength = db_get_file_list(str0, &fileList, NULL, 0);
     if (fileListLength == -1) {
         return -1;
     }
@@ -2654,7 +2720,7 @@ static int RestoreSave()
 
     sprintf(gmpath, "%s\\%s\\%s%.2d\\", patches, "SAVEGAME", "SLOT", slot_cursor + 1);
 
-    for (int index = fileListLength - 1; index >= 0; index--) {
+    for (index = fileListLength - 1; index >= 0; index--) {
         strcpy(str0, gmpath);
         strcat(str0, fileList[index]);
         strmfe(str1, str0, "SAV");
@@ -2673,11 +2739,11 @@ static int RestoreSave()
     }
 
     sprintf(gmpath, "%s\\%s\\%s%.2d\\", patches, "SAVEGAME", "SLOT", slot_cursor + 1);
-    char* v1 = strmfe(str2, "AUTOMAP.DB", "BAK");
+    v2 = strmfe(str2, "AUTOMAP.DB", "BAK");
     strcpy(str0, gmpath);
     strcat(str0, v1);
 
-    char* v2 = strmfe(str2, "AUTOMAP.DB", "SAV");
+    v2 = strmfe(str2, "AUTOMAP.DB", "SAV");
     strcpy(str1, gmpath);
     strcat(str1, v2);
 
@@ -2712,6 +2778,11 @@ static int SaveObjDudeCid(DB_FILE* stream)
 // 0x472388
 static int EraseSave()
 {
+    char** fileList;
+    int fileListLength;
+	int index;
+	char* v1;
+
     debug_printf("\nLOADSAVE: Erasing save(bad) slot...\n");
 
     sprintf(gmpath, "%s\\%s\\%s%.2d\\", patches, "SAVEGAME", "SLOT", slot_cursor + 1);
@@ -2722,14 +2793,13 @@ static int EraseSave()
     sprintf(gmpath, "%s\\%s%.2d\\", "SAVEGAME", "SLOT", slot_cursor + 1);
     sprintf(str0, "%s*.%s", gmpath, "SAV");
 
-    char** fileList;
-    int fileListLength = db_get_file_list(str0, &fileList, NULL, 0);
+    fileListLength = db_get_file_list(str0, &fileList, NULL, 0);
     if (fileListLength == -1) {
         return -1;
     }
 
     sprintf(gmpath, "%s\\%s\\%s%.2d\\", patches, "SAVEGAME", "SLOT", slot_cursor + 1);
-    for (int index = fileListLength - 1; index >= 0; index--) {
+    for (index = fileListLength - 1; index >= 0; index--) {
         strcpy(str0, gmpath);
         strcat(str0, fileList[index]);
         remove(str0);
@@ -2739,7 +2809,7 @@ static int EraseSave()
 
     sprintf(gmpath, "%s\\%s\\%s%.2d\\", patches, "SAVEGAME", "SLOT", slot_cursor + 1);
 
-    char* v1 = strmfe(str1, "AUTOMAP.DB", "SAV");
+    v1 = strmfe(str1, "AUTOMAP.DB", "SAV");
     strcpy(str0, gmpath);
     strcat(str0, v1);
 

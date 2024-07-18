@@ -35,7 +35,7 @@ typedef struct TextObject {
     unsigned char* data;
 } TextObject;
 
-static_assert(sizeof(TextObject) == 48, "wrong size");
+//static_assert(sizeof(TextObject) == 48, "wrong size");
 
 static void text_object_bk();
 static void text_object_get_offset(TextObject* textObject);
@@ -186,6 +186,16 @@ unsigned int text_object_get_line_delay()
 // 0x49CFB4
 int text_object_create(Object* object, char* string, int font, int color, int a5, Rect* rect)
 {
+	TextObject* textObject;
+	int oldFont;
+	short beginnings[WORD_WRAP_MAX_COUNT];
+    short count;
+	int index;
+	int width,size;
+	char c;
+	unsigned char* dest;
+    int skip;
+
     if (!text_object_initialized) {
         return -1;
     }
@@ -202,18 +212,16 @@ int text_object_create(Object* object, char* string, int font, int color, int a5
         return -1;
     }
 
-    TextObject* textObject = (TextObject*)mem_malloc(sizeof(*textObject));
+    textObject = (TextObject*)mem_malloc(sizeof(*textObject));
     if (textObject == NULL) {
         return -1;
     }
 
     memset(textObject, 0, sizeof(*textObject));
 
-    int oldFont = text_curr();
+    oldFont = text_curr();
     text_font(font);
 
-    short beginnings[WORD_WRAP_MAX_COUNT];
-    short count;
     if (word_wrap(string, 200, beginnings, &count) != 0) {
         text_font(oldFont);
         return -1;
@@ -226,18 +234,18 @@ int text_object_create(Object* object, char* string, int font, int color, int a5
 
     textObject->width = 0;
 
-    for (int index = 0; index < textObject->linesCount; index++) {
+    for (index = 0; index < textObject->linesCount; index++) {
         char* ending = string + beginnings[index + 1];
         char* beginning = string + beginnings[index];
         if (ending[-1] == ' ') {
             --ending;
         }
 
-        char c = *ending;
+        c = *ending;
         *ending = '\0';
 
         // NOTE: Calls [text_width] twice, probably result of using min/max macro
-        int width = text_width(beginning);
+        width = text_width(beginning);
         if (width >= textObject->width) {
             textObject->width = width;
         }
@@ -252,7 +260,7 @@ int text_object_create(Object* object, char* string, int font, int color, int a5
         textObject->height += 2;
     }
 
-    int size = textObject->width * textObject->height;
+    size = textObject->width * textObject->height;
     textObject->data = (unsigned char*)mem_malloc(size);
     if (textObject->data == NULL) {
         text_font(oldFont);
@@ -261,24 +269,26 @@ int text_object_create(Object* object, char* string, int font, int color, int a5
 
     memset(textObject->data, 0, size);
 
-    unsigned char* dest = textObject->data;
-    int skip = textObject->width * (text_height() + 1);
+    dest = textObject->data;
+    skip = textObject->width * (text_height() + 1);
 
     if (a5 != -1) {
         dest += textObject->width;
     }
 
-    for (int index = 0; index < textObject->linesCount; index++) {
+    for (index = 0; index < textObject->linesCount; index++) {
+		char c;
+		int width;
         char* beginning = string + beginnings[index];
         char* ending = string + beginnings[index + 1];
         if (ending[-1] == ' ') {
             --ending;
         }
 
-        char c = *ending;
+        c = *ending;
         *ending = '\0';
 
-        int width = text_width(beginning);
+        width = text_width(beginning);
         text_to_buf(dest + (textObject->width - width) / 2, beginning, textObject->width, textObject->width, color);
 
         *ending = c;
@@ -360,23 +370,27 @@ int text_object_count()
 // 0x49D440
 static void text_object_bk()
 {
+	bool textObjectsRemoved;
+	Rect dirtyRect;
+	int index;
+
     if (!text_object_enabled) {
         return;
     }
 
-    bool textObjectsRemoved = false;
-    Rect dirtyRect;
+    textObjectsRemoved = false;
 
-    for (int index = 0; index < text_object_index; index++) {
+    for (index = 0; index < text_object_index; index++) {
         TextObject* textObject = text_object_list[index];
 
         unsigned int delay = text_object_line_delay * textObject->linesCount + text_object_base_delay;
         if ((textObject->flags & TEXT_OBJECT_MARKED_FOR_REMOVAL) != 0 || (elapsed_tocks(get_bk_time(), textObject->time) > delay)) {
+            Rect textObjectRect;
+
             tile_coord(textObject->tile, &(textObject->x), &(textObject->y), map_elevation);
             textObject->x += textObject->sx;
             textObject->y += textObject->sy;
 
-            Rect textObjectRect;
             textObjectRect.ulx = textObject->x;
             textObjectRect.uly = textObject->y;
             textObjectRect.lrx = textObject->width + textObject->x - 1;

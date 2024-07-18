@@ -143,6 +143,8 @@ void lips_bkg_proc()
 // 0x46CD9C
 int lips_play_speech()
 {
+	int v2;
+	int speechVolume;
     lip_info.flags |= LIPS_FLAG_0x02;
     head_marker_current = 0;
 
@@ -150,11 +152,12 @@ int lips_play_speech()
         debug_printf("Failed set of start_offset!\n");
     }
 
-    int v2 = head_marker_current;
+    v2 = head_marker_current;
     while (1) {
+		SpeechMarker* speechEntry;
         head_marker_current = v2;
 
-        SpeechMarker* speechEntry = &(lip_info.markers[v2]);
+        speechEntry = &(lip_info.markers[v2]);
         if (lip_info.field_20 <= speechEntry->position) {
             break;
         }
@@ -164,7 +167,7 @@ int lips_play_speech()
         head_phoneme_current = lip_info.phonemes[v2];
     }
 
-    int speechVolume = gsound_speech_volume_get();
+    speechVolume = gsound_speech_volume_get();
     soundVolume(lip_info.sound, (int)(speechVolume * 0.69));
 
     speechStartTime = get_time();
@@ -259,6 +262,7 @@ int lips_load_file(const char* audioFileName, const char* headFileName)
     char* sep;
     int i;
     char v60[16];
+	DB_FILE* stream;
 
     SpeechMarker* speech_marker;
     SpeechMarker* prev_speech_marker;
@@ -293,7 +297,7 @@ int lips_load_file(const char* audioFileName, const char* headFileName)
     lips_free_speech();
 
     // FIXME: stream is not closed if any error is encountered during reading.
-    DB_FILE* stream = db_fopen(path, "rb");
+    stream = db_fopen(path, "rb");
     if (stream != NULL) {
         if (db_freadLong(stream, &(lip_info.version)) == -1) {
             return -1;
@@ -418,13 +422,14 @@ int lips_load_file(const char* audioFileName, const char* headFileName)
 // 0x46D740
 static int lips_make_speech()
 {
+	char path[MAX_PATH];
+	char * v1;
     if (lip_info.field_14 != NULL) {
         mem_free(lip_info.field_14);
         lip_info.field_14 = NULL;
     }
-
-    char path[MAX_PATH];
-    char* v1 = lips_fix_string(lip_info.field_50, sizeof(lip_info.field_50));
+    
+    v1 = lips_fix_string(lip_info.field_50, sizeof(lip_info.field_50));
     sprintf(path, "%s%s\\%s.%s", "SOUND\\SPEECH\\", lips_subdir_name, v1, "ACM");
 
     if (lip_info.sound != NULL) {

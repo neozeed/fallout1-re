@@ -35,15 +35,19 @@ bool config_init(Config* config)
 // 0x42656C
 void config_exit(Config* config)
 {
+	int sectionIndex;
+
     if (config == NULL) {
         return;
     }
 
-    for (int sectionIndex = 0; sectionIndex < config->size; sectionIndex++) {
-        assoc_pair* sectionEntry = &(config->list[sectionIndex]);
+    for (sectionIndex = 0; sectionIndex < config->size; sectionIndex++) {
+		int keyValueIndex;
 
+        assoc_pair* sectionEntry = &(config->list[sectionIndex]);
         ConfigSection* section = (ConfigSection*)sectionEntry->data;
-        for (int keyValueIndex = 0; keyValueIndex < section->size; keyValueIndex++) {
+
+        for (keyValueIndex = 0; keyValueIndex < section->size; keyValueIndex++) {
             assoc_pair* keyValueEntry = &(section->list[keyValueIndex]);
 
             char** value = (char**)keyValueEntry->data;
@@ -68,13 +72,18 @@ void config_exit(Config* config)
 // 0x4265D0
 bool config_cmd_line_parse(Config* config, int argc, char** argv)
 {
+	int arg;
+
     if (config == NULL) {
         return false;
     }
 
-    for (int arg = 0; arg < argc; arg++) {
+    for (arg = 0; arg < argc; arg++) {
         char* pch;
         char* string = argv[arg];
+		char* sectionKey;
+        char key[260];
+        char value[260];
 
         // Find opening bracket.
         pch = strchr(string, '[');
@@ -82,7 +91,7 @@ bool config_cmd_line_parse(Config* config, int argc, char** argv)
             continue;
         }
 
-        char* sectionKey = pch + 1;
+        sectionKey = pch + 1;
 
         // Find closing bracket.
         pch = strchr(sectionKey, ']');
@@ -92,8 +101,6 @@ bool config_cmd_line_parse(Config* config, int argc, char** argv)
 
         *pch = '\0';
 
-        char key[260];
-        char value[260];
         if (config_split_line(pch + 1, key, value)) {
             if (!config_set_string(config, sectionKey, key, value)) {
                 *pch = ']';
@@ -110,24 +117,30 @@ bool config_cmd_line_parse(Config* config, int argc, char** argv)
 // 0x4266E0
 bool config_get_string(Config* config, const char* sectionKey, const char* key, char** valuePtr)
 {
+	int sectionIndex;
+	int index;
+	assoc_pair* sectionEntry;
+    ConfigSection* section;
+	assoc_pair* keyValueEntry;
+
     if (config == NULL || sectionKey == NULL || key == NULL || valuePtr == NULL) {
         return false;
     }
 
-    int sectionIndex = assoc_search(config, sectionKey);
+    sectionIndex = assoc_search(config, sectionKey);
     if (sectionIndex == -1) {
         return false;
     }
 
-    assoc_pair* sectionEntry = &(config->list[sectionIndex]);
-    ConfigSection* section = (ConfigSection*)sectionEntry->data;
+    sectionEntry = &(config->list[sectionIndex]);
+    section = (ConfigSection*)sectionEntry->data;
 
-    int index = assoc_search(section, key);
+    index = assoc_search(section, key);
     if (index == -1) {
         return false;
     }
 
-    assoc_pair* keyValueEntry = &(section->list[index]);
+    keyValueEntry = &(section->list[index]);
     *valuePtr = *(char**)keyValueEntry->data;
 
     return true;
@@ -136,11 +149,17 @@ bool config_get_string(Config* config, const char* sectionKey, const char* key, 
 // 0x426728
 bool config_set_string(Config* config, const char* sectionKey, const char* key, const char* value)
 {
+	int sectionIndex;
+	assoc_pair* sectionEntry;
+	ConfigSection* section;
+	int index;
+	char* valueCopy;
+
     if (config == NULL || sectionKey == NULL || key == NULL || value == NULL) {
         return false;
     }
 
-    int sectionIndex = assoc_search(config, sectionKey);
+    sectionIndex = assoc_search(config, sectionKey);
     if (sectionIndex == -1) {
         // FIXME: Looks like a bug, this function never returns -1, which will
         // eventually lead to crash.
@@ -150,10 +169,10 @@ bool config_set_string(Config* config, const char* sectionKey, const char* key, 
         sectionIndex = assoc_search(config, sectionKey);
     }
 
-    assoc_pair* sectionEntry = &(config->list[sectionIndex]);
-    ConfigSection* section = (ConfigSection*)sectionEntry->data;
+    sectionEntry = &(config->list[sectionIndex]);
+    section = (ConfigSection*)sectionEntry->data;
 
-    int index = assoc_search(section, key);
+    index = assoc_search(section, key);
     if (index != -1) {
         assoc_pair* keyValueEntry = &(section->list[index]);
 
@@ -164,7 +183,7 @@ bool config_set_string(Config* config, const char* sectionKey, const char* key, 
         assoc_delete(section, key);
     }
 
-    char* valueCopy = mem_strdup(value);
+    valueCopy = mem_strdup(value);
     if (valueCopy == NULL) {
         return false;
     }
@@ -180,11 +199,12 @@ bool config_set_string(Config* config, const char* sectionKey, const char* key, 
 // 0x4267DC
 bool config_get_value(Config* config, const char* sectionKey, const char* key, int* valuePtr)
 {
+    char* stringValue;
+
     if (valuePtr == NULL) {
         return false;
     }
 
-    char* stringValue;
     if (!config_get_string(config, sectionKey, key, &stringValue)) {
         return false;
     }
@@ -197,16 +217,17 @@ bool config_get_value(Config* config, const char* sectionKey, const char* key, i
 // 0x426810
 bool config_get_values(Config* config, const char* sectionKey, const char* key, int* arr, int count)
 {
+    char temp[CONFIG_FILE_MAX_LINE_LENGTH];
+    char* string;
+
     if (arr == NULL || count < 2) {
         return false;
     }
 
-    char* string;
     if (!config_get_string(config, sectionKey, key, &string)) {
         return false;
     }
 
-    char temp[CONFIG_FILE_MAX_LINE_LENGTH];
     string = strncpy(temp, string, CONFIG_FILE_MAX_LINE_LENGTH - 1);
 
     while (1) {
@@ -247,11 +268,11 @@ bool config_set_value(Config* config, const char* sectionKey, const char* key, i
 // 0x426A00
 bool config_load(Config* config, const char* filePath, bool isDb)
 {
+char string[CONFIG_FILE_MAX_LINE_LENGTH];
+
     if (config == NULL || filePath == NULL) {
         return false;
     }
-
-    char string[CONFIG_FILE_MAX_LINE_LENGTH];
 
     if (isDb) {
         DB_FILE* stream = db_fopen(filePath, "rb");
@@ -288,17 +309,21 @@ bool config_save(Config* config, const char* filePath, bool isDb)
     }
 
     if (isDb) {
+		int sectionIndex;
         DB_FILE* stream = db_fopen(filePath, "wt");
         if (stream == NULL) {
             return false;
         }
 
-        for (int sectionIndex = 0; sectionIndex < config->size; sectionIndex++) {
+        for (sectionIndex = 0; sectionIndex < config->size; sectionIndex++) {
+			ConfigSection* section;
+			int index;
+
             assoc_pair* sectionEntry = &(config->list[sectionIndex]);
             db_fprintf(stream, "[%s]\n", sectionEntry->name);
 
-            ConfigSection* section = (ConfigSection*)sectionEntry->data;
-            for (int index = 0; index < section->size; index++) {
+            section = (ConfigSection*)sectionEntry->data;
+            for (index = 0; index < section->size; index++) {
                 assoc_pair* keyValueEntry = &(section->list[index]);
                 db_fprintf(stream, "%s=%s\n", keyValueEntry->name, *(char**)keyValueEntry->data);
             }
@@ -308,17 +333,21 @@ bool config_save(Config* config, const char* filePath, bool isDb)
 
         db_fclose(stream);
     } else {
+		int sectionIndex;
         FILE* stream = fopen(filePath, "wt");
         if (stream == NULL) {
             return false;
         }
 
-        for (int sectionIndex = 0; sectionIndex < config->size; sectionIndex++) {
+        for (sectionIndex = 0; sectionIndex < config->size; sectionIndex++) {
+			int index;
+			ConfigSection* section;
+
             assoc_pair* sectionEntry = &(config->list[sectionIndex]);
             fprintf(stream, "[%s]\n", sectionEntry->name);
 
-            ConfigSection* section = (ConfigSection*)sectionEntry->data;
-            for (int index = 0; index < section->size; index++) {
+            section = (ConfigSection*)sectionEntry->data;
+            for (index = 0; index < section->size; index++) {
                 assoc_pair* keyValueEntry = &(section->list[index]);
                 fprintf(stream, "%s=%s\n", keyValueEntry->name, *(char**)keyValueEntry->data);
             }
@@ -350,6 +379,8 @@ static bool config_parse_line(Config* config, char* string)
 {
     // 0x504C28
     static char section[CONFIG_FILE_MAX_LINE_LENGTH] = "unknown";
+    char key[260];
+    char value[260];
 
     char* pch;
 
@@ -373,8 +404,6 @@ static bool config_parse_line(Config* config, char* string)
         }
     }
 
-    char key[260];
-    char value[260];
     if (!config_split_line(string, key, value)) {
         return false;
     }
@@ -390,12 +419,14 @@ static bool config_parse_line(Config* config, char* string)
 // 0x426D14
 static bool config_split_line(char* string, char* key, char* value)
 {
+	char* pch;
+
     if (string == NULL || key == NULL || value == NULL) {
         return false;
     }
 
     // Find equals character.
-    char* pch = strchr(string, '=');
+    pch = strchr(string, '=');
     if (pch == NULL) {
         return false;
     }
@@ -421,6 +452,8 @@ static bool config_split_line(char* string, char* key, char* value)
 // 0x426DB8
 static bool config_add_section(Config* config, const char* sectionKey)
 {
+    ConfigSection section;
+
     if (config == NULL || sectionKey == NULL) {
         return false;
     }
@@ -430,7 +463,6 @@ static bool config_add_section(Config* config, const char* sectionKey)
         return true;
     }
 
-    ConfigSection section;
     if (assoc_init(&section, CONFIG_INITIAL_CAPACITY, sizeof(char**), NULL) == -1) {
         return false;
     }
@@ -447,18 +479,21 @@ static bool config_add_section(Config* config, const char* sectionKey)
 // 0x426E18
 static bool config_strip_white_space(char* string)
 {
+	int length;
+	char* pch;
+
     if (string == NULL) {
         return false;
     }
 
-    int length = strlen(string);
+    length = strlen(string);
     if (length == 0) {
         return true;
     }
 
     // Starting from the end of the string, loop while it's a whitespace and
     // decrement string length.
-    char* pch = string + length - 1;
+    pch = string + length - 1;
     while (length != 0 && isspace(*pch)) {
         length--;
         pch--;
@@ -484,11 +519,12 @@ static bool config_strip_white_space(char* string)
 // 0x426E98
 bool config_get_double(Config* config, const char* sectionKey, const char* key, double* valuePtr)
 {
+    char* stringValue;
+
     if (valuePtr == NULL) {
         return false;
     }
 
-    char* stringValue;
     if (!config_get_string(config, sectionKey, key, &stringValue)) {
         return false;
     }
@@ -510,11 +546,12 @@ bool config_set_double(Config* config, const char* sectionKey, const char* key, 
 // NOTE: Boolean-typed variant of [config_get_value].
 bool configGetBool(Config* config, const char* sectionKey, const char* key, bool* valuePtr)
 {
+    int integerValue;
+
     if (valuePtr == NULL) {
         return false;
     }
 
-    int integerValue;
     if (!config_get_value(config, sectionKey, key, &integerValue)) {
         return false;
     }

@@ -237,6 +237,13 @@ static unsigned char* grphbmp[ELEVATOR_FRM_COUNT];
 // 0x437E8C
 int elevator_select(int elevator, int* mapPtr, int* elevationPtr, int* tilePtr)
 {
+	const ElevatorDescription* elevatorDescription;
+    int index;
+    int v18;
+    float v42;
+    bool done;
+    int keyCode;
+
     if (elevator < 0 || elevator >= ELEVATOR_COUNT) {
         return -1;
     }
@@ -245,9 +252,8 @@ int elevator_select(int elevator, int* mapPtr, int* elevationPtr, int* tilePtr)
         return -1;
     }
 
-    const ElevatorDescription* elevatorDescription = retvals[elevator];
+    elevatorDescription = retvals[elevator];
 
-    int index;
     for (index = 0; index < ELEVATOR_LEVEL_MAX; index++) {
         if (elevatorDescription[index].map == *mapPtr) {
             break;
@@ -266,8 +272,8 @@ int elevator_select(int elevator, int* mapPtr, int* elevationPtr, int* tilePtr)
 
     debug_printf("\n the start elev level %d\n", *elevationPtr);
 
-    int v18 = (GInfo[ELEVATOR_FRM_GAUGE].width * GInfo[ELEVATOR_FRM_GAUGE].height) / 13;
-    float v42 = 12.0f / (float)(btncnt[elevator] - 1);
+    v18 = (GInfo[ELEVATOR_FRM_GAUGE].width * GInfo[ELEVATOR_FRM_GAUGE].height) / 13;
+    v42 = 12.0f / (float)(btncnt[elevator] - 1);
     buf_to_buf(
         grphbmp[ELEVATOR_FRM_GAUGE] + v18 * (int)((float)(*elevationPtr) * v42),
         GInfo[ELEVATOR_FRM_GAUGE].width,
@@ -277,8 +283,8 @@ int elevator_select(int elevator, int* mapPtr, int* elevationPtr, int* tilePtr)
         GInfo[ELEVATOR_FRM_BACKGROUND].width);
     win_draw(elev_win);
 
-    bool done = false;
-    int keyCode;
+    done = false;
+
     while (!done) {
         keyCode = get_input();
         if (keyCode == KEY_ESCAPE) {
@@ -302,6 +308,8 @@ int elevator_select(int elevator, int* mapPtr, int* elevationPtr, int* tilePtr)
         keyCode -= 500;
 
         if (*elevationPtr != keyCode) {
+			float v41,v44;
+			int numberOfLevelsTravelled;
             float v43 = (float)(btncnt[elevator] - 1) / 12.0f;
 
             unsigned int delay = (unsigned int)(v43 * 276.92307);
@@ -310,15 +318,15 @@ int elevator_select(int elevator, int* mapPtr, int* elevationPtr, int* tilePtr)
                 v43 = -v43;
             }
 
-            int numberOfLevelsTravelled = keyCode - *elevationPtr;
+            numberOfLevelsTravelled = keyCode - *elevationPtr;
             if (numberOfLevelsTravelled < 0) {
                 numberOfLevelsTravelled = -numberOfLevelsTravelled;
             }
 
             gsound_play_sfx_file(sfxtable[btncnt[elevator] - 2][numberOfLevelsTravelled]);
 
-            float v41 = (float)keyCode * v42;
-            float v44 = (float)(*elevationPtr) * v42;
+            v41 = (float)keyCode * v42;
+            v44 = (float)(*elevationPtr) * v42;
             do {
                 unsigned int tick = get_time();
                 v44 += v43;
@@ -359,6 +367,13 @@ int elevator_select(int elevator, int* mapPtr, int* elevationPtr, int* tilePtr)
 // 0x43821C
 static int elevator_start(int elevator)
 {
+    int index;
+	bool backgroundsLoaded;
+	ElevatorBackground* elevatorBackground;
+	int backgroundFid;
+	int elevatorWindowX,elevatorWindowY;	
+	int level,y;
+
     bk_enable = map_disable_bk_processes();
     cycle_disable();
 
@@ -367,7 +382,6 @@ static int elevator_start(int elevator)
 
     gmouse_set_cursor(MOUSE_CURSOR_ARROW);
 
-    int index;
     for (index = 0; index < ELEVATOR_FRM_STATIC_COUNT; index++) {
         int fid = art_id(OBJ_TYPE_INTERFACE, grph_id[index], 0, 0, 0);
         grphbmp[index] = art_lock(fid, &(grph_key[index]), &(GInfo[index].width), &(GInfo[index].height));
@@ -377,7 +391,8 @@ static int elevator_start(int elevator)
     }
 
     if (index != ELEVATOR_FRM_STATIC_COUNT) {
-        for (int reversedIndex = index - 1; reversedIndex >= 0; reversedIndex--) {
+		int reversedIndex;
+        for (reversedIndex = index - 1; reversedIndex >= 0; reversedIndex--) {
             art_ptr_unlock(grph_key[reversedIndex]);
         }
 
@@ -393,10 +408,10 @@ static int elevator_start(int elevator)
     grphbmp[ELEVATOR_FRM_PANEL] = ELEVATOR_BACKGROUND_NULL;
     grphbmp[ELEVATOR_FRM_BACKGROUND] = ELEVATOR_BACKGROUND_NULL;
 
-    const ElevatorBackground* elevatorBackground = &(intotal[elevator]);
-    bool backgroundsLoaded = true;
+    elevatorBackground = &(intotal[elevator]);
+    backgroundsLoaded = true;
 
-    int backgroundFid = art_id(OBJ_TYPE_INTERFACE, elevatorBackground->backgroundFrmId, 0, 0, 0);
+    backgroundFid = art_id(OBJ_TYPE_INTERFACE, elevatorBackground->backgroundFrmId, 0, 0, 0);
     grphbmp[ELEVATOR_FRM_BACKGROUND] = art_lock(backgroundFid, &grph_key[ELEVATOR_FRM_BACKGROUND], &(GInfo[ELEVATOR_FRM_BACKGROUND].width), &(GInfo[ELEVATOR_FRM_BACKGROUND].height));
     if (grphbmp[ELEVATOR_FRM_BACKGROUND] != NULL) {
         if (elevatorBackground->panelFrmId != -1) {
@@ -413,6 +428,7 @@ static int elevator_start(int elevator)
     }
 
     if (!backgroundsLoaded) {
+		int index;
         if (grphbmp[ELEVATOR_FRM_BACKGROUND] != ELEVATOR_BACKGROUND_NULL) {
             art_ptr_unlock(grph_key[ELEVATOR_FRM_BACKGROUND]);
         }
@@ -421,7 +437,7 @@ static int elevator_start(int elevator)
             art_ptr_unlock(grph_key[ELEVATOR_FRM_PANEL]);
         }
 
-        for (int index = 0; index < ELEVATOR_FRM_STATIC_COUNT; index++) {
+        for (index = 0; index < ELEVATOR_FRM_STATIC_COUNT; index++) {
             art_ptr_unlock(grph_key[index]);
         }
 
@@ -434,8 +450,8 @@ static int elevator_start(int elevator)
         return -1;
     }
 
-    int elevatorWindowX = (640 - GInfo[ELEVATOR_FRM_BACKGROUND].width) / 2;
-    int elevatorWindowY = (480 - INTERFACE_BAR_HEIGHT - 1 - GInfo[ELEVATOR_FRM_BACKGROUND].height) / 2;
+    elevatorWindowX = (640 - GInfo[ELEVATOR_FRM_BACKGROUND].width) / 2;
+    elevatorWindowY = (480 - INTERFACE_BAR_HEIGHT - 1 - GInfo[ELEVATOR_FRM_BACKGROUND].height) / 2;
     elev_win = win_add(
         elevatorWindowX,
         elevatorWindowY,
@@ -444,6 +460,7 @@ static int elevator_start(int elevator)
         256,
         WINDOW_FLAG_0x10 | WINDOW_FLAG_0x02);
     if (elev_win == -1) {
+		int index;
         if (grphbmp[ELEVATOR_FRM_BACKGROUND] != ELEVATOR_BACKGROUND_NULL) {
             art_ptr_unlock(grph_key[ELEVATOR_FRM_BACKGROUND]);
         }
@@ -452,7 +469,7 @@ static int elevator_start(int elevator)
             art_ptr_unlock(grph_key[ELEVATOR_FRM_PANEL]);
         }
 
-        for (int index = 0; index < ELEVATOR_FRM_STATIC_COUNT; index++) {
+        for (index = 0; index < ELEVATOR_FRM_STATIC_COUNT; index++) {
             art_ptr_unlock(grph_key[index]);
         }
 
@@ -477,8 +494,8 @@ static int elevator_start(int elevator)
             GInfo[ELEVATOR_FRM_BACKGROUND].width);
     }
 
-    int y = 40;
-    for (int level = 0; level < btncnt[elevator]; level++) {
+    y = 40;
+    for (level = 0; level < btncnt[elevator]; level++) {
         int btn = win_register_button(elev_win,
             13,
             y,
@@ -504,6 +521,8 @@ static int elevator_start(int elevator)
 // 0x4385C4
 static void elevator_end()
 {
+	int index;
+
     win_delete(elev_win);
 
     if (grphbmp[ELEVATOR_FRM_BACKGROUND] != ELEVATOR_BACKGROUND_NULL) {
@@ -514,7 +533,7 @@ static void elevator_end()
         art_ptr_unlock(grph_key[ELEVATOR_FRM_PANEL]);
     }
 
-    for (int index = 0; index < ELEVATOR_FRM_STATIC_COUNT; index++) {
+    for (index = 0; index < ELEVATOR_FRM_STATIC_COUNT; index++) {
         art_ptr_unlock(grph_key[index]);
     }
 
@@ -530,10 +549,11 @@ static void elevator_end()
 // 0x43862C
 static int Check4Keys(int elevator, int keyCode)
 {
+	int index;
     // TODO: Check if result is really unused?
     toupper(keyCode);
 
-    for (int index = 0; index < ELEVATOR_LEVEL_MAX; index++) {
+    for (index = 0; index < ELEVATOR_LEVEL_MAX; index++) {
         char c = keytable[elevator][index];
         if (c == '\0') {
             break;

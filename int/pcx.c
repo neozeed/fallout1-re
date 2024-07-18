@@ -48,6 +48,8 @@ static short getWord(DB_FILE* stream)
 // 0x486184
 static void readPcxHeader(PcxHeader* pcxHeader, DB_FILE* stream)
 {
+	int index;
+
     pcxHeader->identifier = db_fgetc(stream);
     pcxHeader->version = db_fgetc(stream);
     pcxHeader->encoding = db_fgetc(stream);
@@ -59,7 +61,7 @@ static void readPcxHeader(PcxHeader* pcxHeader, DB_FILE* stream)
     pcxHeader->horizontalResolution = getWord(stream);
     pcxHeader->verticalResolution = getWord(stream);
 
-    for (int index = 0; index < 48; index++) {
+    for (index = 0; index < 48; index++) {
         pcxHeader->palette[index] = db_fgetc(stream);
     }
 
@@ -70,7 +72,7 @@ static void readPcxHeader(PcxHeader* pcxHeader, DB_FILE* stream)
     pcxHeader->horizontalScreenSize = getWord(stream);
     pcxHeader->verticalScreenSize = getWord(stream);
 
-    for (int index = 0; index < 54; index++) {
+    for (index = 0; index < 54; index++) {
         pcxHeader->reserved2[index] = db_fgetc(stream);
     }
 }
@@ -118,19 +120,23 @@ static int pcxDecodeScanline(unsigned char* data, int size, DB_FILE* stream)
 // 0x4863CC
 static int readPcxVgaPalette(PcxHeader* pcxHeader, unsigned char* palette, DB_FILE* stream)
 {
+    long pos;
+    long size;
+	int index;
+
     if (pcxHeader->version != 5) {
         return 0;
     }
 
-    long pos = db_ftell(stream);
-    long size = db_filelength(stream);
+    pos = db_ftell(stream);
+    size = db_filelength(stream);
     db_fseek(stream, size - 769, SEEK_SET);
     if (db_fgetc(stream) != 12) {
         db_fseek(stream, pos, SEEK_SET);
         return 0;
     }
 
-    for (int index = 0; index < 768; index++) {
+    for (index = 0; index < 768; index++) {
         palette[index] = db_fgetc(stream);
     }
 
@@ -142,22 +148,27 @@ static int readPcxVgaPalette(PcxHeader* pcxHeader, unsigned char* palette, DB_FI
 // 0x486444
 unsigned char* loadPCX(const char* path, int* widthPtr, int* heightPtr, unsigned char* palette)
 {
+    PcxHeader pcxHeader;
+	int width,height,bytesPerLine;
+	unsigned char* data;
+	unsigned char* ptr;
+	int y;
+
     DB_FILE* stream = db_fopen(path, "rb");
     if (stream == NULL) {
         return NULL;
     }
 
-    PcxHeader pcxHeader;
     readPcxHeader(&pcxHeader, stream);
 
-    int width = pcxHeader.maxX - pcxHeader.minX + 1;
-    int height = pcxHeader.maxY - pcxHeader.minY + 1;
+    width = pcxHeader.maxX - pcxHeader.minX + 1;
+    height = pcxHeader.maxY - pcxHeader.minY + 1;
 
     *widthPtr = width;
     *heightPtr = height;
 
-    int bytesPerLine = pcxHeader.planeCount * pcxHeader.bytesPerLine;
-    unsigned char* data = mymalloc(bytesPerLine * height, __FILE__, __LINE__); // "..\\int\\PCX.C", 195
+    bytesPerLine = pcxHeader.planeCount * pcxHeader.bytesPerLine;
+    data = mymalloc(bytesPerLine * height, __FILE__, __LINE__); // "..\\int\\PCX.C", 195
     if (data == NULL) {
         // NOTE: This code is unreachable, internal_malloc_safe never fails.
         db_fclose(stream);
@@ -167,8 +178,8 @@ unsigned char* loadPCX(const char* path, int* widthPtr, int* heightPtr, unsigned
     runcount = 0;
     runvalue = 0;
 
-    unsigned char* ptr = data;
-    for (int y = 0; y < height; y++) {
+    ptr = data;
+    for (y = 0; y < height; y++) {
         pcxDecodeScanline(ptr, bytesPerLine, stream);
         ptr += width;
     }

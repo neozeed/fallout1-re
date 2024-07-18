@@ -79,12 +79,13 @@ void debug_register_screen()
 // 0x4B2E50
 void debug_register_env()
 {
+	char* copy;
     const char* type = getenv("DEBUGACTIVE");
     if (type == NULL) {
         return;
     }
 
-    char* copy = (char*)mem_malloc(strlen(type) + 1);
+    copy = (char*)mem_malloc(strlen(type) + 1);
     if (copy == NULL) {
         return;
     }
@@ -130,10 +131,9 @@ void debug_register_func(DebugFunc* proc)
 // 0x4B3008
 int debug_printf(const char* format, ...)
 {
+    int rc;
     va_list args;
     va_start(args, format);
-
-    int rc;
 
     if (debug_func != NULL) {
         char string[260];

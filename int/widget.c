@@ -585,7 +585,8 @@ int draw_widgets()
 // 0x4A2760
 int update_widgets()
 {
-    for (int index = 0; index < WIDGET_UPDATE_REGIONS_CAPACITY; index++) {
+	int index;
+    for (index = 0; index < WIDGET_UPDATE_REGIONS_CAPACITY; index++) {
         if (updateRegions[index] != NULL) {
             showRegion(updateRegions[index]);
         }
@@ -639,7 +640,8 @@ int win_delete_update_region(int updateRegionIndex)
 // 0x4A2890
 void win_do_updateregions()
 {
-    for (int index = 0; index < WIDGET_UPDATE_REGIONS_CAPACITY; index++) {
+	int index;
+    for (index = 0; index < WIDGET_UPDATE_REGIONS_CAPACITY; index++) {
         if (updateRegions[index] != NULL) {
             showRegion(updateRegions[index]);
         }

@@ -122,15 +122,38 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
     MessageList messageList;
     MessageListItem messageListItem;
     int savedFont = text_curr();
+	int maximumLineWidth;
+	int linesCount,index;
+    int dialogType;
+    CacheEntry* backgroundHandle;
+    int backgroundWidth;
+    int backgroundHeight;
+    int fid;
+    unsigned char* background;
+	int win;
+    unsigned char* windowBuf;
+    CacheEntry* doneBoxHandle = NULL;
+    unsigned char* doneBox = NULL;
+    int doneBoxWidth;
+    int doneBoxHeight;
+    CacheEntry* downButtonHandle = NULL;
+    unsigned char* downButton = NULL;
+    int downButtonWidth;
+    int downButtonHeight;
+    CacheEntry* upButtonHandle = NULL;
+    unsigned char* upButton = NULL;
+	int v23,v94;
+	int rc;
 
     bool v86 = false;
+	bool hasTitle;
 
     bool hasTwoButtons = false;
     if (a8 != NULL) {
         hasTwoButtons = true;
     }
 
-    bool hasTitle = false;
+    hasTitle = false;
     if (title != NULL) {
         hasTitle = true;
     }
@@ -141,19 +164,18 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
         flags &= ~DIALOG_BOX_0x20;
     }
 
-    int maximumLineWidth = 0;
+    maximumLineWidth = 0;
     if (hasTitle) {
         maximumLineWidth = text_width(title);
     }
 
-    int linesCount = 0;
-    for (int index = 0; index < bodyLength; index++) {
+    linesCount = 0;
+    for (index = 0; index < bodyLength; index++) {
         // NOTE: Calls [text_width] twice because of [max] macro.
         maximumLineWidth = max(text_width(body[index]), maximumLineWidth);
         linesCount++;
     }
 
-    int dialogType;
     if ((flags & DIALOG_BOX_LARGE) != 0 || hasTwoButtons) {
         dialogType = DIALOG_TYPE_LARGE;
     } else if ((flags & DIALOG_BOX_MEDIUM) != 0) {
@@ -168,40 +190,32 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
             : DIALOG_TYPE_MEDIUM;
     }
 
-    CacheEntry* backgroundHandle;
-    int backgroundWidth;
-    int backgroundHeight;
-    int fid = art_id(OBJ_TYPE_INTERFACE, dbox[dialogType], 0, 0, 0);
-    unsigned char* background = art_lock(fid, &backgroundHandle, &backgroundWidth, &backgroundHeight);
+    backgroundWidth;
+    backgroundHeight;
+    fid = art_id(OBJ_TYPE_INTERFACE, dbox[dialogType], 0, 0, 0);
+    background = art_lock(fid, &backgroundHandle, &backgroundWidth, &backgroundHeight);
     if (background == NULL) {
         text_font(savedFont);
         return -1;
     }
 
-    int win = win_add(x, y, backgroundWidth, backgroundHeight, 256, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
+    win = win_add(x, y, backgroundWidth, backgroundHeight, 256, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
     if (win == -1) {
         art_ptr_unlock(backgroundHandle);
         text_font(savedFont);
         return -1;
     }
 
-    unsigned char* windowBuf = win_get_buf(win);
+    windowBuf = win_get_buf(win);
     memcpy(windowBuf, background, backgroundWidth * backgroundHeight);
 
-    CacheEntry* doneBoxHandle = NULL;
-    unsigned char* doneBox = NULL;
-    int doneBoxWidth;
-    int doneBoxHeight;
-
-    CacheEntry* downButtonHandle = NULL;
-    unsigned char* downButton = NULL;
-    int downButtonWidth;
-    int downButtonHeight;
-
-    CacheEntry* upButtonHandle = NULL;
-    unsigned char* upButton = NULL;
-
     if ((flags & DIALOG_BOX_0x20) == 0) {
+        char path[MAX_PATH];
+		int downButtonFid;
+		int upButtonFid;
+		int v27;
+		int btn;
+
         int doneBoxFid = art_id(OBJ_TYPE_INTERFACE, 209, 0, 0, 0);
         doneBox = art_lock(doneBoxFid, &doneBoxHandle, &doneBoxWidth, &doneBoxHeight);
         if (doneBox == NULL) {
@@ -211,7 +225,7 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
             return -1;
         }
 
-        int downButtonFid = art_id(OBJ_TYPE_INTERFACE, 9, 0, 0, 0);
+        downButtonFid = art_id(OBJ_TYPE_INTERFACE, 9, 0, 0, 0);
         downButton = art_lock(downButtonFid, &downButtonHandle, &downButtonWidth, &downButtonHeight);
         if (downButton == NULL) {
             art_ptr_unlock(doneBoxHandle);
@@ -221,7 +235,7 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
             return -1;
         }
 
-        int upButtonFid = art_id(OBJ_TYPE_INTERFACE, 8, 0, 0, 0);
+        upButtonFid = art_id(OBJ_TYPE_INTERFACE, 8, 0, 0, 0);
         upButton = art_ptr_lock_data(upButtonFid, 0, 0, &upButtonHandle);
         if (upButton == NULL) {
             art_ptr_unlock(downButtonHandle);
@@ -232,7 +246,7 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
             return -1;
         }
 
-        int v27 = hasTwoButtons ? doneX[dialogType] : (backgroundWidth - doneBoxWidth) / 2;
+        v27 = hasTwoButtons ? doneX[dialogType] : (backgroundWidth - doneBoxWidth) / 2;
         buf_to_buf(doneBox, doneBoxWidth, doneBoxHeight, doneBoxWidth, windowBuf + backgroundWidth * doneY[dialogType] + v27, backgroundWidth);
 
         if (!message_init(&messageList)) {
@@ -245,7 +259,6 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
             return -1;
         }
 
-        char path[MAX_PATH];
         sprintf(path, "%s%s", msg_path, "DBOX.MSG");
 
         if (!message_load(&messageList, path)) {
@@ -267,7 +280,7 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
             text_to_buf(windowBuf + backgroundWidth * (doneY[dialogType] + 3) + v27 + 35, messageListItem.text, backgroundWidth, backgroundWidth, colorTable[18979]);
         }
 
-        int btn = win_register_button(win, v27 + 13, doneY[dialogType] + 4, downButtonWidth, downButtonHeight, -1, -1, -1, 500, upButton, downButton, NULL, BUTTON_FLAG_TRANSPARENT);
+        btn = win_register_button(win, v27 + 13, doneY[dialogType] + 4, downButtonWidth, downButtonHeight, -1, -1, -1, 500, upButton, downButton, NULL, BUTTON_FLAG_TRANSPARENT);
         if (btn != -1) {
             win_register_button_sound_func(btn, gsound_red_butt_press, gsound_red_butt_release);
         }
@@ -277,6 +290,8 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
 
     if (hasTwoButtons && dialogType == DIALOG_TYPE_LARGE) {
         if (v86) {
+			int btn;
+
             if ((flags & DIALOG_BOX_YES_NO) != 0) {
                 a8 = getmsg(&messageList, &messageListItem, 102);
             }
@@ -293,7 +308,7 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
             text_to_buf(windowBuf + backgroundWidth * (doneY[dialogType] + 3) + doneX[dialogType] + doneBoxWidth + 59,
                 a8, backgroundWidth, backgroundWidth, colorTable[18979]);
 
-            int btn = win_register_button(win,
+            btn = win_register_button(win,
                 doneBoxWidth + doneX[dialogType] + 37,
                 doneY[dialogType] + 4,
                 downButtonWidth,
@@ -303,6 +318,13 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
                 win_register_button_sound_func(btn, gsound_red_butt_press, gsound_red_butt_release);
             }
         } else {
+            char path[MAX_PATH];
+			int downButtonFid;
+			int upButtonFid;
+			unsigned char* downButton;
+			unsigned char* upButton;
+			int btn;
+
             int doneBoxFid = art_id(OBJ_TYPE_INTERFACE, 209, 0, 0, 0);
             unsigned char* doneBox = art_lock(doneBoxFid, &doneBoxHandle, &doneBoxWidth, &doneBoxHeight);
             if (doneBox == NULL) {
@@ -312,8 +334,8 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
                 return -1;
             }
 
-            int downButtonFid = art_id(OBJ_TYPE_INTERFACE, 9, 0, 0, 0);
-            unsigned char* downButton = art_lock(downButtonFid, &downButtonHandle, &downButtonWidth, &downButtonHeight);
+            downButtonFid = art_id(OBJ_TYPE_INTERFACE, 9, 0, 0, 0);
+            downButton = art_lock(downButtonFid, &downButtonHandle, &downButtonWidth, &downButtonHeight);
             if (downButton == NULL) {
                 art_ptr_unlock(doneBoxHandle);
                 art_ptr_unlock(backgroundHandle);
@@ -322,8 +344,8 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
                 return -1;
             }
 
-            int upButtonFid = art_id(OBJ_TYPE_INTERFACE, 8, 0, 0, 0);
-            unsigned char* upButton = art_ptr_lock_data(upButtonFid, 0, 0, &upButtonHandle);
+            upButtonFid = art_id(OBJ_TYPE_INTERFACE, 8, 0, 0, 0);
+            upButton = art_ptr_lock_data(upButtonFid, 0, 0, &upButtonHandle);
             if (upButton == NULL) {
                 art_ptr_unlock(downButtonHandle);
                 art_ptr_unlock(doneBoxHandle);
@@ -343,7 +365,6 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
                 return -1;
             }
 
-            char path[MAX_PATH];
             sprintf(path, "%s%s", msg_path, "DBOX.MSG");
 
             if (!message_load(&messageList, path)) {
@@ -368,7 +389,7 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
             text_to_buf(windowBuf + backgroundWidth * (doneY[dialogType] + 3) + doneX[dialogType] + 35,
                 a8, backgroundWidth, backgroundWidth, colorTable[18979]);
 
-            int btn = win_register_button(win,
+            btn = win_register_button(win,
                 doneX[dialogType] + 13,
                 doneY[dialogType] + 4,
                 downButtonWidth,
@@ -391,7 +412,7 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
 
     text_font(101);
 
-    int v23 = ytable[dialogType];
+    v23 = ytable[dialogType];
 
     if ((flags & DIALOG_BOX_NO_VERTICAL_CENTERING) == 0) {
         int v41 = dblines[dialogType] * text_height() / 2 + v23;
@@ -408,7 +429,7 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
         v23 += text_height();
     }
 
-    for (int v94 = 0; v94 < bodyLength; v94++) {
+    for (v94 = 0; v94 < bodyLength; v94++) {
         int len = text_width(body[v94]);
         if (len <= backgroundWidth - 26) {
             if ((flags & DIALOG_BOX_NO_HORIZONTAL_CENTERING) != 0) {
@@ -419,19 +440,22 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
             }
             v23 += text_height();
         } else {
+			int v48;
+
             short beginnings[WORD_WRAP_MAX_COUNT];
             short count;
             if (word_wrap(body[v94], backgroundWidth - 26, beginnings, &count) != 0) {
                 debug_printf("\nError: dialog_out");
             }
 
-            for (int v48 = 1; v48 < count; v48++) {
+            for (v48 = 1; v48 < count; v48++) {
+                char string[260];
+
                 int v51 = beginnings[v48] - beginnings[v48 - 1];
                 if (v51 >= 260) {
                     v51 = 259;
                 }
 
-                char string[260];
                 strncpy(string, body[v94] + beginnings[v48 - 1], v51);
                 string[v51] = '\0';
 
@@ -448,7 +472,7 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
 
     win_draw(win);
 
-    int rc = -1;
+    rc = -1;
     while (rc == -1) {
         int keyCode = get_input();
 
@@ -491,6 +515,32 @@ int dialog_out(const char* title, const char** body, int bodyLength, int x, int 
 // 0x41DE90
 int file_dialog(char* title, char** fileList, char* dest, int fileListLength, int x, int y, int flags)
 {
+    int selectedFileIndex;
+    int pageOffset;
+    int maxPageOffset;
+	int index;
+	int backgroundWidth;
+    int backgroundHeight;
+	int win;
+	unsigned char* windowBuffer;
+    MessageList messageList;
+    MessageListItem messageListItem;
+	const char* done;
+	const char* cancel;
+	int doneBtn;
+	int cancelBtn;
+	int scrollUpBtn;
+	int scrollDownButton;
+    int doubleClickSelectedFileIndex;
+    int doubleClickTimer;
+    int rc;
+
+    unsigned char* frmBuffers[FILE_DIALOG_FRM_COUNT];
+    CacheEntry* frmHandles[FILE_DIALOG_FRM_COUNT];
+    Size frmSizes[FILE_DIALOG_FRM_COUNT];
+    char path[MAX_PATH];
+
+
     int oldFont = text_curr();
 
     bool isScrollable = false;
@@ -498,9 +548,9 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
         isScrollable = true;
     }
 
-    int selectedFileIndex = 0;
-    int pageOffset = 0;
-    int maxPageOffset = fileListLength - (FILE_DIALOG_LINE_COUNT + 1);
+    selectedFileIndex = 0;
+    pageOffset = 0;
+    maxPageOffset = fileListLength - (FILE_DIALOG_LINE_COUNT + 1);
     if (maxPageOffset < 0) {
         maxPageOffset = fileListLength - 1;
         if (maxPageOffset < 0) {
@@ -508,11 +558,8 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
         }
     }
 
-    unsigned char* frmBuffers[FILE_DIALOG_FRM_COUNT];
-    CacheEntry* frmHandles[FILE_DIALOG_FRM_COUNT];
-    Size frmSizes[FILE_DIALOG_FRM_COUNT];
 
-    for (int index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
+    for (index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
         int fid = art_id(OBJ_TYPE_INTERFACE, flgids[index], 0, 0, 0);
         frmBuffers[index] = art_lock(fid, &(frmHandles[index]), &(frmSizes[index].width), &(frmSizes[index].height));
         if (frmBuffers[index] == NULL) {
@@ -523,40 +570,40 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
         }
     }
 
-    int backgroundWidth = frmSizes[FILE_DIALOG_FRM_BACKGROUND].width;
-    int backgroundHeight = frmSizes[FILE_DIALOG_FRM_BACKGROUND].height;
+    backgroundWidth = frmSizes[FILE_DIALOG_FRM_BACKGROUND].width;
+    backgroundHeight = frmSizes[FILE_DIALOG_FRM_BACKGROUND].height;
 
-    int win = win_add(x, y, backgroundWidth, backgroundHeight, 256, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
+    win = win_add(x, y, backgroundWidth, backgroundHeight, 256, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
     if (win == -1) {
-        for (int index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
+		int index;
+        for (index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
             art_ptr_unlock(frmHandles[index]);
         }
         return -1;
     }
 
-    unsigned char* windowBuffer = win_get_buf(win);
+    windowBuffer = win_get_buf(win);
     memcpy(windowBuffer, frmBuffers[FILE_DIALOG_FRM_BACKGROUND], backgroundWidth * backgroundHeight);
 
-    MessageList messageList;
-    MessageListItem messageListItem;
-
     if (!message_init(&messageList)) {
+		int index;
+
         win_delete(win);
 
-        for (int index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
+        for (index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
             art_ptr_unlock(frmHandles[index]);
         }
 
         return -1;
     }
 
-    char path[MAX_PATH];
     sprintf(path, "%s%s", msg_path, "DBOX.MSG");
 
     if (!message_load(&messageList, path)) {
+		int index;
         win_delete(win);
 
-        for (int index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
+        for (index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
             art_ptr_unlock(frmHandles[index]);
         }
 
@@ -566,14 +613,14 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
     text_font(103);
 
     // DONE
-    const char* done = getmsg(&messageList, &messageListItem, 100);
+    done = getmsg(&messageList, &messageListItem, 100);
     text_to_buf(windowBuffer + LOAD_FILE_DIALOG_DONE_LABEL_Y * backgroundWidth + LOAD_FILE_DIALOG_DONE_LABEL_X, done, backgroundWidth, backgroundWidth, colorTable[18979]);
 
     // CANCEL
-    const char* cancel = getmsg(&messageList, &messageListItem, 103);
+    cancel = getmsg(&messageList, &messageListItem, 103);
     text_to_buf(windowBuffer + LOAD_FILE_DIALOG_CANCEL_LABEL_Y * backgroundWidth + LOAD_FILE_DIALOG_CANCEL_LABEL_X, cancel, backgroundWidth, backgroundWidth, colorTable[18979]);
 
-    int doneBtn = win_register_button(win,
+    doneBtn = win_register_button(win,
         LOAD_FILE_DIALOG_DONE_BUTTON_X,
         LOAD_FILE_DIALOG_DONE_BUTTON_Y,
         frmSizes[FILE_DIALOG_FRM_LITTLE_RED_BUTTON_PRESSED].width,
@@ -590,7 +637,7 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
         win_register_button_sound_func(doneBtn, gsound_red_butt_press, gsound_red_butt_release);
     }
 
-    int cancelBtn = win_register_button(win,
+    cancelBtn = win_register_button(win,
         LOAD_FILE_DIALOG_CANCEL_BUTTON_X,
         LOAD_FILE_DIALOG_CANCEL_BUTTON_Y,
         frmSizes[FILE_DIALOG_FRM_LITTLE_RED_BUTTON_PRESSED].width,
@@ -607,7 +654,7 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
         win_register_button_sound_func(cancelBtn, gsound_red_butt_press, gsound_red_butt_release);
     }
 
-    int scrollUpBtn = win_register_button(win,
+    scrollUpBtn = win_register_button(win,
         FILE_DIALOG_SCROLL_BUTTON_X,
         FILE_DIALOG_SCROLL_BUTTON_Y,
         frmSizes[FILE_DIALOG_FRM_SCROLL_UP_ARROW_PRESSED].width,
@@ -624,7 +671,7 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
         win_register_button_sound_func(cancelBtn, gsound_red_butt_press, gsound_red_butt_release);
     }
 
-    int scrollDownButton = win_register_button(win,
+    scrollDownButton = win_register_button(win,
         FILE_DIALOG_SCROLL_BUTTON_X,
         FILE_DIALOG_SCROLL_BUTTON_Y + frmSizes[FILE_DIALOG_FRM_SCROLL_UP_ARROW_PRESSED].height,
         frmSizes[FILE_DIALOG_FRM_SCROLL_DOWN_ARROW_PRESSED].width,
@@ -665,10 +712,10 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
     PrntFlist(windowBuffer, fileList, pageOffset, fileListLength, selectedFileIndex, backgroundWidth);
     win_draw(win);
 
-    int doubleClickSelectedFileIndex = -2;
-    int doubleClickTimer = FILE_DIALOG_DOUBLE_CLICK_DELAY;
+    doubleClickSelectedFileIndex = -2;
+    doubleClickTimer = FILE_DIALOG_DOUBLE_CLICK_DELAY;
 
-    int rc = -1;
+    rc = -1;
     while (rc == -1) {
         unsigned int tick = get_time();
         int keyCode = get_input();
@@ -688,9 +735,10 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
         } else if (keyCode == 502 && fileListLength != 0) {
             int mouseX;
             int mouseY;
+			int selectedLine;
             mouse_get_position(&mouseX, &mouseY);
 
-            int selectedLine = (mouseY - y - FILE_DIALOG_FILE_LIST_Y) / text_height();
+            selectedLine = (mouseY - y - FILE_DIALOG_FILE_LIST_Y) / text_height();
             if (selectedLine - 1 < 0) {
                 selectedLine = 0;
             }
@@ -775,9 +823,13 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
         }
 
         if (scrollDirection != FILE_DIALOG_SCROLL_DIRECTION_NONE) {
+			unsigned int delay;
+
             unsigned int scrollDelay = 4;
             doubleClickSelectedFileIndex = -2;
             while (1) {
+				int keyCode;
+
                 unsigned int scrollTick = get_time();
                 scrollCounter += 1;
                 if ((!isScrolling && scrollCounter == 1) || (isScrolling && scrollCounter > 14.4)) {
@@ -821,7 +873,7 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
                     win_draw(win);
                 }
 
-                unsigned int delay = (scrollCounter > 14.4) ? 1000 / scrollDelay : 1000 / 24;
+                delay = (scrollCounter > 14.4) ? 1000 / scrollDelay : 1000 / 24;
                 while (elapsed_time(scrollTick) < delay) {
                 }
 
@@ -830,7 +882,7 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
                     break;
                 }
 
-                int keyCode = get_input();
+                keyCode = get_input();
                 if (keyCode == 505 || keyCode == 503) {
                     break;
                 }
@@ -855,7 +907,7 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
 
     win_delete(win);
 
-    for (int index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
+    for (index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
         art_ptr_unlock(frmHandles[index]);
     }
 
@@ -868,6 +920,38 @@ int file_dialog(char* title, char** fileList, char* dest, int fileListLength, in
 // 0x41EA78
 int save_file_dialog(char* title, char** fileList, char* dest, int fileListLength, int x, int y, int flags)
 {
+    int selectedFileIndex;
+    int pageOffset;
+    int maxPageOffset;
+	int index;
+	int doneBtn;
+	int cancelBtn;
+    unsigned char* frmBuffers[FILE_DIALOG_FRM_COUNT];
+    CacheEntry* frmHandles[FILE_DIALOG_FRM_COUNT];
+    Size frmSizes[FILE_DIALOG_FRM_COUNT];
+	int backgroundWidth,backgroundHeight,win;
+	unsigned char* windowBuffer;
+    MessageList messageList;
+    MessageListItem messageListItem;
+    char path[MAX_PATH];
+	char* done;
+	char* cancel;
+	int scrollUpBtn;
+	int scrollDownButton;
+    int cursorHeight;
+    int cursorWidth;
+    int fileNameLength;
+    char* pch;
+    char fileNameCopy[32];
+	int fileNameCopyLength;
+	unsigned char* fileNameBufferPtr;
+    int blinkingCounter = 3;
+    bool blink = false;
+    int doubleClickSelectedFileIndex;
+    int doubleClickTimer;
+    int rc = -1;
+
+
     int oldFont = text_curr();
 
     bool isScrollable = false;
@@ -875,9 +959,9 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
         isScrollable = true;
     }
 
-    int selectedFileIndex = 0;
-    int pageOffset = 0;
-    int maxPageOffset = fileListLength - (FILE_DIALOG_LINE_COUNT + 1);
+    selectedFileIndex = 0;
+    pageOffset = 0;
+    maxPageOffset = fileListLength - (FILE_DIALOG_LINE_COUNT + 1);
     if (maxPageOffset < 0) {
         maxPageOffset = fileListLength - 1;
         if (maxPageOffset < 0) {
@@ -885,11 +969,7 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
         }
     }
 
-    unsigned char* frmBuffers[FILE_DIALOG_FRM_COUNT];
-    CacheEntry* frmHandles[FILE_DIALOG_FRM_COUNT];
-    Size frmSizes[FILE_DIALOG_FRM_COUNT];
-
-    for (int index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
+    for (index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
         int fid = art_id(OBJ_TYPE_INTERFACE, flgids2[index], 0, 0, 0);
         frmBuffers[index] = art_lock(fid, &(frmHandles[index]), &(frmSizes[index].width), &(frmSizes[index].height));
         if (frmBuffers[index] == NULL) {
@@ -900,40 +980,40 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
         }
     }
 
-    int backgroundWidth = frmSizes[FILE_DIALOG_FRM_BACKGROUND].width;
-    int backgroundHeight = frmSizes[FILE_DIALOG_FRM_BACKGROUND].height;
+    backgroundWidth = frmSizes[FILE_DIALOG_FRM_BACKGROUND].width;
+    backgroundHeight = frmSizes[FILE_DIALOG_FRM_BACKGROUND].height;
 
-    int win = win_add(x, y, backgroundWidth, backgroundHeight, 256, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
+    win = win_add(x, y, backgroundWidth, backgroundHeight, 256, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
     if (win == -1) {
-        for (int index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
+		int index;
+        for (index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
             art_ptr_unlock(frmHandles[index]);
         }
         return -1;
     }
 
-    unsigned char* windowBuffer = win_get_buf(win);
+    windowBuffer = win_get_buf(win);
     memcpy(windowBuffer, frmBuffers[FILE_DIALOG_FRM_BACKGROUND], backgroundWidth * backgroundHeight);
 
-    MessageList messageList;
-    MessageListItem messageListItem;
-
     if (!message_init(&messageList)) {
+		int index;
         win_delete(win);
 
-        for (int index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
+        for (index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
             art_ptr_unlock(frmHandles[index]);
         }
 
         return -1;
     }
 
-    char path[MAX_PATH];
     sprintf(path, "%s%s", msg_path, "DBOX.MSG");
 
     if (!message_load(&messageList, path)) {
+		int index;
+
         win_delete(win);
 
-        for (int index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
+        for (index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
             art_ptr_unlock(frmHandles[index]);
         }
 
@@ -943,14 +1023,14 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
     text_font(103);
 
     // DONE
-    const char* done = getmsg(&messageList, &messageListItem, 100);
+    done = getmsg(&messageList, &messageListItem, 100);
     text_to_buf(windowBuffer + backgroundWidth * SAVE_FILE_DIALOG_DONE_LABEL_Y + SAVE_FILE_DIALOG_DONE_LABEL_X, done, backgroundWidth, backgroundWidth, colorTable[18979]);
 
     // CANCEL
-    const char* cancel = getmsg(&messageList, &messageListItem, 103);
+    cancel = getmsg(&messageList, &messageListItem, 103);
     text_to_buf(windowBuffer + backgroundWidth * SAVE_FILE_DIALOG_CANCEL_LABEL_Y + SAVE_FILE_DIALOG_CANCEL_LABEL_X, cancel, backgroundWidth, backgroundWidth, colorTable[18979]);
 
-    int doneBtn = win_register_button(win,
+    doneBtn = win_register_button(win,
         SAVE_FILE_DIALOG_DONE_BUTTON_X,
         SAVE_FILE_DIALOG_DONE_BUTTON_Y,
         frmSizes[FILE_DIALOG_FRM_LITTLE_RED_BUTTON_PRESSED].width,
@@ -967,7 +1047,7 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
         win_register_button_sound_func(doneBtn, gsound_red_butt_press, gsound_red_butt_release);
     }
 
-    int cancelBtn = win_register_button(win,
+    cancelBtn = win_register_button(win,
         SAVE_FILE_DIALOG_CANCEL_BUTTON_X,
         SAVE_FILE_DIALOG_CANCEL_BUTTON_Y,
         frmSizes[FILE_DIALOG_FRM_LITTLE_RED_BUTTON_PRESSED].width,
@@ -984,7 +1064,7 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
         win_register_button_sound_func(cancelBtn, gsound_red_butt_press, gsound_red_butt_release);
     }
 
-    int scrollUpBtn = win_register_button(win,
+    scrollUpBtn = win_register_button(win,
         FILE_DIALOG_SCROLL_BUTTON_X,
         FILE_DIALOG_SCROLL_BUTTON_Y,
         frmSizes[FILE_DIALOG_FRM_SCROLL_UP_ARROW_PRESSED].width,
@@ -1001,7 +1081,7 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
         win_register_button_sound_func(cancelBtn, gsound_red_butt_press, gsound_red_butt_release);
     }
 
-    int scrollDownButton = win_register_button(win,
+    scrollDownButton = win_register_button(win,
         FILE_DIALOG_SCROLL_BUTTON_X,
         FILE_DIALOG_SCROLL_BUTTON_Y + frmSizes[FILE_DIALOG_FRM_SCROLL_UP_ARROW_PRESSED].height,
         frmSizes[FILE_DIALOG_FRM_SCROLL_DOWN_ARROW_PRESSED].width,
@@ -1039,12 +1119,12 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
 
     text_font(101);
 
-    int cursorHeight = text_height();
-    int cursorWidth = text_width("_") - 4;
+    cursorHeight = text_height();
+    cursorWidth = text_width("_") - 4;
     PrntFlist(windowBuffer, fileList, pageOffset, fileListLength, selectedFileIndex, backgroundWidth);
 
-    int fileNameLength = 0;
-    char* pch = dest;
+    fileNameLength = 0;
+    pch = dest;
     while (*pch != '\0' && *pch != '.') {
         fileNameLength++;
         if (fileNameLength >= 12) {
@@ -1053,27 +1133,26 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
     }
     dest[fileNameLength] = '\0';
 
-    char fileNameCopy[32];
     strncpy(fileNameCopy, dest, 32);
 
-    int fileNameCopyLength = strlen(fileNameCopy);
+    fileNameCopyLength = strlen(fileNameCopy);
     fileNameCopy[fileNameCopyLength + 1] = '\0';
     fileNameCopy[fileNameCopyLength] = ' ';
 
-    unsigned char* fileNameBufferPtr = windowBuffer + backgroundWidth * 190 + 57;
+    fileNameBufferPtr = windowBuffer + backgroundWidth * 190 + 57;
 
     buf_fill(fileNameBufferPtr, text_width(fileNameCopy), cursorHeight, backgroundWidth, 100);
     text_to_buf(fileNameBufferPtr, fileNameCopy, backgroundWidth, backgroundWidth, colorTable[992]);
 
     win_draw(win);
 
-    int blinkingCounter = 3;
-    bool blink = false;
+    blinkingCounter = 3;
+    blink = false;
 
-    int doubleClickSelectedFileIndex = -2;
-    int doubleClickTimer = FILE_DIALOG_DOUBLE_CLICK_DELAY;
+    doubleClickSelectedFileIndex = -2;
+    doubleClickTimer = FILE_DIALOG_DOUBLE_CLICK_DELAY;
 
-    int rc = -1;
+    rc = -1;
     while (rc == -1) {
         unsigned int tick = get_time();
         int keyCode = get_input();
@@ -1099,9 +1178,11 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
             if (keyCode == 502 && fileListLength != 0) {
                 int mouseX;
                 int mouseY;
+				int selectedLine;
+
                 mouse_get_position(&mouseX, &mouseY);
 
-                int selectedLine = (mouseY - y - FILE_DIALOG_FILE_LIST_Y) / text_height();
+                selectedLine = (mouseY - y - FILE_DIALOG_FILE_LIST_Y) / text_height();
                 if (selectedLine - 1 < 0) {
                     selectedLine = 0;
                 }
@@ -1116,10 +1197,11 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
 
                 selectedFileIndex = selectedLine;
                 if (selectedFileIndex == doubleClickSelectedFileIndex) {
+					int index;
+
                     gsound_play_sfx_file("ib1p1xx1");
                     strncpy(dest, fileList[selectedFileIndex + pageOffset], 16);
 
-                    int index;
                     for (index = 0; index < 12; index++) {
                         if (dest[index] == '.' || dest[index] == '\0') {
                             break;
@@ -1129,11 +1211,12 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
                     dest[index] = '\0';
                     rc = 2;
                 } else {
+					int index;
                     doubleClickSelectedFileIndex = selectedFileIndex;
                     buf_fill(fileNameBufferPtr, text_width(fileNameCopy), cursorHeight, backgroundWidth, 100);
                     strncpy(fileNameCopy, fileList[selectedFileIndex + pageOffset], 16);
 
-                    int index;
+                    index;
                     for (index = 0; index < 12; index++) {
                         if (fileNameCopy[index] == '.' || fileNameCopy[index] == '\0') {
                             break;
@@ -1217,9 +1300,11 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
         }
 
         if (scrollDirection != FILE_DIALOG_SCROLL_DIRECTION_NONE) {
+			unsigned int delay;
             unsigned int scrollDelay = 4;
             doubleClickSelectedFileIndex = -2;
             while (1) {
+				int key;
                 unsigned int scrollTick = get_time();
                 scrollCounter += 1;
                 if ((!isScrolling && scrollCounter == 1) || (isScrolling && scrollCounter > 14.4)) {
@@ -1270,9 +1355,11 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
                 // function.
                 blinkingCounter -= 1;
                 if (blinkingCounter == 0) {
+					int color;
+
                     blinkingCounter = 3;
 
-                    int color = blink ? 100 : colorTable[992];
+                    color = blink ? 100 : colorTable[992];
                     blink = !blink;
 
                     buf_fill(fileNameBufferPtr + text_width(fileNameCopy) - cursorWidth, cursorWidth, cursorHeight - 2, backgroundWidth, color);
@@ -1280,7 +1367,7 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
 
                 // FIXME: Missing windowRefresh makes blinking useless.
 
-                unsigned int delay = (scrollCounter > 14.4) ? 1000 / scrollDelay : 1000 / 24;
+                delay = (scrollCounter > 14.4) ? 1000 / scrollDelay : 1000 / 24;
                 while (elapsed_time(scrollTick) < delay) {
                 }
 
@@ -1289,7 +1376,7 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
                     break;
                 }
 
-                int key = get_input();
+                key = get_input();
                 if (key == 505 || key == 503) {
                     break;
                 }
@@ -1297,9 +1384,11 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
         } else {
             blinkingCounter -= 1;
             if (blinkingCounter == 0) {
+				int color;
+
                 blinkingCounter = 3;
 
-                int color = blink ? 100 : colorTable[992];
+                color = blink ? 100 : colorTable[992];
                 blink = !blink;
 
                 buf_fill(fileNameBufferPtr + text_width(fileNameCopy) - cursorWidth, cursorWidth, cursorHeight - 2, backgroundWidth, color);
@@ -1337,7 +1426,7 @@ int save_file_dialog(char* title, char** fileList, char* dest, int fileListLengt
 
     win_delete(win);
 
-    for (int index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
+    for (index = 0; index < FILE_DIALOG_FRM_COUNT; index++) {
         art_ptr_unlock(frmHandles[index]);
     }
 
@@ -1354,11 +1443,12 @@ static void PrntFlist(unsigned char* buffer, char** fileList, int pageOffset, in
     int y = FILE_DIALOG_FILE_LIST_Y;
     buf_fill(buffer + y * pitch + FILE_DIALOG_FILE_LIST_X, FILE_DIALOG_FILE_LIST_WIDTH, FILE_DIALOG_FILE_LIST_HEIGHT, pitch, 100);
     if (fileListLength != 0) {
+		int index;
         if (fileListLength - pageOffset > FILE_DIALOG_LINE_COUNT) {
             fileListLength = FILE_DIALOG_LINE_COUNT;
         }
 
-        for (int index = 0; index < fileListLength; index++) {
+        for (index = 0; index < fileListLength; index++) {
             int color = index == selectedIndex ? colorTable[32747] : colorTable[992];
             text_to_buf(buffer + pitch * y + FILE_DIALOG_FILE_LIST_X, fileList[pageOffset + index], pitch, pitch, color);
             y += lineHeight;

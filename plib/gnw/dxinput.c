@@ -1,5 +1,6 @@
 #include "plib/gnw/dxinput.h"
 
+#include <objbase.h>
 #include <initguid.h>
 
 #include "plib/gnw/gnw95dx.h"
@@ -333,11 +334,13 @@ static DIDEVICEOBJECTDATA DirectInputKeyboardBuffer[KEYBOARD_DEVICE_DATA_CAPACIT
 // 0x4CD1A0
 bool dxinput_init()
 {
+	HRESULT hr;
+
     if (lpDirectInput != NULL) {
         return false;
     }
 
-    HRESULT hr = GNW95_DirectInputCreate(GNW95_hInstance, DIRECTINPUT_VERSION, &lpDirectInput, NULL);
+    hr = GNW95_DirectInputCreate(GNW95_hInstance, DIRECTINPUT_VERSION, &lpDirectInput, NULL);
     if (hr != DI_OK) {
         goto err;
     }
@@ -383,11 +386,13 @@ void dxinput_exit()
 // 0x4CD288
 bool dxinput_acquire_mouse()
 {
+	HRESULT hr;
+
     if (lpDirectInputMouse == NULL) {
         return false;
     }
 
-    HRESULT hr = IDirectInputDevice_Acquire(lpDirectInputMouse);
+    hr = IDirectInputDevice_Acquire(lpDirectInputMouse);
     if (hr != DI_OK && hr != S_FALSE) {
         return false;
     }
@@ -398,11 +403,13 @@ bool dxinput_acquire_mouse()
 // 0x4CD2B4
 bool dxinput_unacquire_mouse()
 {
+	HRESULT hr;
+
     if (lpDirectInputMouse == NULL) {
         return false;
     }
 
-    HRESULT hr = IDirectInputDevice_Unacquire(lpDirectInputMouse);
+    hr = IDirectInputDevice_Unacquire(lpDirectInputMouse);
     if (hr != DI_OK) {
         return false;
     }
@@ -413,6 +420,9 @@ bool dxinput_unacquire_mouse()
 // 0x4CD2DC
 bool dxinput_get_mouse_state(dxinput_mouse_state* mouse_state)
 {
+	HRESULT hr;
+    DIMOUSESTATE dims;
+
     if (lpDirectInputMouse == NULL) {
         return false;
     }
@@ -421,8 +431,7 @@ bool dxinput_get_mouse_state(dxinput_mouse_state* mouse_state)
         return false;
     }
 
-    DIMOUSESTATE dims;
-    HRESULT hr = IDirectInputDevice_GetDeviceState(lpDirectInputMouse, sizeof(dims), &dims);
+    hr = IDirectInputDevice_GetDeviceState(lpDirectInputMouse, sizeof(dims), &dims);
     if (hr != DI_OK) {
         return false;
     }
@@ -438,11 +447,13 @@ bool dxinput_get_mouse_state(dxinput_mouse_state* mouse_state)
 // 0x4CD348
 bool dxinput_acquire_keyboard()
 {
+	HRESULT hr;
+
     if (lpDirectInputKeyboard == NULL) {
         return false;
     }
 
-    HRESULT hr = IDirectInputDevice_Acquire(lpDirectInputKeyboard);
+    hr = IDirectInputDevice_Acquire(lpDirectInputKeyboard);
     if (hr != DI_OK && hr != S_FALSE) {
         return false;
     }
@@ -453,11 +464,13 @@ bool dxinput_acquire_keyboard()
 // 0x4CD374
 bool dxinput_unacquire_keyboard()
 {
+	HRESULT hr;
+
     if (lpDirectInputKeyboard == NULL) {
         return false;
     }
 
-    HRESULT hr = IDirectInputDevice_Unacquire(lpDirectInputKeyboard);
+    hr = IDirectInputDevice_Unacquire(lpDirectInputKeyboard);
     if (hr != DI_OK) {
         return false;
     }
@@ -468,6 +481,9 @@ bool dxinput_unacquire_keyboard()
 // 0x4CD39C
 bool dxinput_flush_keyboard_buffer()
 {
+	HRESULT hr;
+	DWORD items;
+
     if (lpDirectInputKeyboard == NULL) {
         return false;
     }
@@ -476,8 +492,8 @@ bool dxinput_flush_keyboard_buffer()
         return false;
     }
 
-    DWORD items = -1;
-    HRESULT hr = IDirectInputDevice_GetDeviceData(lpDirectInputKeyboard, sizeof(DIDEVICEOBJECTDATA), NULL, &items, 0);
+    items = -1;
+    hr = IDirectInputDevice_GetDeviceData(lpDirectInputKeyboard, sizeof(DIDEVICEOBJECTDATA), NULL, &items, 0);
     if (hr != DI_OK && hr != DI_BUFFEROVERFLOW) {
         return false;
     }
@@ -561,6 +577,7 @@ static void dxinput_mouse_exit()
 static bool dxinput_keyboard_init()
 {
     HRESULT hr;
+    DIPROPDWORD dipdw;
 
     hr = IDirectInput_CreateDevice(lpDirectInput, &GUID_SysKeyboard, &lpDirectInputKeyboard, NULL);
     if (hr != DI_OK) {
@@ -577,7 +594,6 @@ static bool dxinput_keyboard_init()
         goto err;
     }
 
-    DIPROPDWORD dipdw;
     dipdw.diph.dwSize = sizeof(DIPROPDWORD);
     dipdw.diph.dwHeaderSize = sizeof(DIPROPHEADER);
     dipdw.diph.dwObj = 0;

@@ -49,7 +49,7 @@ typedef struct _AudioDecoder {
 } AudioDecoder;
 
 #if _WIN32
-static_assert(sizeof(AudioDecoder) == 84, "wrong size");
+//static_assert(sizeof(AudioDecoder) == 84, "wrong size");
 #endif
 
 static bool bytes_init(byte_reader* bytes, AudioDecoderReadFunc* read, void* data);
@@ -225,9 +225,11 @@ static int ReadBand_Fail(AudioDecoder* ad, int subband, int n)
 static int ReadBand_Fmt0(AudioDecoder* ad, int subband, int n)
 {
     int* p = (int*)ad->samples;
+	int i;
+
     p += subband;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
         *p = 0;
         p += ad->subbands;
@@ -242,16 +244,18 @@ static int ReadBand_Fmt3_16(AudioDecoder* ad, int subband, int n)
 {
     int value;
     int v14;
+	int* p;
+	int i;
 
     short* base = (short*)AudioDecoder_scale0;
     base += UINT_MAX << (n - 1);
 
-    int* p = (int*)ad->samples;
+    p = (int*)ad->samples;
     p += subband;
 
     v14 = (1 << n) - 1;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
         requireBits(ad, n);
         value = ad->bits.data;
@@ -270,15 +274,16 @@ static int ReadBand_Fmt3_16(AudioDecoder* ad, int subband, int n)
 static int ReadBand_Fmt17(AudioDecoder* ad, int subband, int n)
 {
     short* base = (short*)AudioDecoder_scale0;
-
+	int i;
     int* p = (int*)ad->samples;
     p += subband;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
+		int value;
         requireBits(ad, 3);
 
-        int value = ad->bits.data & 0xFF;
+        value = ad->bits.data & 0xFF;
         if (!(value & 0x01)) {
             dropBits(ad, 1);
 
@@ -324,15 +329,16 @@ static int ReadBand_Fmt17(AudioDecoder* ad, int subband, int n)
 static int ReadBand_Fmt18(AudioDecoder* ad, int subband, int n)
 {
     short* base = (short*)AudioDecoder_scale0;
-
+	int i;
     int* p = (int*)ad->samples;
     p += subband;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
+		int value;
         requireBits(ad, 2);
 
-        int value = ad->bits.data;
+        value = ad->bits.data;
         if (!(value & 0x01)) {
             dropBits(ad, 1);
 
@@ -362,15 +368,19 @@ static int ReadBand_Fmt18(AudioDecoder* ad, int subband, int n)
 static int ReadBand_Fmt19(AudioDecoder* ad, int subband, int n)
 {
     short* base = (short*)AudioDecoder_scale0;
+	int* p;
+	int i;
+
     base -= 1;
 
-    int* p = (int*)ad->samples;
+    p = (int*)ad->samples;
     p += subband;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
+		int value;
         requireBits(ad, 5);
-        int value = ad->bits.data & 0x1F;
+        value = ad->bits.data & 0x1F;
         dropBits(ad, 5);
 
         value = pack3_3[value];
@@ -402,13 +412,16 @@ static int ReadBand_Fmt20(AudioDecoder* ad, int subband, int n)
     short* base = (short*)AudioDecoder_scale0;
 
     int* p = (int*)ad->samples;
+	int i;
+
     p += subband;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
+		int value;
         requireBits(ad, 4);
 
-        int value = ad->bits.data & 0xFF;
+        value = ad->bits.data & 0xFF;
         if (!(value & 0x01)) {
             dropBits(ad, 1);
 
@@ -463,15 +476,16 @@ static int ReadBand_Fmt20(AudioDecoder* ad, int subband, int n)
 static int ReadBand_Fmt21(AudioDecoder* ad, int subband, int n)
 {
     short* base = (short*)AudioDecoder_scale0;
-
+	int i;
     int* p = (int*)ad->samples;
     p += subband;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
+		int value;
         requireBits(ad, 3);
 
-        int value = ad->bits.data & 0xFF;
+        value = ad->bits.data & 0xFF;
         if (!(value & 0x01)) {
             dropBits(ad, 1);
 
@@ -510,15 +524,18 @@ static int ReadBand_Fmt21(AudioDecoder* ad, int subband, int n)
 static int ReadBand_Fmt22(AudioDecoder* ad, int subband, int n)
 {
     short* base = (short*)AudioDecoder_scale0;
+	int* p;
+	int i;
     base -= 2;
 
-    int* p = (int*)ad->samples;
+    p = (int*)ad->samples;
     p += subband;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
+		int value;
         requireBits(ad, 7);
-        int value = ad->bits.data & 0x7F;
+        value = ad->bits.data & 0x7F;
         dropBits(ad, 7);
 
         value = pack5_3[value];
@@ -552,15 +569,16 @@ static int ReadBand_Fmt22(AudioDecoder* ad, int subband, int n)
 static int ReadBand_Fmt23(AudioDecoder* ad, int subband, int n)
 {
     short* base = (short*)AudioDecoder_scale0;
-
+	int i;
     int* p = (int*)ad->samples;
     p += subband;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
+		int value;
         requireBits(ad, 5);
 
-        int value = ad->bits.data;
+        value = ad->bits.data;
         if (!(value & 0x01)) {
             dropBits(ad, 1);
 
@@ -621,15 +639,16 @@ static int ReadBand_Fmt23(AudioDecoder* ad, int subband, int n)
 static int ReadBand_Fmt24(AudioDecoder* ad, int subband, int n)
 {
     short* base = (short*)AudioDecoder_scale0;
-
+	int i;
     int* p = (int*)ad->samples;
     p += subband;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
+		int value;
         requireBits(ad, 4);
 
-        int value = ad->bits.data & 0xFF;
+        value = ad->bits.data & 0xFF;
         if (!(value & 0x01)) {
             dropBits(ad, 1);
 
@@ -675,15 +694,16 @@ static int ReadBand_Fmt24(AudioDecoder* ad, int subband, int n)
 static int ReadBand_Fmt26(AudioDecoder* ad, int subband, int n)
 {
     short* base = (short*)AudioDecoder_scale0;
-
+	int i;
     int* p = (int*)ad->samples;
     p += subband;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
+		int value;
         requireBits(ad, 5);
 
-        int value = ad->bits.data;
+        value = ad->bits.data;
         if (!(value & 0x01)) {
             dropBits(ad, 1);
 
@@ -731,15 +751,16 @@ static int ReadBand_Fmt26(AudioDecoder* ad, int subband, int n)
 static int ReadBand_Fmt27(AudioDecoder* ad, int subband, int n)
 {
     short* base = (short*)AudioDecoder_scale0;
-
+	int i;
     int* p = (int*)ad->samples;
     p += subband;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
+		int value;
         requireBits(ad, 4);
 
-        int value = ad->bits.data;
+        value = ad->bits.data;
         if (!(value & 0x01)) {
             dropBits(ad, 1);
 
@@ -771,14 +792,15 @@ static int ReadBand_Fmt27(AudioDecoder* ad, int subband, int n)
 static int ReadBand_Fmt29(AudioDecoder* ad, int subband, int n)
 {
     short* base = (short*)AudioDecoder_scale0;
-
+	int i;
     int* p = (int*)ad->samples;
     p += subband;
 
-    int i = ad->samples_per_subband;
+    i = ad->samples_per_subband;
     while (i != 0) {
+		int value;
         requireBits(ad, 7);
-        int value = ad->bits.data & 0x7F;
+        value = ad->bits.data & 0x7F;
         dropBits(ad, 7);
 
         value = pack11_2[value];
@@ -808,6 +830,7 @@ static int ReadBands(AudioDecoder* ad)
     int v19;
     unsigned short* v18;
     int v21;
+	int index;
     ReadBandFunc fn;
 
     requireBits(ad, 4);
@@ -839,9 +862,10 @@ static int ReadBands(AudioDecoder* ad)
 
     init_pack_tables();
 
-    for (int index = 0; index < ad->subbands; index++) {
+    for (index = 0; index < ad->subbands; index++) {
+		int bits;
         requireBits(ad, 5);
-        int bits = ad->bits.data & 0x1F;
+        bits = ad->bits.data & 0x1F;
         dropBits(ad, 5);
 
         fn = ReadBand_tbl[bits];
@@ -866,32 +890,34 @@ static void untransform_subband0(unsigned char* prv, unsigned char* buf, int ste
             i--;
         }
     } else if (count == 4) {
+		int *v9, *v10, *v11;
         int v31 = step;
-        int* v9 = (int*)buf;
+        v9 = (int*)buf;
         v9 += step;
 
-        int* v10 = (int*)buf;
+        v10 = (int*)buf;
         v10 += step * 3;
 
-        int* v11 = (int*)buf;
+        v11 = (int*)buf;
         v11 += step * 2;
 
         while (v31 != 0) {
+			int v12,v13,v14,v15,v16;
             int* v33 = (int*)buf;
             int* v34 = (int*)prv;
 
-            int v12 = *v34 >> 16;
+            v12 = *v34 >> 16;
 
-            int v13 = *v33;
+            v13 = *v33;
             *v33 = (int)(*(short*)v34) + 2 * v12 + v13;
 
-            int v14 = *v9;
+            v14 = *v9;
             *v9 = 2 * v13 - v12 - v14;
 
-            int v15 = *v11;
+            v15 = *v11;
             *v11 = 2 * v14 + v15 + v13;
 
-            int v16 = *v10;
+            v16 = *v10;
             *v10 = 2 * v15 - v14 - v16;
 
             v10++;
@@ -914,6 +940,7 @@ static void untransform_subband0(unsigned char* prv, unsigned char* buf, int ste
 
             int v20;
             int v22;
+			int v23;
             if (v30 & 0x01) {
 
             } else {
@@ -921,13 +948,14 @@ static void untransform_subband0(unsigned char* prv, unsigned char* buf, int ste
                 v22 = *(int*)prv >> 16;
             }
 
-            int v23 = v30 >> 1;
+            v23 = v30 >> 1;
             while (--v23 != -1) {
                 int v24 = *v19;
+				int v26;
                 *v19 += 2 * v22 + v20;
                 v19 += step;
 
-                int v26 = *v19;
+                v26 = *v19;
                 *v19 = 2 * v24 - v22 - v26;
                 v19 += step;
 
@@ -1119,13 +1147,14 @@ size_t AudioDecoder_Read(AudioDecoder* ad, void* buffer, size_t size)
     unsigned char* dest;
     unsigned char* samp_ptr;
     int samp_cnt;
+    size_t bytesRead;
 
     dest = (unsigned char*)buffer;
     samp_ptr = ad->samp_ptr;
     samp_cnt = ad->samp_cnt;
 
-    size_t bytesRead;
     for (bytesRead = 0; bytesRead < size; bytesRead += 2) {
+		int v13;
         if (samp_cnt == 0) {
             if (ad->file_cnt == 0) {
                 break;
@@ -1139,7 +1168,7 @@ size_t AudioDecoder_Read(AudioDecoder* ad, void* buffer, size_t size)
             samp_cnt = ad->samp_cnt;
         }
 
-        int v13 = *(int*)samp_ptr;
+        v13 = *(int*)samp_ptr;
         samp_ptr += 4;
         *(unsigned short*)(dest + bytesRead) = (v13 >> ad->levels) & 0xFFFF;
         samp_cnt--;
@@ -1294,9 +1323,10 @@ L66:
 static inline void requireBits(AudioDecoder* ad, int n)
 {
     while (ad->bits.bitcnt < n) {
+        unsigned char ch;
+
         ad->bits.bytes.buf_cnt--;
 
-        unsigned char ch;
         if (ad->bits.bytes.buf_cnt < 0) {
             ch = ByteReaderFill(&(ad->bits.bytes));
         } else {

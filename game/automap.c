@@ -194,6 +194,16 @@ int automap_save(DB_FILE* stream)
 void automap(bool isInGame, bool isUsingScanner)
 {
     // 0x41A738
+    int color;
+	int oldFont;
+    int automapWindowX, automapWindowY;
+    int window,index;
+    int scannerBtn,cancelBtn,switchBtn,elevation;
+	bool isoWasEnabled,done;
+    unsigned char* frmData[AUTOMAP_FRM_COUNT];
+    CacheEntry* frmHandle[AUTOMAP_FRM_COUNT];
+
+
     static const int frmIds[AUTOMAP_FRM_COUNT] = {
         171, // automap.frm - automap window
         8, // lilredup.frm - little red button up
@@ -202,9 +212,7 @@ void automap(bool isInGame, bool isUsingScanner)
         173, // autodwn.frm - switch down
     };
 
-    unsigned char* frmData[AUTOMAP_FRM_COUNT];
-    CacheEntry* frmHandle[AUTOMAP_FRM_COUNT];
-    for (int index = 0; index < AUTOMAP_FRM_COUNT; index++) {
+    for (index = 0; index < AUTOMAP_FRM_COUNT; index++) {
         int fid = art_id(OBJ_TYPE_INTERFACE, frmIds[index], 0, 0, 0);
         frmData[index] = art_ptr_lock_data(fid, 0, 0, &(frmHandle[index]));
         if (frmData[index] == NULL) {
@@ -215,7 +223,6 @@ void automap(bool isInGame, bool isUsingScanner)
         }
     }
 
-    int color;
     if (isInGame) {
         color = colorTable[8456];
         obj_process_seen();
@@ -223,24 +230,24 @@ void automap(bool isInGame, bool isUsingScanner)
         color = colorTable[22025];
     }
 
-    int oldFont = text_curr();
+    oldFont = text_curr();
     text_font(101);
 
-    int automapWindowX = AUTOMAP_WINDOW_X;
-    int automapWindowY = AUTOMAP_WINDOW_Y;
-    int window = win_add(automapWindowX, automapWindowY, AUTOMAP_WINDOW_WIDTH, AUTOMAP_WINDOW_HEIGHT, color, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
+    automapWindowX = AUTOMAP_WINDOW_X;
+    automapWindowY = AUTOMAP_WINDOW_Y;
+    window = win_add(automapWindowX, automapWindowY, AUTOMAP_WINDOW_WIDTH, AUTOMAP_WINDOW_HEIGHT, color, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
 
-    int scannerBtn = win_register_button(window, 111, 454, 15, 16, -1, -1, -1, KEY_LOWERCASE_S, frmData[AUTOMAP_FRM_BUTTON_UP], frmData[AUTOMAP_FRM_BUTTON_DOWN], NULL, BUTTON_FLAG_TRANSPARENT);
+    scannerBtn = win_register_button(window, 111, 454, 15, 16, -1, -1, -1, KEY_LOWERCASE_S, frmData[AUTOMAP_FRM_BUTTON_UP], frmData[AUTOMAP_FRM_BUTTON_DOWN], NULL, BUTTON_FLAG_TRANSPARENT);
     if (scannerBtn != -1) {
         win_register_button_sound_func(scannerBtn, gsound_red_butt_press, gsound_red_butt_release);
     }
 
-    int cancelBtn = win_register_button(window, 277, 454, 15, 16, -1, -1, -1, KEY_ESCAPE, frmData[AUTOMAP_FRM_BUTTON_UP], frmData[AUTOMAP_FRM_BUTTON_DOWN], NULL, BUTTON_FLAG_TRANSPARENT);
+    cancelBtn = win_register_button(window, 277, 454, 15, 16, -1, -1, -1, KEY_ESCAPE, frmData[AUTOMAP_FRM_BUTTON_UP], frmData[AUTOMAP_FRM_BUTTON_DOWN], NULL, BUTTON_FLAG_TRANSPARENT);
     if (cancelBtn != -1) {
         win_register_button_sound_func(cancelBtn, gsound_red_butt_press, gsound_red_butt_release);
     }
 
-    int switchBtn = win_register_button(window, 457, 340, 42, 74, -1, -1, KEY_LOWERCASE_L, KEY_LOWERCASE_H, frmData[AUTOMAP_FRM_SWITCH_UP], frmData[AUTOMAP_FRM_SWITCH_DOWN], NULL, BUTTON_FLAG_TRANSPARENT | BUTTON_FLAG_0x01);
+    switchBtn = win_register_button(window, 457, 340, 42, 74, -1, -1, KEY_LOWERCASE_L, KEY_LOWERCASE_H, frmData[AUTOMAP_FRM_SWITCH_UP], frmData[AUTOMAP_FRM_SWITCH_DOWN], NULL, BUTTON_FLAG_TRANSPARENT | BUTTON_FLAG_0x01);
     if (switchBtn != -1) {
         win_register_button_sound_func(switchBtn, gsound_toggle_butt_press, gsound_toggle_butt_release);
     }
@@ -249,7 +256,7 @@ void automap(bool isInGame, bool isUsingScanner)
         win_set_button_rest_state(switchBtn, 1, 0);
     }
 
-    int elevation = map_elevation;
+    elevation = map_elevation;
 
     autoflags &= AUTOMAP_WTH_HIGH_DETAILS;
 
@@ -263,10 +270,10 @@ void automap(bool isInGame, bool isUsingScanner)
 
     draw_top_down_map(window, elevation, frmData[AUTOMAP_FRM_BACKGROUND], autoflags);
 
-    bool isoWasEnabled = map_disable_bk_processes();
+    isoWasEnabled = map_disable_bk_processes();
     gmouse_set_cursor(MOUSE_CURSOR_ARROW);
 
-    bool done = false;
+    done = false;
     while (!done) {
         bool needsRefresh = false;
 
@@ -319,12 +326,13 @@ void automap(bool isInGame, bool isUsingScanner)
                     autoflags |= AUTOMAP_WITH_SCANNER;
                     item_m_dec_charges(scanner);
                 } else {
-                    gsound_play_sfx_file("iisxxxx1");
-
                     MessageListItem messageListItem;
+					const char* title;
+
+                    gsound_play_sfx_file("iisxxxx1");
                     // 17 - The motion sensor is not installed.
                     // 18 - The motion sensor has no charges remaining.
-                    const char* title = getmsg(&misc_message_file, &messageListItem, scanner != NULL ? 18 : 17);
+                    title = getmsg(&misc_message_file, &messageListItem, scanner != NULL ? 18 : 17);
                     dialog_out(title, NULL, 0, 165, 140, colorTable[32328], NULL, colorTable[32328], 0);
                 }
             }
@@ -357,7 +365,7 @@ void automap(bool isInGame, bool isUsingScanner)
     win_delete(window);
     text_font(oldFont);
 
-    for (int index = 0; index < AUTOMAP_FRM_COUNT; index++) {
+    for (index = 0; index < AUTOMAP_FRM_COUNT; index++) {
         art_ptr_unlock(frmHandle[index]);
     }
 }
@@ -367,7 +375,11 @@ void automap(bool isInGame, bool isUsingScanner)
 // 0x41AC74
 static void draw_top_down_map(int window, int elevation, unsigned char* backgroundData, int flags)
 {
+	unsigned char* windowBuffer;
+	Object* object;
     int color;
+    int textColor;
+
     if ((flags & AUTOMAP_IN_GAME) != 0) {
         color = colorTable[8456];
     } else {
@@ -377,16 +389,19 @@ static void draw_top_down_map(int window, int elevation, unsigned char* backgrou
     win_fill(window, 0, 0, AUTOMAP_WINDOW_WIDTH, AUTOMAP_WINDOW_HEIGHT, color);
     win_border(window);
 
-    unsigned char* windowBuffer = win_get_buf(window);
+    windowBuffer = win_get_buf(window);
     buf_to_buf(backgroundData, AUTOMAP_WINDOW_WIDTH, AUTOMAP_WINDOW_HEIGHT, AUTOMAP_WINDOW_WIDTH, windowBuffer, AUTOMAP_WINDOW_WIDTH);
 
-    for (Object* object = obj_find_first_at(elevation); object != NULL; object = obj_find_next_at()) {
+    for (object = obj_find_first_at(elevation); object != NULL; object = obj_find_next_at()) {
+		int objectType;
+        unsigned char objectColor;
+		int v10;
+
         if (object->tile == -1) {
             continue;
         }
 
-        int objectType = FID_TYPE(object->fid);
-        unsigned char objectColor;
+        objectType = FID_TYPE(object->fid);
 
         if ((flags & AUTOMAP_IN_GAME) != 0) {
             if (objectType == OBJ_TYPE_CRITTER
@@ -415,7 +430,7 @@ static void draw_top_down_map(int window, int elevation, unsigned char* backgrou
             }
         }
 
-        int v10 = -2 * (object->tile % 200) - 10 + AUTOMAP_WINDOW_WIDTH * (2 * (object->tile / 200) + 9) - 60;
+        v10 = -2 * (object->tile % 200) - 10 + AUTOMAP_WINDOW_WIDTH * (2 * (object->tile / 200) + 9) - 60;
         if ((flags & AUTOMAP_IN_GAME) == 0) {
             switch (objectType) {
             case OBJ_TYPE_ITEM:
@@ -465,7 +480,6 @@ static void draw_top_down_map(int window, int elevation, unsigned char* backgrou
         }
     }
 
-    int textColor;
     if ((flags & AUTOMAP_IN_GAME) != 0) {
         textColor = colorTable[992];
     } else {
@@ -474,9 +488,10 @@ static void draw_top_down_map(int window, int elevation, unsigned char* backgrou
 
     if (map_get_index_number() != -1) {
         char* areaName = map_get_short_name(map_get_index_number());
+		char* mapName;
         win_print(window, areaName, 240, 150, 380, textColor | 0x2000000);
 
-        char* mapName = map_get_elev_idx(map_get_index_number(), elevation);
+        mapName = map_get_elev_idx(map_get_index_number(), elevation);
         win_print(window, mapName, 240, 150, 396, textColor | 0x2000000);
     }
 
@@ -488,6 +503,11 @@ static void draw_top_down_map(int window, int elevation, unsigned char* backgrou
 // 0x41AF5C
 int draw_top_down_map_pipboy(int window, int map, int elevation)
 {
+    int v1;
+    unsigned char v2;
+    unsigned char* ptr;
+	int y;
+
     unsigned char* windowBuffer = win_get_buf(window) + 640 * AUTOMAP_PIPBOY_VIEW_Y + AUTOMAP_PIPBOY_VIEW_X;
 
     unsigned char wallColor = colorTable[992];
@@ -504,17 +524,18 @@ int draw_top_down_map_pipboy(int window, int map, int elevation)
         return -1;
     }
 
-    int v1 = 0;
-    unsigned char v2 = 0;
-    unsigned char* ptr = ambuf;
+    v1 = 0;
+    v2 = 0;
+    ptr = ambuf;
 
     // FIXME: This loop is implemented incorrectly. Automap requires 400x400 px,
     // but it's top offset is 105, which gives max y 505. It only works because
     // lower portions of automap data contains zeroes. If it doesn't this loop
     // will try to set pixels outside of window buffer, which usually leads to
     // crash.
-    for (int y = 0; y < HEX_GRID_HEIGHT; y++) {
-        for (int x = 0; x < HEX_GRID_WIDTH; x++) {
+    for (y = 0; y < HEX_GRID_HEIGHT; y++) {
+		int x;
+        for (x = 0; x < HEX_GRID_WIDTH; x++) {
             v1 -= 1;
             if (v1 <= 0) {
                 v1 = 4;
@@ -551,6 +572,13 @@ int automap_pip_save()
 {
     int map = map_get_index_number();
     int elevation = map_elevation;
+	bool dataBuffersAllocated;
+    char path[256];
+    DB_FILE* stream1;
+	int compressedDataSize;
+    char* masterPatchesPath;
+	char automapDbPath[512];
+
 
     int entryOffset = amdbhead.offsets[map][elevation];
     if (entryOffset < 0) {
@@ -559,7 +587,7 @@ int automap_pip_save()
 
     debug_printf("\nAUTOMAP: Saving AutoMap DB index %d, level %d\n", map, elevation);
 
-    bool dataBuffersAllocated = false;
+    dataBuffersAllocated = false;
     ambuf = (unsigned char*)mem_malloc(11024);
     if (ambuf != NULL) {
         cmpbuf = (unsigned char*)mem_malloc(11024);
@@ -575,10 +603,9 @@ int automap_pip_save()
     }
 
     // NOTE: Not sure about the size.
-    char path[256];
     sprintf(path, "%s\\%s", "MAPS", AUTOMAP_DB);
 
-    DB_FILE* stream1 = db_fopen(path, "r+b");
+	stream1 = db_fopen(path, "r+b");
     if (stream1 == NULL) {
         debug_printf("\nAUTOMAP: Error opening automap database file!\n");
         debug_printf("Error continued: automap_pip_save: path: %s", path);
@@ -597,7 +624,7 @@ int automap_pip_save()
 
     decode_map_data(elevation);
 
-    int compressedDataSize = CompLZS(ambuf, cmpbuf, 10000);
+    compressedDataSize = CompLZS(ambuf, cmpbuf, 10000);
     if (compressedDataSize == -1) {
         amdbsubhead.dataSize = 10000;
         amdbsubhead.isCompressed = 0;
@@ -607,9 +634,16 @@ int automap_pip_save()
     }
 
     if (entryOffset != 0) {
+		DB_FILE* stream2;
+		int automapDataSize;
+        int nextEntryOffset;
+		int nextEntryDataSize;
+		int diff,map;
+        char automapTmpPath[512];
+
         sprintf(path, "%s\\%s", "MAPS", AUTOMAP_TMP);
 
-        DB_FILE* stream2 = db_fopen(path, "wb");
+        stream2 = db_fopen(path, "wb");
         if (stream2 == NULL) {
             debug_printf("\nAUTOMAP: Error creating temp file!\n");
             mem_free(ambuf);
@@ -636,7 +670,6 @@ int automap_pip_save()
             return -1;
         }
 
-        int nextEntryDataSize;
         if (db_freadLong(stream1, &nextEntryDataSize) == -1) {
             debug_printf("\nAUTOMAP: Error reading database #1!\n");
             db_fclose(stream1);
@@ -646,7 +679,7 @@ int automap_pip_save()
             return -1;
         }
 
-        int automapDataSize = db_filelength(stream1);
+        automapDataSize = db_filelength(stream1);
         if (automapDataSize == -1) {
             debug_printf("\nAUTOMAP: Error reading database #2!\n");
             db_fclose(stream1);
@@ -656,7 +689,7 @@ int automap_pip_save()
             return -1;
         }
 
-        int nextEntryOffset = entryOffset + nextEntryDataSize + 5;
+        nextEntryOffset = entryOffset + nextEntryDataSize + 5;
         if (automapDataSize != nextEntryOffset) {
             if (db_fseek(stream1, nextEntryOffset, SEEK_SET) == -1) {
                 debug_printf("\nAUTOMAP: Error writing temp data!\n");
@@ -677,9 +710,10 @@ int automap_pip_save()
             }
         }
 
-        int diff = amdbsubhead.dataSize - nextEntryDataSize;
-        for (int map = 0; map < AUTOMAP_MAP_COUNT; map++) {
-            for (int elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+        diff = amdbsubhead.dataSize - nextEntryDataSize;
+        for (map = 0; map < AUTOMAP_MAP_COUNT; map++) {
+			int elevation;
+            for (elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
                 if (amdbhead.offsets[map][elevation] > entryOffset) {
                     amdbhead.offsets[map][elevation] += diff;
                 }
@@ -701,14 +735,12 @@ int automap_pip_save()
         mem_free(ambuf);
         mem_free(cmpbuf);
 
-        char* masterPatchesPath;
         if (!config_get_string(&game_config, GAME_CONFIG_SYSTEM_KEY, GAME_CONFIG_MASTER_PATCHES_KEY, &masterPatchesPath)) {
             debug_printf("\nAUTOMAP: Error reading config info!\n");
             return -1;
         }
 
         // NOTE: Not sure about the size.
-        char automapDbPath[512];
         sprintf(automapDbPath, "%s\\%s\\%s", masterPatchesPath, "MAPS", AUTOMAP_DB);
         if (remove(automapDbPath) != 0) {
             debug_printf("\nAUTOMAP: Error removing database!\n");
@@ -716,7 +748,6 @@ int automap_pip_save()
         }
 
         // NOTE: Not sure about the size.
-        char automapTmpPath[512];
         sprintf(automapTmpPath, "%s\\%s\\%s", masterPatchesPath, "MAPS", AUTOMAP_TMP);
         if (rename(automapTmpPath, automapDbPath) != 0) {
             debug_printf("\nAUTOMAP: Error renaming database!\n");
@@ -801,14 +832,17 @@ err:
 // 0x41B820
 static int AM_ReadEntry(int map, int elevation)
 {
+    char path[MAX_PATH];
+	bool success;
+	DB_FILE* stream;
+
     cmpbuf = NULL;
 
-    char path[MAX_PATH];
     sprintf(path, "%s\\%s", "MAPS", AUTOMAP_DB);
 
-    bool success = true;
+    success = true;
 
-    DB_FILE* stream = db_fopen(path, "r+b");
+    stream = db_fopen(path, "r+b");
     if (stream == NULL) {
         debug_printf("\nAUTOMAP: Error opening automap database file!\n");
         debug_printf("Error continued: AM_ReadEntry: path: %s", path);
@@ -941,11 +975,13 @@ static int AM_ReadMainHeader(DB_FILE* stream)
 // 0x41BAF8
 static void decode_map_data(int elevation)
 {
+	Object* object;
+
     memset(ambuf, 0, SQUARE_GRID_SIZE);
 
     obj_process_seen();
 
-    Object* object = obj_find_first_at(elevation);
+    object = obj_find_first_at(elevation);
     while (object != NULL) {
         if (object->tile != -1 && (object->flags & OBJECT_SEEN) != 0) {
             int contentType;
@@ -974,14 +1010,16 @@ static void decode_map_data(int elevation)
 // 0x41BBEC
 static int am_pip_init()
 {
+    char path[MAX_PATH];
+	DB_FILE* stream;
+
     amdbhead.version = 1;
     amdbhead.dataSize = 797;
     memcpy(amdbhead.offsets, defam, sizeof(defam));
 
-    char path[MAX_PATH];
     sprintf(path, "%s\\%s", "MAPS", AUTOMAP_DB);
 
-    DB_FILE* stream = db_fopen(path, "wb");
+    stream = db_fopen(path, "wb");
     if (stream == NULL) {
         debug_printf("\nAUTOMAP: Error creating automap database file!\n");
         return -1;
@@ -1044,9 +1082,11 @@ static int copy_file_data(DB_FILE* stream1, DB_FILE* stream2, int length)
 int ReadAMList(AutomapHeader** automapHeaderPtr)
 {
     char path[MAX_PATH];
+	DB_FILE* stream;
+
     sprintf(path, "%s\\%s", "MAPS", AUTOMAP_DB);
 
-    DB_FILE* stream = db_fopen(path, "rb");
+    stream = db_fopen(path, "rb");
     if (stream == NULL) {
         debug_printf("\nAUTOMAP: Error opening database file for reading!\n");
         debug_printf("Error continued: ReadAMList: path: %s", path);

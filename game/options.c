@@ -128,7 +128,7 @@ typedef struct PreferenceDescription {
 } PreferenceDescription;
 #pragma pack()
 
-static_assert(sizeof(PreferenceDescription) == 76, "wrong size");
+//static_assert(sizeof(PreferenceDescription) == 76, "wrong size");
 
 static int OptnStart();
 static int OptnEnd();
@@ -378,12 +378,14 @@ static PreferenceDescription btndat[PREF_COUNT] = {
 // 0x481328
 int do_options()
 {
+	int rc;
+
     if (OptnStart() == -1) {
         debug_printf("\nOPTION MENU: Error loading option dialog data!\n");
         return -1;
     }
 
-    int rc = -1;
+    rc = -1;
     while (rc == -1) {
         int keyCode = get_input();
         bool showPreferences = false;
@@ -460,19 +462,26 @@ int do_options()
 // 0x4814D8
 static int OptnStart()
 {
+    char path[MAX_PATH];
+	int index;
+	int cycle;
+	int optionsWindowX,optionsWindowY;
+
+	int textY,buttonY;
+	int textX,buttonX;
+
     fontsave = text_curr();
 
     if (!message_init(&optn_msgfl)) {
         return -1;
     }
 
-    char path[MAX_PATH];
     sprintf(path, "%s%s", msg_path, "options.msg");
     if (!message_load(&optn_msgfl, path)) {
         return -1;
     }
 
-    for (int index = 0; index < OPTIONS_WINDOW_FRM_COUNT; index++) {
+    for (index = 0; index < OPTIONS_WINDOW_FRM_COUNT; index++) {
         int fid = art_id(OBJ_TYPE_INTERFACE, opgrphs[index], 0, 0, 0);
         opbmp[index] = art_lock(fid, &(grphkey[index]), &(ginfo[index].width), &(ginfo[index].height));
 
@@ -487,15 +496,16 @@ static int OptnStart()
         }
     }
 
-    int cycle = 0;
-    for (int index = 0; index < OPTIONS_WINDOW_BUTTONS_COUNT; index++) {
+    cycle = 0;
+    for (index = 0; index < OPTIONS_WINDOW_BUTTONS_COUNT; index++) {
         opbtns[index] = (unsigned char*)mem_malloc(ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].width * ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].height + 1024);
         if (opbtns[index] == NULL) {
+			int index;
             while (--index >= 0) {
                 mem_free(opbtns[index]);
             }
 
-            for (int index = 0; index < OPTIONS_WINDOW_FRM_COUNT; index++) {
+            for (index = 0; index < OPTIONS_WINDOW_FRM_COUNT; index++) {
                 art_ptr_unlock(grphkey[index]);
             }
 
@@ -509,8 +519,8 @@ static int OptnStart()
         memcpy(opbtns[index], opbmp[cycle + 1], ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].width * ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].height);
     }
 
-    int optionsWindowX = (640 - ginfo[OPTIONS_WINDOW_FRM_BACKGROUND].width) / 2;
-    int optionsWindowY = (480 - ginfo[OPTIONS_WINDOW_FRM_BACKGROUND].height) / 2 - 60;
+    optionsWindowX = (640 - ginfo[OPTIONS_WINDOW_FRM_BACKGROUND].width) / 2;
+    optionsWindowY = (480 - ginfo[OPTIONS_WINDOW_FRM_BACKGROUND].height) / 2 - 60;
     optnwin = win_add(optionsWindowX,
         optionsWindowY,
         ginfo[0].width,
@@ -519,11 +529,12 @@ static int OptnStart()
         WINDOW_FLAG_0x10 | WINDOW_FLAG_0x02);
 
     if (optnwin == -1) {
-        for (int index = 0; index < OPTIONS_WINDOW_BUTTONS_COUNT; index++) {
+		int index;
+        for (index = 0; index < OPTIONS_WINDOW_BUTTONS_COUNT; index++) {
             mem_free(opbtns[index]);
         }
 
-        for (int index = 0; index < OPTIONS_WINDOW_FRM_COUNT; index++) {
+        for (index = 0; index < OPTIONS_WINDOW_FRM_COUNT; index++) {
             art_ptr_unlock(grphkey[index]);
         }
 
@@ -546,16 +557,18 @@ static int OptnStart()
 
     text_font(103);
 
-    int textY = (ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].height - text_height()) / 2 + 1;
-    int buttonY = 17;
+    textY = (ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].height - text_height()) / 2 + 1;
+    buttonY = 17;
 
-    for (int index = 0; index < OPTIONS_WINDOW_BUTTONS_COUNT; index += 2) {
+    for (index = 0; index < OPTIONS_WINDOW_BUTTONS_COUNT; index += 2) {
+		int textX;
+		int btn;
         char text[128];
 
         const char* msg = getmsg(&optn_msgfl, &optnmesg, index / 2);
         strcpy(text, msg);
 
-        int textX = (ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].width - text_width(text)) / 2;
+        textX = (ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].width - text_width(text)) / 2;
         if (textX < 0) {
             textX = 0;
         }
@@ -563,7 +576,7 @@ static int OptnStart()
         text_to_buf(opbtns[index] + ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].width * textY + textX, text, ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].width, ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].width, colorTable[18979]);
         text_to_buf(opbtns[index + 1] + ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].width * textY + textX, text, ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].width, ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].width, colorTable[14723]);
 
-        int btn = win_register_button(optnwin, 13, buttonY, ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].width, ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].height, -1, -1, -1, index / 2 + 500, opbtns[index], opbtns[index + 1], NULL, 32);
+        btn = win_register_button(optnwin, 13, buttonY, ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].width, ginfo[OPTIONS_WINDOW_FRM_BUTTON_ON].height, -1, -1, -1, index / 2 + 500, opbtns[index], opbtns[index + 1], NULL, 32);
         if (btn != -1) {
             win_register_button_sound_func(btn, gsound_lrg_butt_press, gsound_lrg_butt_release);
         }
@@ -581,15 +594,19 @@ static int OptnStart()
 // 0x481908
 static int OptnEnd()
 {
+	int index;
+
+
+
     win_delete(optnwin);
     text_font(fontsave);
     message_exit(&optn_msgfl);
 
-    for (int index = 0; index < OPTIONS_WINDOW_BUTTONS_COUNT; index++) {
+    for (index = 0; index < OPTIONS_WINDOW_BUTTONS_COUNT; index++) {
         mem_free(opbtns[index]);
     }
 
-    for (int index = 0; index < OPTIONS_WINDOW_FRM_COUNT; index++) {
+    for (index = 0; index < OPTIONS_WINDOW_FRM_COUNT; index++) {
         art_ptr_unlock(grphkey[index]);
     }
 
@@ -607,6 +624,16 @@ static int OptnEnd()
 // 0x481974
 int PauseWindow(bool is_world_map)
 {
+	int index;
+	int window;
+    char path[MAX_PATH];
+	int pauseWindowX,pauseWindowY;
+	bool done;
+	unsigned char* windowBuffer;
+    char* messageItemText;
+	int length;
+	int doneBtn;
+
     // 0x4812EC
     static const int graphicIds[PAUSE_WINDOW_FRM_COUNT] = {
         208, // charwin.frm - character editor
@@ -633,7 +660,7 @@ int PauseWindow(bool is_world_map)
     gmouse_set_cursor(MOUSE_CURSOR_ARROW);
     ShadeScreen(is_world_map);
 
-    for (int index = 0; index < PAUSE_WINDOW_FRM_COUNT; index++) {
+    for (index = 0; index < PAUSE_WINDOW_FRM_COUNT; index++) {
         int fid = art_id(OBJ_TYPE_INTERFACE, graphicIds[index], 0, 0, 0);
         frmData[index] = art_lock(fid, &(frmHandles[index]), &(frmSizes[index].width), &(frmSizes[index].height));
         if (frmData[index] == NULL) {
@@ -651,15 +678,14 @@ int PauseWindow(bool is_world_map)
         return -1;
     }
 
-    char path[MAX_PATH];
     sprintf(path, "%s%s", msg_path, "options.msg");
     if (!message_load(&optn_msgfl, path)) {
         // FIXME: Leaking graphics.
         return -1;
     }
 
-    int pauseWindowX = (640 - frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].width) / 2;
-    int pauseWindowY = (480 - frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].height) / 2;
+    pauseWindowX = (640 - frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].width) / 2;
+    pauseWindowY = (480 - frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].height) / 2;
 
     if (is_world_map) {
         pauseWindowX -= 65;
@@ -668,14 +694,14 @@ int PauseWindow(bool is_world_map)
         pauseWindowY -= 54;
     }
 
-    int window = win_add(pauseWindowX,
+    window = win_add(pauseWindowX,
         pauseWindowY,
         frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].width,
         frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].height,
         256,
         WINDOW_FLAG_0x10 | WINDOW_FLAG_0x02);
     if (window == -1) {
-        for (int index = 0; index < PAUSE_WINDOW_FRM_COUNT; index++) {
+        for (index = 0; index < PAUSE_WINDOW_FRM_COUNT; index++) {
             art_ptr_unlock(frmHandles[index]);
         }
 
@@ -685,7 +711,7 @@ int PauseWindow(bool is_world_map)
         return -1;
     }
 
-    unsigned char* windowBuffer = win_get_buf(window);
+    windowBuffer = win_get_buf(window);
     memcpy(windowBuffer,
         frmData[PAUSE_WINDOW_FRM_BACKGROUND],
         frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].width * frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].height);
@@ -700,8 +726,6 @@ int PauseWindow(bool is_world_map)
     fontsave = text_curr();
     text_font(103);
 
-    char* messageItemText;
-
     messageItemText = getmsg(&optn_msgfl, &optnmesg, 300);
     text_to_buf(windowBuffer + frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].width * 45 + 52,
         messageItemText,
@@ -714,14 +738,14 @@ int PauseWindow(bool is_world_map)
     messageItemText = getmsg(&optn_msgfl, &optnmesg, 301);
     strcpy(path, messageItemText);
 
-    int length = text_width(path);
+    length = text_width(path);
     text_to_buf(windowBuffer + frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].width * 10 + 2 + (frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].width - length) / 2,
         path,
         frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].width,
         frmSizes[PAUSE_WINDOW_FRM_BACKGROUND].width,
         colorTable[18979]);
 
-    int doneBtn = win_register_button(window,
+    doneBtn = win_register_button(window,
         26,
         46,
         frmSizes[PAUSE_WINDOW_FRM_LITTLE_RED_BUTTON_UP].width,
@@ -740,7 +764,7 @@ int PauseWindow(bool is_world_map)
 
     win_draw(window);
 
-    bool done = false;
+    done = false;
     while (!done) {
         int keyCode = get_input();
         switch (keyCode) {
@@ -769,7 +793,7 @@ int PauseWindow(bool is_world_map)
 
     win_delete(window);
 
-    for (int index = 0; index < PAUSE_WINDOW_FRM_COUNT; index++) {
+    for (index = 0; index < PAUSE_WINDOW_FRM_COUNT; index++) {
         art_ptr_unlock(frmHandles[index]);
     }
 
@@ -802,12 +826,14 @@ static void ShadeScreen(bool is_world_map)
         grey_buf(win_get_buf(world_win) + 640 * 21 + 22, 450, 442, 640);
         win_draw(world_win);
     } else {
+		int windowWidth, windowHeight;
+		unsigned char* windowBuffer;
         mouse_hide();
         tile_refresh_display();
 
-        int windowWidth = 640;
-        int windowHeight = win_height(display_win);
-        unsigned char* windowBuffer = win_get_buf(display_win);
+        windowWidth = 640;
+        windowHeight = win_height(display_win);
+        windowBuffer = win_get_buf(display_win);
         grey_buf(windowBuffer, windowWidth, windowHeight, windowWidth);
 
         win_draw(display_win);
@@ -819,12 +845,13 @@ static void ShadeScreen(bool is_world_map)
 // 0x481E84
 static int do_prefscreen()
 {
+    int rc = -1;
+
     if (PrefStart() == -1) {
         debug_printf("\nPREFERENCE MENU: Error loading preference dialog data!\n");
         return -1;
     }
 
-    int rc = -1;
     while (rc == -1) {
         int eventCode = get_input();
 
@@ -885,6 +912,7 @@ static int PrefStart()
     int messageItemId;
     int btn;
     int button_count;
+	int preferencesWindowX,preferencesWindowY;
 
     SaveSettings();
 
@@ -901,8 +929,8 @@ static int PrefStart()
 
     changed = false;
 
-    int preferencesWindowX = 0;
-    int preferencesWindowY = 0;
+    preferencesWindowX = 0;
+    preferencesWindowY = 0;
     prfwin = win_add(preferencesWindowX,
         preferencesWindowY,
         PREFERENCES_WINDOW_WIDTH,
@@ -1105,11 +1133,13 @@ static void DoThing(int eventCode)
 {
     int x;
     int y;
+	int preferenceIndex;
+
     mouse_get_position(&x, &y);
 
     // This preference index also contains out-of-bounds value 19,
     // which is the only preference expressed as checkbox.
-    int preferenceIndex = eventCode - 505;
+    preferenceIndex = eventCode - 505;
 
     if (preferenceIndex >= FIRST_PRIMARY_PREF && preferenceIndex <= LAST_PRIMARY_PREF) {
         PreferenceDescription* meta = &(btndat[preferenceIndex]);
@@ -1220,12 +1250,17 @@ static void DoThing(int eventCode)
             return;
         }
     } else if (preferenceIndex >= FIRST_RANGE_PREF && preferenceIndex <= LAST_RANGE_PREF) {
+        double value;
+		int knobX;
+		int v31;
+		int sfxVolumeExample;
+        int speechVolumeExample;
+
         PreferenceDescription* meta = &(btndat[preferenceIndex]);
         int* valuePtr = meta->valuePtr;
 
         gsound_play_sfx_file("ib1p1xx1");
 
-        double value;
         switch (preferenceIndex) {
         case PREF_TEXT_BASE_DELAY:
             value = 6.0 - text_delay + 1.0;
@@ -1241,19 +1276,23 @@ static void DoThing(int eventCode)
             break;
         }
 
-        int knobX = (int)(219.0 / (meta->maxValue - meta->minValue));
-        int v31 = (int)((value - meta->minValue) * (219.0 / (meta->maxValue - meta->minValue)) + 384.0);
+        knobX = (int)(219.0 / (meta->maxValue - meta->minValue));
+        v31 = (int)((value - meta->minValue) * (219.0 / (meta->maxValue - meta->minValue)) + 384.0);
         buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_BACKGROUND] + PREFERENCES_WINDOW_WIDTH * meta->knobY + 384, 240, 12, PREFERENCES_WINDOW_WIDTH, prefbuf + PREFERENCES_WINDOW_WIDTH * meta->knobY + 384, PREFERENCES_WINDOW_WIDTH);
         trans_buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_KNOB_ON], 21, 12, 21, prefbuf + PREFERENCES_WINDOW_WIDTH * meta->knobY + v31, PREFERENCES_WINDOW_WIDTH);
 
         win_draw(prfwin);
 
-        int sfxVolumeExample = 0;
-        int speechVolumeExample = 0;
+        sfxVolumeExample = 0;
+        speechVolumeExample = 0;
         while (true) {
+			int v52;
+			double newValue;
+			int tick;
+
             get_input();
 
-            int tick = get_time();
+            tick = get_time();
 
             mouse_get_position(&x, &y);
 
@@ -1279,9 +1318,9 @@ static void DoThing(int eventCode)
                 }
             }
 
-            double newValue = ((double)v31 - 384.0) / (219.0 / (meta->maxValue - meta->minValue)) + meta->minValue;
+            newValue = ((double)v31 - 384.0) / (219.0 / (meta->maxValue - meta->minValue)) + meta->minValue;
 
-            int v52 = 0;
+            v52 = 0;
 
             switch (preferenceIndex) {
             case PREF_COMBAT_SPEED:
@@ -1332,10 +1371,11 @@ static void DoThing(int eventCode)
             }
 
             if (v52) {
+				int optionIndex;
                 int off = PREFERENCES_WINDOW_WIDTH * (meta->knobY - 12) + 384;
                 buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_BACKGROUND] + off, 240, 24, PREFERENCES_WINDOW_WIDTH, prefbuf + off, PREFERENCES_WINDOW_WIDTH);
 
-                for (int optionIndex = 0; optionIndex < meta->valuesCount; optionIndex++) {
+                for (optionIndex = 0; optionIndex < meta->valuesCount; optionIndex++) {
                     const char* str = getmsg(&optn_msgfl, &optnmesg, meta->labelIds[optionIndex]);
 
                     int x;
@@ -1401,11 +1441,14 @@ static void DoThing(int eventCode)
 // 0x483170
 static void UpdateThing(int index)
 {
+	int value;
+	PreferenceDescription* meta;
     text_font(101);
 
-    PreferenceDescription* meta = &(btndat[index]);
+    meta = &(btndat[index]);
 
     if (index >= FIRST_PRIMARY_PREF && index <= LAST_PRIMARY_PREF) {
+		int valueIndex;
         // 0x4812FC
         static const int offsets[PRIMARY_PREF_COUNT] = {
             66, // game difficulty
@@ -1423,14 +1466,19 @@ static void UpdateThing(int index)
 
         buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_BACKGROUND] + 640 * offsets[primaryOptionIndex] + 23, 160, 54, 640, prefbuf + 640 * offsets[primaryOptionIndex] + 23, 640);
 
-        for (int valueIndex = 0; valueIndex < meta->valuesCount; valueIndex++) {
+        for (valueIndex = 0; valueIndex < meta->valuesCount; valueIndex++) {
+			int x,y;
+            int len;
+			char* p;
+			char* s;
+			int value;
             const char* text = getmsg(&optn_msgfl, &optnmesg, meta->labelIds[valueIndex]);
 
             char copy[100]; // TODO: Size is probably wrong.
             strcpy(copy, text);
 
-            int x = meta->knobX + bglbx[valueIndex];
-            int len = text_width(copy);
+            x = meta->knobX + bglbx[valueIndex];
+            len = text_width(copy);
             switch (valueIndex) {
             case 0:
                 x -= text_width(copy);
@@ -1446,13 +1494,13 @@ static void UpdateThing(int index)
                 break;
             }
 
-            char* p = copy;
+            p = copy;
             while (*p != '\0' && *p != ' ') {
                 p++;
             }
 
-            int y = meta->knobY + bglby[valueIndex];
-            const char* s;
+            y = meta->knobY + bglby[valueIndex];
+            
             if (*p != '\0') {
                 *p = '\0';
                 text_to_buf(prefbuf + 640 * y + x, copy, 640, 640, colorTable[18979]);
@@ -1465,9 +1513,11 @@ static void UpdateThing(int index)
             text_to_buf(prefbuf + 640 * y + x, s, 640, 640, colorTable[18979]);
         }
 
-        int value = *(meta->valuePtr);
+        value = *(meta->valuePtr);
         trans_buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_PRIMARY_SWITCH] + (46 * 47) * value, 46, 47, 46, prefbuf + 640 * meta->knobY + meta->knobX, 640);
     } else if (index >= FIRST_SECONDARY_PREF && index <= LAST_SECONDARY_PREF) {
+		int optionIndex;
+		int value;
         // 0x481310
         static const int offsets[SECONDARY_PREF_COUNT] = {
             66, // combat messages
@@ -1483,7 +1533,7 @@ static void UpdateThing(int index)
         buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_BACKGROUND] + 640 * offsets[secondaryOptionIndex] + 251, 113, 34, 640, prefbuf + 640 * offsets[secondaryOptionIndex] + 251, 640);
 
         // Secondary options are booleans, so it's index is also it's value.
-        for (int value = 0; value < 2; value++) {
+        for (value = 0; value < 2; value++) {
             const char* text = getmsg(&optn_msgfl, &optnmesg, meta->labelIds[value]);
 
             int x;
@@ -1497,31 +1547,35 @@ static void UpdateThing(int index)
             text_to_buf(prefbuf + 640 * (meta->knobY - 5) + x, text, 640, 640, colorTable[18979]);
         }
 
-        int value = *(meta->valuePtr);
+        value = *(meta->valuePtr);
         if (index == PREF_COMBAT_MESSAGES) {
             value ^= 1;
         }
         trans_buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_SECONDARY_SWITCH] + (22 * 25) * value, 22, 25, 22, prefbuf + 640 * meta->knobY + meta->knobX, 640);
     } else if (index >= FIRST_RANGE_PREF && index <= LAST_RANGE_PREF) {
+		int optionIndex;
         buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_BACKGROUND] + 640 * (meta->knobY - 12) + 384, 240, 24, 640, prefbuf + 640 * (meta->knobY - 12) + 384, 640);
         switch (index) {
         case PREF_COMBAT_SPEED:
             if (1) {
+				int x;
                 double value = *meta->valuePtr;
                 value = min(max(value, 0.0), 50.0);
 
-                int x = (int)((value - meta->minValue) * 219.0 / (meta->maxValue - meta->minValue) + 384.0);
+                x = (int)((value - meta->minValue) * 219.0 / (meta->maxValue - meta->minValue) + 384.0);
                 trans_buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_KNOB_OFF], 21, 12, 21, prefbuf + 640 * meta->knobY + x, 640);
             }
             break;
         case PREF_TEXT_BASE_DELAY:
             if (1) {
+				int x;
+				double value;
                 text_delay = min(max(text_delay, 1.0), 6.0);
 
-                int x = (int)((6.0 - text_delay) * 43.8 + 384.0);
+                x = (int)((6.0 - text_delay) * 43.8 + 384.0);
                 trans_buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_KNOB_OFF], 21, 12, 21, prefbuf + 640 * meta->knobY + x, 640);
 
-                double value = (text_delay - 1.0) * 0.2 * 2.0;
+                value = (text_delay - 1.0) * 0.2 * 2.0;
                 value = min(max(value, 0.0), 2.0);
 
                 text_object_set_base_delay(text_delay);
@@ -1533,10 +1587,11 @@ static void UpdateThing(int index)
         case PREF_SFX_VOLUME:
         case PREF_SPEECH_VOLUME:
             if (1) {
+				int x;
                 double value = *meta->valuePtr;
                 value = min(max(value, meta->minValue), meta->maxValue);
 
-                int x = (int)((value - meta->minValue) * 219.0 / (meta->maxValue - meta->minValue) + 384.0);
+                x = (int)((value - meta->minValue) * 219.0 / (meta->maxValue - meta->minValue) + 384.0);
                 trans_buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_KNOB_OFF], 21, 12, 21, prefbuf + 640 * meta->knobY + x, 640);
 
                 switch (index) {
@@ -1557,9 +1612,10 @@ static void UpdateThing(int index)
             break;
         case PREF_BRIGHTNESS:
             if (1) {
+				int x;
                 gamma_value = min(max(gamma_value, 1.0), 1.17999267578125);
 
-                int x = (int)((gamma_value - meta->minValue) * (219.0 / (meta->maxValue - meta->minValue)) + 384.0);
+                x = (int)((gamma_value - meta->minValue) * (219.0 / (meta->maxValue - meta->minValue)) + 384.0);
                 trans_buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_KNOB_OFF], 21, 12, 21, prefbuf + 640 * meta->knobY + x, 640);
 
                 colorGamma(gamma_value);
@@ -1567,9 +1623,10 @@ static void UpdateThing(int index)
             break;
         case PREF_MOUSE_SENSITIVIY:
             if (1) {
+				int x;
                 mouse_sens = min(max(mouse_sens, 1.0), 2.5);
 
-                int x = (int)((mouse_sens - meta->minValue) * (219.0 / (meta->maxValue - meta->minValue)) + 384.0);
+                x = (int)((mouse_sens - meta->minValue) * (219.0 / (meta->maxValue - meta->minValue)) + 384.0);
                 trans_buf_to_buf(prfbmp[PREFERENCES_WINDOW_FRM_KNOB_OFF], 21, 12, 21, prefbuf + 640 * meta->knobY + x, 640);
 
                 mouse_set_sensitivity(mouse_sens);
@@ -1577,7 +1634,7 @@ static void UpdateThing(int index)
             break;
         }
 
-        for (int optionIndex = 0; optionIndex < meta->valuesCount; optionIndex++) {
+        for (optionIndex = 0; optionIndex < meta->valuesCount; optionIndex++) {
             const char* str = getmsg(&optn_msgfl, &optnmesg, meta->labelIds[optionIndex]);
 
             int x;
@@ -1634,6 +1691,7 @@ static void UpdateThing(int index)
 // 0x483F28
 static int PrefEnd()
 {
+	int index;
     if (changed) {
         SavePrefs(1);
         JustUpdate();
@@ -1642,7 +1700,7 @@ static int PrefEnd()
 
     win_delete(prfwin);
 
-    for (int index = 0; index < PREFERENCES_WINDOW_FRM_COUNT; index++) {
+    for (index = 0; index < PREFERENCES_WINDOW_FRM_COUNT; index++) {
         art_ptr_unlock(grphkey2[index]);
     }
 
@@ -1652,7 +1710,8 @@ static int PrefEnd()
 // 0x483F70
 int init_options_menu()
 {
-    for (int index = 0; index < 11; index++) {
+	int index;
+    for (index = 0; index < 11; index++) {
         btndat[index].direction = 0;
     }
 
@@ -1745,6 +1804,7 @@ static void SetSystemPrefs()
 // 0x484360
 static int SavePrefs(bool save)
 {
+	double textLineDelay;
     config_set_value(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_GAME_DIFFICULTY_KEY, game_difficulty);
     config_set_value(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_COMBAT_DIFFICULTY_KEY, combat_difficulty);
     config_set_value(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_VIOLENCE_LEVEL_KEY, violence_level);
@@ -1759,7 +1819,7 @@ static int SavePrefs(bool save)
     config_set_value(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_COMBAT_SPEED_KEY, combat_speed);
     config_set_double(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_TEXT_BASE_DELAY_KEY, text_delay);
 
-    double textLineDelay = (text_delay - 1.0) / 5.0 * 2.0;
+    textLineDelay = (text_delay - 1.0) / 5.0 * 2.0;
     if (textLineDelay >= 0.0) {
         if (textLineDelay > 2.0) {
             textLineDelay = 2.0;
@@ -1811,7 +1871,8 @@ static void SetDefaults(bool a1)
     speech_volume = 22281;
 
     if (a1) {
-        for (int index = 0; index < PREF_COUNT; index++) {
+		int index;
+        for (index = 0; index < PREF_COUNT; index++) {
             UpdateThing(index);
         }
         win_set_button_rest_state(plyrspdbid, player_speedup, 0);
@@ -1875,6 +1936,7 @@ static void RestoreSettings()
 // 0x4848A4
 static void JustUpdate()
 {
+	double textLineDelay;
     game_difficulty = min(max(game_difficulty, 0), 2);
     combat_difficulty = min(max(combat_difficulty, 0), 2);
     violence_level = min(max(violence_level, 0), 3);
@@ -1899,7 +1961,7 @@ static void JustUpdate()
     text_object_set_base_delay(text_delay);
     gmouse_3d_synch_item_highlight();
 
-    double textLineDelay = (text_delay + (-1.0)) * 0.2 * 2.0;
+    textLineDelay = (text_delay + (-1.0)) * 0.2 * 2.0;
     textLineDelay = min(max(textLineDelay, 0.0), 2.0);
 
     text_object_set_line_delay(textLineDelay);

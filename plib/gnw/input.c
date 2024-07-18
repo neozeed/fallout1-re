@@ -1,6 +1,7 @@
 #include "plib/gnw/input.h"
 
 #include <stdio.h>
+#include <limits.h> //INT_MAX
 
 #include "plib/color/color.h"
 #include "plib/gnw/button.h"
@@ -161,13 +162,15 @@ int GNW_input_init(int use_msec_timer)
 // 0x4B3390
 void GNW_input_exit()
 {
+	FuncPtr curr;
+
     // NOTE: Uninline.
     GNW95_input_exit();
     GNW_mouse_exit();
     GNW_kb_restore();
     dxinput_exit();
 
-    FuncPtr curr = bk_list;
+    curr = bk_list;
     while (curr != NULL) {
         FuncPtr next = curr->next;
         mem_free(curr);
@@ -233,6 +236,8 @@ void process_bk()
 // 0x4B3454
 void GNW_add_input_buffer(int a1)
 {
+	inputdata* inputEvent;
+
     if (a1 == -1) {
         return;
     }
@@ -251,7 +256,7 @@ void GNW_add_input_buffer(int a1)
         return;
     }
 
-    inputdata* inputEvent = &(input_buffer[input_put]);
+    inputEvent = &(input_buffer[input_put]);
     inputEvent->input = a1;
 
     mouse_get_position(&(inputEvent->mx), &(inputEvent->my));
@@ -271,12 +276,15 @@ void GNW_add_input_buffer(int a1)
 // 0x4B34E4
 static int get_input_buffer()
 {
+    inputdata* inputEvent;
+    int eventCode;
+
     if (input_get == -1) {
         return -1;
     }
 
-    inputdata* inputEvent = &(input_buffer[input_get]);
-    int eventCode = inputEvent->input;
+    inputEvent = &(input_buffer[input_get]);
+    eventCode = inputEvent->input;
     input_mx = inputEvent->mx;
     input_my = inputEvent->my;
 
@@ -304,6 +312,9 @@ void flush_input_buffer()
 // 0x4B3564
 void GNW_do_bk_process()
 {
+    FuncPtr curr;
+    FuncPtr* currPtr;
+
     if (game_paused) {
         return;
     }
@@ -314,8 +325,8 @@ void GNW_do_bk_process()
 
     bk_process_time = get_time();
 
-    FuncPtr curr = bk_list;
-    FuncPtr* currPtr = &(bk_list);
+    curr = bk_list;
+    currPtr = &(bk_list);
 
     while (curr != NULL) {
         FuncPtr next = curr->next;
@@ -384,10 +395,11 @@ void disable_bk()
 // 0x4B3644
 static void pause_game()
 {
+	int win;
     if (!game_paused) {
         game_paused = true;
 
-        int win = pause_win_func();
+        win = pause_win_func();
 
         while (get_input() != KEY_ESCAPE) {
         }
@@ -402,6 +414,7 @@ static int default_pause_window()
 {
     int windowWidth = text_width("Paused") + 32;
     int windowHeight = 3 * text_height() + 16;
+	unsigned char* windowBuffer;
 
     int win = win_add((rectGetWidth(&scr_size) - windowWidth) / 2,
         (rectGetHeight(&scr_size) - windowHeight) / 2,
@@ -415,7 +428,7 @@ static int default_pause_window()
 
     win_border(win);
 
-    unsigned char* windowBuffer = win_get_buf(win);
+    windowBuffer = win_get_buf(win);
     text_to_buf(windowBuffer + 8 * windowWidth + 16,
         "Paused",
         windowWidth,
@@ -501,6 +514,7 @@ int default_screendump(int width, int height, unsigned char* data, unsigned char
     int index;
     unsigned int intValue;
     unsigned short shortValue;
+	int x,y;
 
     for (index = 0; index < 100000; index++) {
         sprintf(fileName, "scr%.5d.bmp", index);
@@ -589,7 +603,7 @@ int default_screendump(int width, int height, unsigned char* data, unsigned char
     intValue = 0;
     fwrite(&intValue, sizeof(intValue), 1, stream);
 
-    for (int index = 0; index < 256; index++) {
+    for (index = 0; index < 256; index++) {
         unsigned char rgbReserved = 0;
         unsigned char rgbRed = palette[index * 3] << 2;
         unsigned char rgbGreen = palette[index * 3 + 1] << 2;
@@ -601,7 +615,7 @@ int default_screendump(int width, int height, unsigned char* data, unsigned char
         fwrite(&rgbReserved, sizeof(rgbReserved), 1, stream);
     }
 
-    for (int y = height - 1; y >= 0; y--) {
+    for (y = height - 1; y >= 0; y--) {
         unsigned char* dataPtr = data + y * width;
         fwrite(dataPtr, 1, width, stream);
     }
@@ -1152,6 +1166,10 @@ next:
 // 0x4B4538
 void GNW95_process_message()
 {
+	int key;
+	unsigned int now;
+    MSG msg;
+
     if (GNW95_isActive && !kb_is_disabled()) {
         dxinput_key_data data;
         while (dxinput_read_keyboard_buffer(&data)) {
@@ -1159,9 +1177,9 @@ void GNW95_process_message()
         }
 
         // NOTE: Uninline.
-        unsigned int now = get_time();
+        now = get_time();
 
-        for (int key = 0; key < 256; key++) {
+        for (key = 0; key < 256; key++) {
             GNW95RepeatStruct* ptr = &(GNW95_key_time_stamps[key]);
             if (ptr->time != -1) {
                 unsigned int elapsedTime = ptr->time > now ? INT_MAX : now - ptr->time;
@@ -1178,7 +1196,6 @@ void GNW95_process_message()
         }
     }
 
-    MSG msg;
     while (PeekMessageA(&msg, NULL, 0, 0, 0)) {
         if (GetMessageA(&msg, NULL, 0, 0)) {
             TranslateMessage(&msg);
@@ -1190,7 +1207,9 @@ void GNW95_process_message()
 // 0x4B4638
 void GNW95_clear_time_stamps()
 {
-    for (int index = 0; index < 256; index++) {
+	int index;
+
+    for (index = 0; index < 256; index++) {
         GNW95_key_time_stamps[index].time = -1;
         GNW95_key_time_stamps[index].count = 0;
     }

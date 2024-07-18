@@ -8,8 +8,9 @@ static int art_readFrameData(Art* art, DB_FILE* stream);
 // 0x4193A0
 static int art_readSubFrameData(unsigned char* data, DB_FILE* stream, int count)
 {
+	int index;
     unsigned char* ptr = data;
-    for (int index = 0; index < count; index++) {
+    for (index = 0; index < count; index++) {
         ArtFrame* frame = (ArtFrame*)ptr;
 
         if (db_freadShort(stream, &(frame->width)) == -1) return -1;
@@ -89,18 +90,20 @@ int load_frame(const char* path, Art** artPtr)
 // 0x419600
 int load_frame_into(const char* path, unsigned char* data)
 {
+	int index;
+	Art* art;
     DB_FILE* stream = db_fopen(path, "rb");
     if (stream == NULL) {
         return -2;
     }
 
-    Art* art = (Art*)data;
+    art = (Art*)data;
     if (art_readFrameData(art, stream) != 0) {
         db_fclose(stream);
         return -3;
     }
 
-    for (int index = 0; index < ROTATION_COUNT; index++) {
+    for (index = 0; index < ROTATION_COUNT; index++) {
         if (index == 0 || art->dataOffsets[index - 1] != art->dataOffsets[index]) {
             if (art_readSubFrameData(data + sizeof(Art) + art->dataOffsets[index], stream, art->frameCount) != 0) {
                 db_fclose(stream);
@@ -117,7 +120,9 @@ int load_frame_into(const char* path, unsigned char* data)
 int art_writeSubFrameData(unsigned char* data, DB_FILE* stream, int count)
 {
     unsigned char* ptr = data;
-    for (int index = 0; index < count; index++) {
+	int index;
+
+    for (index = 0; index < count; index++) {
         ArtFrame* frame = (ArtFrame*)ptr;
 
         if (db_fwriteShort(stream, frame->width) == -1) return -1;
@@ -151,22 +156,26 @@ int art_writeFrameData(Art* art, DB_FILE* stream)
 // 0x419828
 int save_frame(const char* path, unsigned char* data)
 {
+	DB_FILE* stream;
+	Art* art;
+	int index;
+
     if (data == NULL) {
         return -1;
     }
 
-    DB_FILE* stream = db_fopen(path, "wb");
+    stream = db_fopen(path, "wb");
     if (stream == NULL) {
         return -1;
     }
 
-    Art* art = (Art*)data;
+    art = (Art*)data;
     if (art_writeFrameData(art, stream) == -1) {
         db_fclose(stream);
         return -1;
     }
 
-    for (int index = 0; index < ROTATION_COUNT; index++) {
+    for (index = 0; index < ROTATION_COUNT; index++) {
         if (index == 0 || art->dataOffsets[index - 1] != art->dataOffsets[index]) {
             if (art_writeSubFrameData(data + sizeof(Art) + art->dataOffsets[index], stream, art->frameCount) != 0) {
                 db_fclose(stream);

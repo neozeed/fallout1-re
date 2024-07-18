@@ -1911,11 +1911,15 @@ static void combat_add_noncoms()
     for (index = list_com; index < list_com + list_noncom; index++) {
         Object* obj = combat_list[index];
         if (combatai_want_to_join(obj)) {
+			Object** objectPtr1;
+			Object** objectPtr2;
+			Object* t;
+
             obj->data.critter.combat.maneuver = CRITTER_MANEUVER_NONE;
 
-            Object** objectPtr1 = &(combat_list[index]);
-            Object** objectPtr2 = &(combat_list[list_com]);
-            Object* t = *objectPtr1;
+            objectPtr1 = &(combat_list[index]);
+            objectPtr2 = &(combat_list[list_com]);
+            t = *objectPtr1;
             *objectPtr1 = *objectPtr2;
             *objectPtr2 = t;
 
@@ -1951,6 +1955,7 @@ int combat_in_range(Object* critter)
 // 0x420288
 static int compare_faster(const void* a1, const void* a2)
 {
+	int luck1,luck2;
     Object* v1 = *(Object**)a1;
     Object* v2 = *(Object**)a2;
 
@@ -1962,8 +1967,8 @@ static int compare_faster(const void* a1, const void* a2)
         return 1;
     }
 
-    int luck1 = stat_level(v1, STAT_LUCK);
-    int luck2 = stat_level(v2, STAT_LUCK);
+    luck1 = stat_level(v1, STAT_LUCK);
+    luck2 = stat_level(v2, STAT_LUCK);
     if (luck1 > luck2) {
         return -1;
     } else if (luck1 < luck2) {
@@ -1976,9 +1981,10 @@ static int compare_faster(const void* a1, const void* a2)
 // 0x4202FC
 static void combat_sequence_init(Object* a1, Object* a2)
 {
+	int index;
     int next = 0;
     if (a1 != NULL) {
-        for (int index = 0; index < list_total; index++) {
+        for (index = 0; index < list_total; index++) {
             Object* obj = combat_list[index];
             if (obj == a1) {
                 Object* temp = combat_list[next];
@@ -1991,7 +1997,8 @@ static void combat_sequence_init(Object* a1, Object* a2)
     }
 
     if (a2 != NULL) {
-        for (int index = 0; index < list_total; index++) {
+		int index;
+        for (index = 0; index < list_total; index++) {
             Object* obj = combat_list[index];
             if (obj == a2) {
                 Object* temp = combat_list[next];
@@ -2004,7 +2011,8 @@ static void combat_sequence_init(Object* a1, Object* a2)
     }
 
     if (a1 != obj_dude && a2 != obj_dude) {
-        for (int index = 0; index < list_total; index++) {
+		int index;
+        for (index = 0; index < list_total; index++) {
             Object* obj = combat_list[index];
             if (obj == obj_dude) {
                 Object* temp = combat_list[next];
@@ -2031,11 +2039,14 @@ static void combat_sequence_init(Object* a1, Object* a2)
 // 0x420440
 static void combat_sequence()
 {
+	int index;
+	int count;
+
     combat_add_noncoms();
 
-    int count = list_com;
+    count = list_com;
 
-    for (int index = 0; index < count; index++) {
+    for (index = 0; index < count; index++) {
         Object* critter = combat_list[index];
         if ((critter->data.critter.combat.results & DAM_DEAD) != 0) {
             combat_list[index] = combat_list[count - 1];
@@ -2049,7 +2060,7 @@ static void combat_sequence()
         }
     }
 
-    for (int index = 0; index < count; index++) {
+    for (index = 0; index < count; index++) {
         Object* critter = combat_list[index];
         if (critter != obj_dude) {
             if ((critter->data.critter.combat.results & DAM_KNOCKED_OUT) != 0
@@ -2081,10 +2092,11 @@ static void combat_sequence()
 void combat_end()
 {
     if (combat_elev == obj_dude->elevation) {
+		int index;
         MessageListItem messageListItem;
         int dudeTeam = obj_dude->data.critter.combat.team;
 
-        for (int index = 0; index < list_com; index++) {
+        for (index = 0; index < list_com; index++) {
             Object* critter = combat_list[index];
             if (critter != obj_dude) {
                 int critterTeam = critter->data.critter.combat.team;
@@ -2101,7 +2113,7 @@ void combat_end()
             }
         }
 
-        for (int index = list_com; index < list_com + list_noncom; index++) {
+        for (index = list_com; index < list_com + list_noncom; index++) {
             Object* critter = combat_list[index];
             if (critter != obj_dude) {
                 int critterTeam = critter->data.critter.combat.team;
@@ -2134,6 +2146,7 @@ void combat_turn_run()
 static int combat_input()
 {
     int input;
+	int old_user_wants_to_quit;
 
     while ((combat_state & COMBAT_STATE_0x02) != 0) {
         if ((combat_state & COMBAT_STATE_0x08) != 0) {
@@ -2170,7 +2183,7 @@ static int combat_input()
         }
     }
 
-    int old_user_wants_to_quit = game_user_wants_to_quit;
+    old_user_wants_to_quit = game_user_wants_to_quit;
     if (game_user_wants_to_quit == 1) {
         game_user_wants_to_quit = 0;
     }
@@ -2323,11 +2336,13 @@ static int combat_turn(Object* a1, bool a2)
 // 0x420A54
 static bool combat_should_end()
 {
+    int index;
+	int team;
+
     if (list_com <= 1) {
         return true;
     }
 
-    int index;
     for (index = 0; index < list_com; index++) {
         if (combat_list[index] == obj_dude) {
             break;
@@ -2338,15 +2353,16 @@ static bool combat_should_end()
         return true;
     }
 
-    int team = obj_dude->data.critter.combat.team;
+    team = obj_dude->data.critter.combat.team;
 
     for (index = 0; index < list_com; index++) {
+		Object* critterWhoHitMe;
         Object* critter = combat_list[index];
         if (critter->data.critter.combat.team != team) {
             break;
         }
 
-        Object* critterWhoHitMe = critter->data.critter.combat.whoHitMe;
+        critterWhoHitMe = critter->data.critter.combat.whoHitMe;
         if (critterWhoHitMe != NULL && critterWhoHitMe->data.critter.combat.team == team) {
             break;
         }
@@ -2362,14 +2378,14 @@ static bool combat_should_end()
 // 0x420B20
 void combat(STRUCT_664980* attack)
 {
+	int v6;
+
     if (attack == NULL
         || (attack->attacker == NULL || attack->attacker->elevation == map_elevation)
         || (attack->defender == NULL || attack->defender->elevation == map_elevation)) {
         int v3 = combat_state & 0x01;
 
         combat_begin(NULL);
-
-        int v6;
 
         if (v3 != 0) {
             if (combat_turn(obj_dude, true) == -1) {
@@ -2615,16 +2631,19 @@ static int shoot_along_path(Attack* attack, int endTile, int rounds, int anim)
         make_straight_path(attack->attacker, currentTile, endTile, NULL, &critter, 32);
 
         if (critter != NULL) {
+			int accuracy;
+			int roundsHit;
+
             if (FID_TYPE(critter->fid) != OBJ_TYPE_CRITTER) {
                 break;
             }
 
-            int accuracy = determine_to_hit_func(attack->attacker, critter, HIT_LOCATION_TORSO, attack->hitMode, 1);
+            accuracy = determine_to_hit_func(attack->attacker, critter, HIT_LOCATION_TORSO, attack->hitMode, 1);
             if (anim == ANIM_FIRE_CONTINUOUS) {
                 remainingRounds = 1;
             }
 
-            int roundsHit = 0;
+            roundsHit = 0;
             while (roll_random(1, 100) <= accuracy && remainingRounds > 0) {
                 remainingRounds -= 1;
                 roundsHit += 1;
@@ -2676,18 +2695,28 @@ static int shoot_along_path(Attack* attack, int endTile, int rounds, int anim)
 // 0x4211F4
 static int compute_spray(Attack* attack, int accuracy, int* roundsHitMainTargetPtr, int* roundsSpentPtr, int anim)
 {
+	int ammoQuantity,burstRounds;
+	int criticalChance,roll;
+    int leftRounds;
+    int mainTargetRounds;
+    int centerRounds;
+    int rightRounds;
+	int index;
+	int range,mainTargetEndTile,centerTile;
+	int rotation,leftTile,leftEndTile,rightTile,rightEndTile;
+
     *roundsHitMainTargetPtr = 0;
 
-    int ammoQuantity = item_w_curr_ammo(attack->weapon);
-    int burstRounds = item_w_rounds(attack->weapon);
+    ammoQuantity = item_w_curr_ammo(attack->weapon);
+    burstRounds = item_w_rounds(attack->weapon);
     if (burstRounds < ammoQuantity) {
         ammoQuantity = burstRounds;
     }
 
     *roundsSpentPtr = ammoQuantity;
 
-    int criticalChance = stat_level(attack->attacker, STAT_CRITICAL_CHANCE);
-    int roll = roll_check(accuracy, criticalChance, NULL);
+    criticalChance = stat_level(attack->attacker, STAT_CRITICAL_CHANCE);
+    roll = roll_check(accuracy, criticalChance, NULL);
 
     if (roll == ROLL_CRITICAL_FAILURE) {
         return roll;
@@ -2697,10 +2726,6 @@ static int compute_spray(Attack* attack, int accuracy, int* roundsHitMainTargetP
         accuracy += 20;
     }
 
-    int leftRounds;
-    int mainTargetRounds;
-    int centerRounds;
-    int rightRounds;
     if (anim == ANIM_FIRE_BURST) {
         centerRounds = ammoQuantity / 3;
         if (centerRounds == 0) {
@@ -2721,7 +2746,7 @@ static int compute_spray(Attack* attack, int accuracy, int* roundsHitMainTargetP
         rightRounds = 1;
     }
 
-    for (int index = 0; index < mainTargetRounds; index += 1) {
+    for (index = 0; index < mainTargetRounds; index += 1) {
         if (roll_check(accuracy, 0, NULL) >= ROLL_SUCCESS) {
             *roundsHitMainTargetPtr += 1;
         }
@@ -2731,25 +2756,24 @@ static int compute_spray(Attack* attack, int accuracy, int* roundsHitMainTargetP
         *roundsHitMainTargetPtr = 1;
     }
 
-    int range = item_w_range(attack->attacker, attack->hitMode);
-    int mainTargetEndTile = tile_num_beyond(attack->attacker->tile, attack->defender->tile, range);
+    range = item_w_range(attack->attacker, attack->hitMode);
+    mainTargetEndTile = tile_num_beyond(attack->attacker->tile, attack->defender->tile, range);
     *roundsHitMainTargetPtr += shoot_along_path(attack, mainTargetEndTile, centerRounds - *roundsHitMainTargetPtr, anim);
 
-    int centerTile;
     if (obj_dist(attack->attacker, attack->defender) <= 3) {
         centerTile = tile_num_beyond(attack->attacker->tile, attack->defender->tile, 3);
     } else {
         centerTile = attack->defender->tile;
     }
 
-    int rotation = tile_dir(centerTile, attack->attacker->tile);
+    rotation = tile_dir(centerTile, attack->attacker->tile);
 
-    int leftTile = tile_num_in_direction(centerTile, (rotation + 1) % ROTATION_COUNT, 1);
-    int leftEndTile = tile_num_beyond(attack->attacker->tile, leftTile, range);
+    leftTile = tile_num_in_direction(centerTile, (rotation + 1) % ROTATION_COUNT, 1);
+    leftEndTile = tile_num_beyond(attack->attacker->tile, leftTile, range);
     *roundsHitMainTargetPtr += shoot_along_path(attack, leftEndTile, leftRounds, anim);
 
-    int rightTile = tile_num_in_direction(centerTile, (rotation + 5) % ROTATION_COUNT, 1);
-    int rightEndTile = tile_num_beyond(attack->attacker->tile, rightTile, range);
+    rightTile = tile_num_in_direction(centerTile, (rotation + 5) % ROTATION_COUNT, 1);
+    rightEndTile = tile_num_beyond(attack->attacker->tile, rightTile, range);
     *roundsHitMainTargetPtr += shoot_along_path(attack, rightEndTile, rightRounds, anim);
 
     if (roll != ROLL_FAILURE || (*roundsHitMainTargetPtr <= 0 && attack->extrasLength <= 0)) {
@@ -2775,6 +2799,7 @@ static int compute_attack(Attack* attack)
     int weapon_subtype;
     int critical_chance;
     int roll;
+	int roundsHitMainTarget,damage_multiplier,roundsSpent;
 
     weapon_range = item_w_range(attack->attacker, attack->hitMode);
     distance = obj_dist(attack->attacker, attack->defender);
@@ -2796,9 +2821,10 @@ static int compute_attack(Attack* attack)
     }
 
     weapon_subtype = item_w_subtype(attack->weapon, attack->hitMode);
-    int roundsHitMainTarget = 1;
-    int damage_multiplier = 2;
-    int roundsSpent = 1;
+
+    roundsHitMainTarget = 1;
+    damage_multiplier = 2;
+    roundsSpent = 1;
 
     if (anim == ANIM_FIRE_BURST || anim == ANIM_FIRE_CONTINUOUS) {
         roll = compute_spray(attack, to_hit, &roundsHitMainTarget, &roundsSpent, anim);
@@ -2933,6 +2959,12 @@ static int compute_attack(Attack* attack)
 // 0x421800
 void compute_explosion_on_extras(Attack* attack, int a2, bool isGrenade, int a4)
 {
+    int tile;
+    int v20;
+    int v22;
+    int rotation;
+    int v5;
+    int v19;
     // 0x56BD58
     Attack temp_ctd;
 
@@ -2948,7 +2980,6 @@ void compute_explosion_on_extras(Attack* attack, int a2, bool isGrenade, int a4)
         }
     }
 
-    int tile;
     if (attacker != NULL) {
         tile = attacker->tile;
     } else {
@@ -2961,12 +2992,12 @@ void compute_explosion_on_extras(Attack* attack, int a2, bool isGrenade, int a4)
     }
 
     // TODO: The math in this loop is rather complex and hard to understand.
-    int v20;
-    int v22 = 0;
-    int rotation = 0;
-    int v5 = -1;
-    int v19 = tile;
+    v22 = 0;
+    rotation = 0;
+    v5 = -1;
+    v19 = tile;
     while (attack->extrasLength < 6) {
+		Object* obstacle;
         if (v22 != 0 && (v5 == -1 || (v5 = tile_num_in_direction(v5, rotation, 1)) != v19)) {
             v20++;
             if (v20 % v22 == 0) {
@@ -2994,7 +3025,7 @@ void compute_explosion_on_extras(Attack* attack, int a2, bool isGrenade, int a4)
             break;
         }
 
-        Object* obstacle = obj_blocking_at(attacker, v5, attack->attacker->elevation);
+        obstacle = obj_blocking_at(attacker, v5, attack->attacker->elevation);
         if (obstacle != NULL
             && FID_TYPE(obstacle->fid) == OBJ_TYPE_CRITTER
             && (obstacle->data.critter.combat.results & DAM_DEAD) == 0
@@ -3035,6 +3066,11 @@ void compute_explosion_on_extras(Attack* attack, int a2, bool isGrenade, int a4)
 // 0x421A6C
 static int attack_crit_success(Attack* attack)
 {
+	int chance;
+    int effect;
+    CriticalHitDescription* criticalHitDescription;
+
+
     Object* defender = attack->defender;
     if (defender != NULL && defender->pid == 16777224) {
         return 2;
@@ -3042,11 +3078,10 @@ static int attack_crit_success(Attack* attack)
 
     attack->attackerFlags |= DAM_CRITICAL;
 
-    int chance = roll_random(1, 100);
+    chance = roll_random(1, 100);
 
     chance += stat_level(attack->attacker, STAT_BETTER_CRITICALS);
 
-    int effect;
     if (chance <= 20) {
         effect = 0;
     } else if (chance <= 45) {
@@ -3061,7 +3096,6 @@ static int attack_crit_success(Attack* attack)
         effect = 5;
     }
 
-    CriticalHitDescription* criticalHitDescription;
     if (defender == obj_dude) {
         criticalHitDescription = &(pc_crit_succ_eff[attack->defenderHitLocation][effect]);
     } else {
@@ -3093,21 +3127,26 @@ static int attack_crit_success(Attack* attack)
 // 0x421BD8
 static int attack_crit_failure(Attack* attack)
 {
+    int attackType;
+    int criticalFailureTableIndex;
+    int chance;
+    int effect;
+	int flags;
+
     attack->attackerFlags &= ~DAM_HIT;
 
     if (attack->attacker != NULL && attack->attacker->pid == 16777224) {
         return 0;
     }
 
-    int attackType = item_w_subtype(attack->weapon, attack->hitMode);
-    int criticalFailureTableIndex = item_w_crit_fail(attack->weapon);
+    attackType = item_w_subtype(attack->weapon, attack->hitMode);
+    criticalFailureTableIndex = item_w_crit_fail(attack->weapon);
     if (criticalFailureTableIndex == -1) {
         criticalFailureTableIndex = 0;
     }
 
-    int chance = roll_random(1, 100) - 5 * (stat_level(attack->attacker, STAT_LUCK) - 5);
+    chance = roll_random(1, 100) - 5 * (stat_level(attack->attacker, STAT_LUCK) - 5);
 
-    int effect;
     if (chance <= 20) {
         effect = 0;
     } else if (chance <= 50) {
@@ -3120,7 +3159,7 @@ static int attack_crit_failure(Attack* attack)
         effect = 4;
     }
 
-    int flags = cf_table[criticalFailureTableIndex][effect];
+    flags = cf_table[criticalFailureTableIndex][effect];
     if (flags == 0) {
         return 0;
     }
@@ -3159,11 +3198,13 @@ static int attack_crit_failure(Attack* attack)
     if ((attack->attackerFlags & DAM_RANDOM_HIT) != 0) {
         attack->defender = combat_ai_random_target(attack);
         if (attack->defender != NULL) {
+			int ammoQuantity;
+
             attack->attackerFlags |= DAM_HIT;
             attack->defenderHitLocation = HIT_LOCATION_TORSO;
             attack->attackerFlags &= ~DAM_CRITICAL;
 
-            int ammoQuantity = attackType == ATTACK_TYPE_RANGED ? attack->ammoQuantity : 1;
+            ammoQuantity = attackType == ATTACK_TYPE_RANGED ? attack->ammoQuantity : 1;
             compute_damage(attack, ammoQuantity, 2);
         } else {
             attack->defender = attack->oops;
@@ -3467,7 +3508,11 @@ void death_checks(Attack* attack)
 void apply_damage(Attack* attack, bool animated)
 {
     Object* attacker = attack->attacker;
+    Object* defender;
+    bool defenderIsCritter;
     bool attackerIsCritter = attacker != NULL && FID_TYPE(attacker->fid) == OBJ_TYPE_CRITTER;
+	int index;
+
 
     if (attackerIsCritter && (attacker->data.critter.combat.results & DAM_DEAD) != 0) {
         set_new_results(attacker, attack->attackerFlags);
@@ -3478,8 +3523,8 @@ void apply_damage(Attack* attack, bool animated)
         combatai_notify_onlookers(attack->oops);
     }
 
-    Object* defender = attack->defender;
-    bool defenderIsCritter = defender != NULL && FID_TYPE(defender->fid) == OBJ_TYPE_CRITTER;
+    defender = attack->defender;
+    defenderIsCritter = defender != NULL && FID_TYPE(defender->fid) == OBJ_TYPE_CRITTER;
 
     if (defenderIsCritter && (defender->data.critter.combat.results & DAM_DEAD) == 0) {
         set_new_results(defender, attack->defenderFlags);
@@ -3503,7 +3548,7 @@ void apply_damage(Attack* attack, bool animated)
         }
     }
 
-    for (int index = 0; index < attack->extrasLength; index++) {
+    for (index = 0; index < attack->extrasLength; index++) {
         Object* obj = attack->extras[index];
         if (FID_TYPE(obj->fid) == OBJ_TYPE_CRITTER && (obj->data.critter.combat.results & DAM_DEAD) == 0) {
             set_new_results(obj, attack->extrasFlags[index]);
@@ -3643,7 +3688,14 @@ static void damage_object(Object* obj, int damage, bool animated, bool a4)
 // 0x422844
 void combat_display(Attack* attack)
 {
+    Object* mainCritter;
     MessageListItem messageListItem;
+	char* mainCritterName;
+    char you[20];
+    char text[280];
+    int baseMessageId;
+	int index;
+
 
     if (attack->attacker == obj_dude) {
         Object* weapon = item_hit_with(attack->attacker, attack->hitMode);
@@ -3660,16 +3712,14 @@ void combat_display(Attack* attack)
         }
     }
 
-    Object* mainCritter;
     if ((attack->attackerFlags & DAM_HIT) != 0) {
         mainCritter = attack->defender;
     } else {
         mainCritter = attack->attacker;
     }
 
-    char* mainCritterName = _a_1;
+    mainCritterName = _a_1;
 
-    char you[20];
     you[0] = '\0';
 
     // You (player)
@@ -3678,7 +3728,6 @@ void combat_display(Attack* attack)
         strcpy(you, messageListItem.text);
     }
 
-    int baseMessageId;
     if (mainCritter == obj_dude) {
         mainCritterName = you;
         baseMessageId = 500;
@@ -3691,7 +3740,6 @@ void combat_display(Attack* attack)
         }
     }
 
-    char text[280];
     if (attack->defender != NULL
         && attack->oops != NULL
         && attack->defender != attack->oops
@@ -3742,6 +3790,8 @@ void combat_display(Attack* attack)
     }
 
     if ((attack->attackerFlags & DAM_HIT) != 0) {
+		int combatMessages;
+
         if (attack->defender != NULL && (attack->defender->data.critter.combat.results & DAM_DEAD) == 0) {
             text[0] = '\0';
 
@@ -3818,7 +3868,7 @@ void combat_display(Attack* attack)
                     }
                 }
 
-                int combatMessages = 1;
+                combatMessages = 1;
                 config_get_value(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_COMBAT_MESSAGES_KEY, &combatMessages);
 
                 if (combatMessages == 1 && (attack->attackerFlags & DAM_CRITICAL) != 0 && attack->criticalMessageId != -1) {
@@ -3911,7 +3961,7 @@ void combat_display(Attack* attack)
         }
     }
 
-    for (int index = 0; index < attack->extrasLength; index++) {
+    for (index = 0; index < attack->extrasLength; index++) {
         Object* critter = attack->extras[index];
         if ((critter->data.critter.combat.results & DAM_DEAD) == 0) {
             combat_display_hit(text, critter, attack->extrasDamage[index]);
@@ -3981,6 +4031,10 @@ static void combat_display_hit(char* dest, Object* critter, int damage)
 // 0x4231D0
 static void combat_display_flags(char* dest, int flags, Object* critter)
 {
+    int bit;
+    int flagsListLength;
+    int flagsList[32];
+	int index;
     MessageListItem messageListItem;
 
     int num;
@@ -4014,10 +4068,10 @@ static void combat_display_flags(char* dest, int flags, Object* critter)
         return;
     }
 
-    int bit = 1;
-    int flagsListLength = 0;
-    int flagsList[32];
-    for (int index = 0; index < 32; index++) {
+    bit = 1;
+    flagsListLength = 0;
+    flagsList[32];
+    for (index = 0; index < 32; index++) {
         if (bit != DAM_CRITICAL && bit != DAM_HIT && (bit & flags) != 0) {
             flagsList[flagsListLength++] = index;
         }
@@ -4025,7 +4079,8 @@ static void combat_display_flags(char* dest, int flags, Object* critter)
     }
 
     if (flagsListLength != 0) {
-        for (int index = 0; index < flagsListLength - 1; index++) {
+		int index;
+        for (index = 0; index < flagsListLength - 1; index++) {
             strcat(dest, ", ");
 
             messageListItem.num = num + flagsList[index];
@@ -4072,9 +4127,12 @@ void combat_anim_finished()
     }
 
     if (combat_cleanup_enabled) {
+		Object* weapon;
+		Object* attacker;
+
         combat_cleanup_enabled = false;
 
-        Object* weapon = item_hit_with(main_ctd.attacker, main_ctd.hitMode);
+        weapon = item_hit_with(main_ctd.attacker, main_ctd.hitMode);
         if (weapon != NULL) {
             if (item_w_max_ammo(weapon) > 0) {
                 int ammoQuantity = item_w_curr_ammo(weapon);
@@ -4093,7 +4151,7 @@ void combat_anim_finished()
 
         apply_damage(&main_ctd, true);
 
-        Object* attacker = main_ctd.attacker;
+        attacker = main_ctd.attacker;
         if (attacker == obj_dude && combat_highlight == 2) {
             combat_outline_on();
         }
@@ -4206,10 +4264,26 @@ static void draw_loc(int input, int color)
 // 0x42382C
 static int get_called_shot_location(Object* critter, int* hit_location, int hit_mode)
 {
+	int calledShotWindowX,calledShotWindowY;
+    int fid;
+    CacheEntry* handle;
+    unsigned char* data;
+    CacheEntry* upHandle;
+    unsigned char* up;
+    unsigned char* windowBuffer;
+    CacheEntry* downHandle;
+    unsigned char* down;
+	int btn;
+	int index;
+	int oldFont;
+	bool gameUiWasDisabled;
+    int eventCode;
+
+
     call_target = critter;
 
-    int calledShotWindowX = CALLED_SHOT_WINDOW_X;
-    int calledShotWindowY = CALLED_SHOT_WINDOW_Y;
+    calledShotWindowX = CALLED_SHOT_WINDOW_X;
+    calledShotWindowY = CALLED_SHOT_WINDOW_Y;
     call_win = win_add(calledShotWindowX,
         calledShotWindowY,
         CALLED_SHOT_WINDOW_WIDTH,
@@ -4220,11 +4294,7 @@ static int get_called_shot_location(Object* critter, int* hit_location, int hit_
         return -1;
     }
 
-    int fid;
-    CacheEntry* handle;
-    unsigned char* data;
-
-    unsigned char* windowBuffer = win_get_buf(call_win);
+    windowBuffer = win_get_buf(call_win);
 
     fid = art_id(OBJ_TYPE_INTERFACE, 118, 0, 0, 0);
     data = art_ptr_lock_data(fid, 0, 0, &handle);
@@ -4245,8 +4315,8 @@ static int get_called_shot_location(Object* critter, int* hit_location, int hit_
 
     fid = art_id(OBJ_TYPE_INTERFACE, 8, 0, 0, 0);
 
-    CacheEntry* upHandle;
-    unsigned char* up = art_ptr_lock_data(fid, 0, 0, &upHandle);
+	up = art_ptr_lock_data(fid, 0, 0, &upHandle);
+
     if (up == NULL) {
         win_delete(call_win);
         return -1;
@@ -4254,8 +4324,7 @@ static int get_called_shot_location(Object* critter, int* hit_location, int hit_
 
     fid = art_id(OBJ_TYPE_INTERFACE, 9, 0, 0, 0);
 
-    CacheEntry* downHandle;
-    unsigned char* down = art_ptr_lock_data(fid, 0, 0, &downHandle);
+	down = art_ptr_lock_data(fid, 0, 0, &downHandle);
     if (down == NULL) {
         art_ptr_unlock(upHandle);
         win_delete(call_win);
@@ -4263,7 +4332,7 @@ static int get_called_shot_location(Object* critter, int* hit_location, int hit_
     }
 
     // Cancel button
-    int btn = win_register_button(call_win,
+    btn = win_register_button(call_win,
         170,
         268,
         15,
@@ -4280,10 +4349,10 @@ static int get_called_shot_location(Object* critter, int* hit_location, int hit_
         win_register_button_sound_func(btn, gsound_red_butt_press, gsound_red_butt_release);
     }
 
-    int oldFont = text_curr();
+    oldFont = text_curr();
     text_font(101);
 
-    for (int index = 0; index < 4; index++) {
+    for (index = 0; index < 4; index++) {
         int probability;
         int btn;
         char* hit_location_name;
@@ -4337,7 +4406,7 @@ static int get_called_shot_location(Object* critter, int* hit_location, int hit_
 
     win_draw(call_win);
 
-    bool gameUiWasDisabled = game_ui_is_disabled();
+    gameUiWasDisabled = game_ui_is_disabled();
     if (gameUiWasDisabled) {
         game_ui_enable();
     }
@@ -4345,7 +4414,6 @@ static int get_called_shot_location(Object* critter, int* hit_location, int hit_
     gmouse_disable(0);
     gmouse_set_cursor(MOUSE_CURSOR_ARROW);
 
-    int eventCode;
     while (true) {
         eventCode = get_input();
 
@@ -4455,6 +4523,15 @@ bool combat_to_hit(Object* target, int* accuracy)
 // 0x423D98
 void combat_attack_this(Object* a1)
 {
+    int hitMode;
+    bool aiming;
+    MessageListItem messageListItem;
+    Object* item;
+    char formattedText[80];
+    const char* sfx;
+	int rc;
+    int hitLocation;
+
     if (a1 == NULL) {
         return;
     }
@@ -4463,18 +4540,11 @@ void combat_attack_this(Object* a1)
         return;
     }
 
-    int hitMode;
-    bool aiming;
     if (intface_get_attack(&hitMode, &aiming) == -1) {
         return;
     }
 
-    MessageListItem messageListItem;
-    Object* item;
-    char formattedText[80];
-    const char* sfx;
-
-    int rc = combat_check_bad_shot(obj_dude, a1, hitMode, aiming);
+    rc = combat_check_bad_shot(obj_dude, a1, hitMode, aiming);
     switch (rc) {
     case COMBAT_BAD_SHOT_NO_AMMO:
         item = item_hit_with(obj_dude, hitMode);
@@ -4546,7 +4616,6 @@ void combat_attack_this(Object* a1)
         debug_printf("Bad called shot value %d\n", aiming);
     }
 
-    int hitLocation;
     if (get_called_shot_location(a1, &hitLocation, hitMode) != -1) {
         combat_attack(obj_dude, a1, hitMode, hitLocation);
     }
@@ -4694,6 +4763,7 @@ int combat_explode_scenery(Object* a1, Object* a2)
 // 0x424374
 void combat_delete_critter(Object* obj)
 {
+    int i;
     // TODO: Check entire function.
     if (!isInCombat()) {
         return;
@@ -4703,7 +4773,6 @@ void combat_delete_critter(Object* obj)
         return;
     }
 
-    int i;
     for (i = 0; i < list_total; i++) {
         if (obj == combat_list[i]) {
             break;

@@ -445,11 +445,14 @@ int obj_load(DB_FILE* stream)
 // 0x47AB08
 static int obj_load_func(DB_FILE* stream)
 {
+	int elevation;
+    bool fixMapInventory;
+    int objectCount;
+
     if (stream == NULL) {
         return -1;
     }
 
-    bool fixMapInventory;
     if (!configGetBool(&game_config, GAME_CONFIG_MAPPER_KEY, GAME_CONFIG_FIX_MAP_INVENTORY_KEY, &fixMapInventory)) {
         fixMapInventory = false;
     }
@@ -458,7 +461,6 @@ static int obj_load_func(DB_FILE* stream)
         fix_violence_level = VIOLENCE_LEVEL_MAXIMUM_BLOOD;
     }
 
-    int objectCount;
     if (db_freadInt(stream, &objectCount) == -1) {
         return -1;
     }
@@ -475,14 +477,16 @@ static int obj_load_func(DB_FILE* stream)
         preload_list_index = 0;
     }
 
-    for (int elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+    for (elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+		int objectIndex;
         int objectCountAtElevation;
         if (db_freadInt(stream, &objectCountAtElevation) == -1) {
             return -1;
         }
 
-        for (int objectIndex = 0; objectIndex < objectCountAtElevation; objectIndex++) {
+        for (objectIndex = 0; objectIndex < objectCountAtElevation; objectIndex++) {
             ObjectListNode* objectListNode;
+			Inventory* inventory;
 
             // NOTE: Uninline.
             if (obj_create_object_node(&objectListNode) == -1) {
@@ -528,14 +532,15 @@ static int obj_load_func(DB_FILE* stream)
                 objectListNode->obj->flags &= ~OBJECT_FLAG_0x400;
             }
 
-            Inventory* inventory = &(objectListNode->obj->data.inventory);
+            inventory = &(objectListNode->obj->data.inventory);
             if (inventory->length != 0) {
+				int inventoryItemIndex;
                 inventory->items = (InventoryItem*)mem_malloc(sizeof(InventoryItem) * inventory->capacity);
                 if (inventory->items == NULL) {
                     return -1;
                 }
 
-                for (int inventoryItemIndex = 0; inventoryItemIndex < inventory->length; inventoryItemIndex++) {
+                for (inventoryItemIndex = 0; inventoryItemIndex < inventory->length; inventoryItemIndex++) {
                     InventoryItem* inventoryItem = &(inventory->items[inventoryItemIndex]);
                     if (db_freadInt(stream, &(inventoryItem->quantity)) != 0) {
                         debug_printf("Error loading inventory\n");
@@ -599,17 +604,18 @@ static void obj_fix_combat_cid_for_dude()
 // 0x47AF1C
 static void object_fix_weapon_ammo(Object* obj)
 {
+    Proto* proto;
+    int charges;
+
     if (PID_TYPE(obj->pid) != OBJ_TYPE_ITEM) {
         return;
     }
 
-    Proto* proto;
     if (proto_ptr(obj->pid, &proto) == -1) {
         debug_printf("\nError: obj_load: proto_ptr failed on pid");
         exit(1);
     }
 
-    int charges;
     if (item_get_type(obj) == ITEM_TYPE_WEAPON) {
         int ammoTypePid = obj->data.item.weapon.ammoTypePid;
         if (ammoTypePid == 0xCCCCCCCC || ammoTypePid == -1) {
@@ -669,29 +675,39 @@ static int obj_write_obj(Object* obj, DB_FILE* stream)
 // 0x47B15C
 int obj_save(DB_FILE* stream)
 {
-    if (stream == NULL) {
+	int elevation;
+    int objectCount = 0;
+	long objectCountPos;
+	long pos;
+
+	if (stream == NULL) {
         return -1;
     }
 
     obj_process_seen();
 
-    int objectCount = 0;
 
-    long objectCountPos = db_ftell(stream);
+    objectCountPos = db_ftell(stream);
     if (db_fwriteInt(stream, objectCount) == -1) {
         return -1;
     }
 
-    for (int elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+    for (elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
         int objectCountAtElevation = 0;
+		int tile;
 
         long objectCountAtElevationPos = db_ftell(stream);
         if (db_fwriteInt(stream, objectCountAtElevation) == -1) {
             return -1;
         }
 
-        for (int tile = 0; tile < HEX_GRID_SIZE; tile++) {
-            for (ObjectListNode* objectListNode = objectTable[tile]; objectListNode != NULL; objectListNode = objectListNode->next) {
+        for (tile = 0; tile < HEX_GRID_SIZE; tile++) {
+			CritterCombatData* combatData;
+            Object* whoHitMe;
+			ObjectListNode* objectListNode;
+            for (objectListNode = objectTable[tile]; objectListNode != NULL; objectListNode = objectListNode->next) {
+				Inventory* inventory;
+				int index;
                 Object* object = objectListNode->obj;
                 if (object->elevation != elevation) {
                     continue;
@@ -701,8 +717,8 @@ int obj_save(DB_FILE* stream)
                     continue;
                 }
 
-                CritterCombatData* combatData = NULL;
-                Object* whoHitMe = NULL;
+                combatData = NULL;
+                whoHitMe = NULL;
                 if (PID_TYPE(object->pid) == OBJ_TYPE_CRITTER) {
                     combatData = &(object->data.critter.combat);
                     whoHitMe = combatData->whoHitMe;
@@ -723,8 +739,8 @@ int obj_save(DB_FILE* stream)
                     combatData->whoHitMe = whoHitMe;
                 }
 
-                Inventory* inventory = &(object->data.inventory);
-                for (int index = 0; index < inventory->length; index++) {
+                inventory = &(object->data.inventory);
+                for (index = 0; index < inventory->length; index++) {
                     InventoryItem* inventoryItem = &(inventory->items[index]);
 
                     if (db_fwriteInt(stream, inventoryItem->quantity) == -1) {
@@ -740,7 +756,7 @@ int obj_save(DB_FILE* stream)
             }
         }
 
-        long pos = db_ftell(stream);
+        pos = db_ftell(stream);
         db_fseek(stream, objectCountAtElevationPos, SEEK_SET);
         db_fwriteInt(stream, objectCountAtElevation);
         db_fseek(stream, pos, SEEK_SET);
@@ -748,7 +764,7 @@ int obj_save(DB_FILE* stream)
         objectCount += objectCountAtElevation;
     }
 
-    long pos = db_ftell(stream);
+    pos = db_ftell(stream);
     db_fseek(stream, objectCountPos, SEEK_SET);
     db_fwriteInt(stream, objectCount);
     db_fseek(stream, pos, SEEK_SET);
@@ -759,32 +775,45 @@ int obj_save(DB_FILE* stream)
 // 0x47B350
 void obj_render_pre_roof(Rect* rect, int elevation)
 {
+    Rect updatedRect;
+    int ambientLight;
+    int minX,minY;
+    int maxX,maxY;
+    int topLeftTile;
+    int updateAreaHexWidth;
+    int updateAreaHexHeight;
+
+    int parity;
+    int* orders;
+    int* offsets;
+	int renderCount;
+	int i;
+
     if (!objInitialized) {
         return;
     }
 
-    Rect updatedRect;
     if (rect_inside_bound(rect, &buf_rect, &updatedRect) != 0) {
         return;
     }
 
-    int ambientLight = light_get_ambient();
-    int minX = updatedRect.ulx - 320;
-    int minY = updatedRect.uly - 240;
-    int maxX = updatedRect.lrx + 320;
-    int maxY = updatedRect.lry + 240;
-    int topLeftTile = tile_num(minX, minY, elevation);
-    int updateAreaHexWidth = (maxX - minX + 1) / 32;
-    int updateAreaHexHeight = (maxY - minY + 1) / 12;
+    ambientLight = light_get_ambient();
+    minX = updatedRect.ulx - 320;
+    minY = updatedRect.uly - 240;
+    maxX = updatedRect.lrx + 320;
+    maxY = updatedRect.lry + 240;
+    topLeftTile = tile_num(minX, minY, elevation);
+    updateAreaHexWidth = (maxX - minX + 1) / 32;
+    updateAreaHexHeight = (maxY - minY + 1) / 12;
 
-    int parity = tile_center_tile & 1;
-    int* orders = orderTable[parity];
-    int* offsets = offsetTable[parity];
+    parity = tile_center_tile & 1;
+    orders = orderTable[parity];
+    offsets = offsetTable[parity];
 
     outlineCount = 0;
 
-    int renderCount = 0;
-    for (int i = 0; i < updateHexArea; i++) {
+    renderCount = 0;
+    for (i = 0; i < updateHexArea; i++) {
         int offsetIndex = *orders++;
         if (updateAreaHexHeight > offsetDivTable[offsetIndex] && updateAreaHexWidth > offsetModTable[offsetIndex]) {
             int light;
@@ -830,7 +859,7 @@ void obj_render_pre_roof(Rect* rect, int elevation)
         }
     }
 
-    for (int i = 0; i < renderCount; i++) {
+    for (i = 0; i < renderCount; i++) {
         int light;
 
         ObjectListNode* objectListNode = renderTable[i];
@@ -870,22 +899,26 @@ void obj_render_pre_roof(Rect* rect, int elevation)
 // 0x47B5EC
 void obj_render_post_roof(Rect* rect, int elevation)
 {
+	int index;
+    ObjectListNode* objectListNode;
+    Rect updatedRect;
+
+
     if (!objInitialized) {
         return;
     }
 
-    Rect updatedRect;
     if (rect_inside_bound(rect, &buf_rect, &updatedRect) != 0) {
         return;
     }
 
-    for (int index = 0; index < outlineCount; index++) {
+    for (index = 0; index < outlineCount; index++) {
         obj_render_outline(outlinedObjects[index], &updatedRect);
     }
 
     text_object_render(&updatedRect);
 
-    ObjectListNode* objectListNode = floatingObjects;
+    objectListNode = floatingObjects;
     while (objectListNode != NULL) {
         Object* object = objectListNode->obj;
         if ((object->flags & OBJECT_HIDDEN) == 0) {
@@ -899,6 +932,8 @@ void obj_render_post_roof(Rect* rect, int elevation)
 int obj_new(Object** objectPtr, int fid, int pid)
 {
     ObjectListNode* objectListNode;
+    Proto* proto = NULL;
+
 
     // NOTE: Uninline;
     if (obj_create_object_node(&objectListNode) == -1) {
@@ -930,7 +965,6 @@ int obj_new(Object** objectPtr, int fid, int pid)
 
     proto_update_init(objectListNode->obj);
 
-    Proto* proto = NULL;
     if (proto_ptr(pid, &proto) == -1) {
         return 0;
     }
@@ -1003,11 +1037,12 @@ int obj_pid_new(Object** objectPtr, int pid)
 // 0x47BAC0
 int obj_copy(Object** a1, Object* a2)
 {
+    ObjectListNode* objectListNode;
+
     if (a2 == NULL) {
         return -1;
     }
 
-    ObjectListNode* objectListNode;
 
     // NOTE: Uninline.
     if (obj_create_object_node(&objectListNode) == -1) {
@@ -1043,6 +1078,8 @@ int obj_copy(Object** a1, Object* a2)
 // 0x47BB90
 int obj_connect(Object* object, int tile, int elevation, Rect* rect)
 {
+    ObjectListNode* objectListNode;
+
     if (object == NULL) {
         return -1;
     }
@@ -1055,7 +1092,6 @@ int obj_connect(Object* object, int tile, int elevation, Rect* rect)
         return -1;
     }
 
-    ObjectListNode* objectListNode;
 
     // NOTE: Uninline.
     if (obj_create_object_node(&objectListNode) == -1) {
@@ -1070,12 +1106,13 @@ int obj_connect(Object* object, int tile, int elevation, Rect* rect)
 // 0x47BC00
 int obj_disconnect(Object* obj, Rect* rect)
 {
+    ObjectListNode* node;
+    ObjectListNode* prev_node;
+
     if (obj == NULL) {
         return -1;
     }
 
-    ObjectListNode* node;
-    ObjectListNode* prev_node;
     if (obj_node_ptr(obj, &node, &prev_node) != 0) {
         return -1;
     }
@@ -1109,12 +1146,15 @@ int obj_disconnect(Object* obj, Rect* rect)
 // 0x47BCC4
 int obj_offset(Object* obj, int x, int y, Rect* rect)
 {
+    ObjectListNode* node = NULL;
+    ObjectListNode* previousNode = NULL;
+    Rect objectRect;
+
+
     if (obj == NULL) {
         return -1;
     }
 
-    ObjectListNode* node = NULL;
-    ObjectListNode* previousNode = NULL;
     if (obj_node_ptr(obj, &node, &previousNode) == -1) {
         return -1;
     }
@@ -1193,7 +1233,6 @@ int obj_offset(Object* obj, int x, int y, Rect* rect)
 
             obj_insert(node);
 
-            Rect objectRect;
             rectCopy(&objectRect, rect);
 
             rectOffset(&objectRect, x, y);
@@ -1227,16 +1266,19 @@ int obj_offset(Object* obj, int x, int y, Rect* rect)
 // 0x47BFF0
 int obj_move(Object* a1, int a2, int a3, int elevation, Rect* a5)
 {
+    ObjectListNode* node = NULL;
+    ObjectListNode* previousNode;
+    int v22 = 0;
+    int tile;
+    CacheEntry* cacheHandle;
+    Art* art;
+
     if (a1 == NULL) {
         return -1;
     }
 
     // TODO: Get rid of initialization.
-    ObjectListNode* node = NULL;
-    ObjectListNode* previousNode;
-    int v22 = 0;
-
-    int tile = a1->tile;
+	tile = a1->tile;
     if (hexGridTileIsValid(tile)) {
         if (obj_node_ptr(a1, &node, &previousNode) == -1) {
             return -1;
@@ -1292,8 +1334,7 @@ int obj_move(Object* a1, int a2, int a3, int elevation, Rect* a5)
         }
     }
 
-    CacheEntry* cacheHandle;
-    Art* art = art_ptr_lock(a1->fid, &cacheHandle);
+	art = art_ptr_lock(a1->fid, &cacheHandle);
     if (art != NULL) {
         a1->sx = a2 - art_frame_width(art, a1->frame, a1->rotation) / 2;
         a1->sy = a3 - (art_frame_length(art, a1->frame, a1->rotation) - 1);
@@ -1326,6 +1367,12 @@ int obj_move(Object* a1, int a2, int a3, int elevation, Rect* a5)
 // 0x47C228
 int obj_move_to_tile(Object* obj, int tile, int elevation, Rect* rect)
 {
+	int oldElevation;
+    ObjectListNode* node;
+    ObjectListNode* prevNode;
+    Rect v23;
+    int v5;
+
     if (obj == NULL) {
         return -1;
     }
@@ -1338,14 +1385,11 @@ int obj_move_to_tile(Object* obj, int tile, int elevation, Rect* rect)
         return -1;
     }
 
-    ObjectListNode* node;
-    ObjectListNode* prevNode;
     if (obj_node_ptr(obj, &node, &prevNode) == -1) {
         return -1;
     }
 
-    Rect v23;
-    int v5 = obj_adjust_light(obj, 1, rect);
+	v5 = obj_adjust_light(obj, 1, rect);
     if (rect != NULL) {
         if (v5 == -1) {
             obj_bound(obj, rect);
@@ -1354,7 +1398,7 @@ int obj_move_to_tile(Object* obj, int tile, int elevation, Rect* rect)
         rectCopy(&v23, rect);
     }
 
-    int oldElevation = obj->elevation;
+    oldElevation = obj->elevation;
     if (prevNode != NULL) {
         prevNode->next = node->next;
     } else {
@@ -1375,6 +1419,8 @@ int obj_move_to_tile(Object* obj, int tile, int elevation, Rect* rect)
     }
 
     if (obj == obj_dude) {
+		int roofX,roofY;
+
         ObjectListNode* objectListNode = objectTable[tile];
         while (objectListNode != NULL) {
             Object* obj = objectListNode->obj;
@@ -1406,8 +1452,8 @@ int obj_move_to_tile(Object* obj, int tile, int elevation, Rect* rect)
         // NOTE: Uninline.
         obj_set_seen(tile);
 
-        int roofX = tile % 200 / 2;
-        int roofY = tile / 200 / 2;
+        roofX = tile % 200 / 2;
+        roofY = tile / 200 / 2;
         if (roofX != obj_last_roof_x || roofY != obj_last_roof_y || elevation != obj_last_elev) {
             int currentSquare = square[elevation]->field_0[roofX + 100 * roofY];
             int currentSquareFid = art_id(OBJ_TYPE_TILE, (currentSquare >> 16) & 0xFFF, 0, 0, 0);
@@ -1559,12 +1605,12 @@ int obj_inc_frame(Object* obj, Rect* dirtyRect)
     }
 
     if (dirtyRect != NULL) {
+        Rect updatedRect;
 
         obj_bound(obj, dirtyRect);
 
         obj->frame = nextFrame;
 
-        Rect updatedRect;
         obj_bound(obj, &updatedRect);
         rect_min_bound(dirtyRect, &updatedRect, dirtyRect);
     } else {
@@ -1626,10 +1672,11 @@ int obj_set_rotation(Object* obj, int direction, Rect* dirtyRect)
     }
 
     if (dirtyRect != NULL) {
+        Rect newRect;
+
         obj_bound(obj, dirtyRect);
         obj->rotation = direction;
 
-        Rect newRect;
         obj_bound(obj, &newRect);
         rect_min_bound(dirtyRect, &newRect, dirtyRect);
     } else {
@@ -1664,9 +1711,10 @@ int obj_dec_rotation(Object* obj, Rect* dirtyRect)
 // 0x47C83C
 void obj_rebuild_all_light()
 {
+	int tile;
     light_reset_tiles();
 
-    for (int tile = 0; tile < HEX_GRID_SIZE; tile++) {
+    for (tile = 0; tile < HEX_GRID_SIZE; tile++) {
         ObjectListNode* objectListNode = objectTable[tile];
         while (objectListNode != NULL) {
             obj_adjust_light(objectListNode->obj, 0, NULL);
@@ -1881,14 +1929,14 @@ int obj_turn_off_outline(Object* object, Rect* rect)
 // 0x47CB14
 int obj_toggle_flat(Object* object, Rect* rect)
 {
+    ObjectListNode* node;
+    ObjectListNode* previousNode;
     Rect v1;
 
     if (object == NULL) {
         return -1;
     }
 
-    ObjectListNode* node;
-    ObjectListNode* previousNode;
     if (obj_node_ptr(object, &node, &previousNode) == -1) {
         return -1;
     }
@@ -1935,14 +1983,15 @@ int obj_toggle_flat(Object* object, Rect* rect)
 // 0x47CCE4
 int obj_erase_object(Object* object, Rect* rect)
 {
+    ObjectListNode* node;
+    ObjectListNode* previousNode;
+
     if (object == NULL) {
         return -1;
     }
 
     gmouse_remove_item_outline(object);
 
-    ObjectListNode* node;
-    ObjectListNode* previousNode;
     if (obj_node_ptr(object, &node, &previousNode) == 0) {
         if (obj_adjust_light(object, 1, rect) == -1) {
             if (rect != NULL) {
@@ -1974,7 +2023,8 @@ int obj_erase_object(Object* object, Rect* rect)
 // 0x47CD98
 int obj_inven_free(Inventory* inventory)
 {
-    for (int index = 0; index < inventory->length; index++) {
+	int index;
+    for (index = 0; index < inventory->length; index++) {
         InventoryItem* inventoryItem = &(inventory->items[index]);
 
         ObjectListNode* node;
@@ -2027,10 +2077,11 @@ void obj_remove_all()
     ObjectListNode* node;
     ObjectListNode* prev;
     ObjectListNode* next;
+	int tile;
 
     scr_remove_all();
 
-    for (int tile = 0; tile < HEX_GRID_SIZE; tile++) {
+    for (tile = 0; tile < HEX_GRID_SIZE; tile++) {
         node = objectTable[tile];
         prev = NULL;
 
@@ -2063,9 +2114,10 @@ void obj_remove_all()
 // 0x47CF08
 Object* obj_find_first()
 {
+    ObjectListNode* objectListNode;
+
     find_elev = 0;
 
-    ObjectListNode* objectListNode;
     for (find_tile = 0; find_tile < HEX_GRID_SIZE; find_tile++) {
         objectListNode = objectTable[find_tile];
         if (objectListNode) {
@@ -2093,11 +2145,12 @@ Object* obj_find_first()
 // 0x47CF7C
 Object* obj_find_next()
 {
-    if (find_ptr == NULL) {
+	ObjectListNode* objectListNode;
+	if (find_ptr == NULL) {
         return NULL;
     }
 
-    ObjectListNode* objectListNode = find_ptr->next;
+    objectListNode = find_ptr->next;
 
     while (find_tile < HEX_GRID_SIZE) {
         if (objectListNode == NULL) {
@@ -2145,11 +2198,12 @@ Object* obj_find_first_at(int elevation)
 // 0x47D070
 Object* obj_find_next_at()
 {
+    ObjectListNode*objectListNode;
     if (find_ptr == NULL) {
         return NULL;
     }
 
-    ObjectListNode* objectListNode = find_ptr->next;
+    objectListNode = find_ptr->next;
 
     while (find_tile < HEX_GRID_SIZE) {
         if (objectListNode == NULL) {
@@ -2175,6 +2229,11 @@ Object* obj_find_next_at()
 // 0x47D108
 void obj_bound(Object* obj, Rect* rect)
 {
+	CacheEntry* artHandle;
+    Art* art;
+    bool isOutlined = false;
+	int width,height; 
+
     if (obj == NULL) {
         return;
     }
@@ -2183,13 +2242,11 @@ void obj_bound(Object* obj, Rect* rect)
         return;
     }
 
-    bool isOutlined = false;
     if ((obj->outline & OUTLINE_TYPE_MASK) != 0) {
         isOutlined = true;
     }
 
-    CacheEntry* artHandle;
-    Art* art = art_ptr_lock(obj->fid, &artHandle);
+	art = art_ptr_lock(obj->fid, &artHandle);
     if (art == NULL) {
         rect->ulx = 0;
         rect->uly = 0;
@@ -2198,8 +2255,8 @@ void obj_bound(Object* obj, Rect* rect)
         return;
     }
 
-    int width = art_frame_width(art, obj->frame, obj->rotation);
-    int height = art_frame_length(art, obj->frame, obj->rotation);
+    width = art_frame_width(art, obj->frame, obj->rotation);
+    height = art_frame_length(art, obj->frame, obj->rotation);
 
     if (obj->tile == -1) {
         rect->ulx = obj->sx;
@@ -2264,6 +2321,7 @@ Object* obj_blocking_at(Object* a1, int tile, int elev)
     ObjectListNode* objectListNode;
     Object* v7;
     int type;
+	int rotation;
 
     if (!hexGridTileIsValid(tile)) {
         return NULL;
@@ -2285,7 +2343,7 @@ Object* obj_blocking_at(Object* a1, int tile, int elev)
         objectListNode = objectListNode->next;
     }
 
-    for (int rotation = 0; rotation < ROTATION_COUNT; rotation++) {
+    for (rotation = 0; rotation < ROTATION_COUNT; rotation++) {
         int neighboor = tile_num_in_direction(tile, rotation, 1);
         if (hexGridTileIsValid(neighboor)) {
             objectListNode = objectTable[neighboor];
@@ -2314,12 +2372,13 @@ Object* obj_blocking_at(Object* a1, int tile, int elev)
 // 0x47D3D8
 int obj_scroll_blocking_at(int tile, int elev)
 {
+	ObjectListNode* objectListNode;
     // TODO: Might be an error - why tile 0 is excluded?
     if (tile <= 0 || tile >= 40000) {
         return -1;
     }
 
-    ObjectListNode* objectListNode = objectTable[tile];
+    objectListNode = objectTable[tile];
     while (objectListNode != NULL) {
         if (elev < objectListNode->obj->elevation) {
             break;
@@ -2379,13 +2438,16 @@ int obj_dist(Object* object1, Object* object2)
 // 0x47D494
 int obj_create_list(int tile, int elevation, int objectType, Object*** objectListPtr)
 {
-    if (objectListPtr == NULL) {
+	int count,index;
+	Object** objects;
+
+	if (objectListPtr == NULL) {
         return -1;
     }
 
-    int count = 0;
+    count = 0;
     if (tile == -1) {
-        for (int index = 0; index < HEX_GRID_SIZE; index++) {
+        for (index = 0; index < HEX_GRID_SIZE; index++) {
             ObjectListNode* objectListNode = objectTable[index];
             while (objectListNode != NULL) {
                 Object* obj = objectListNode->obj;
@@ -2414,13 +2476,14 @@ int obj_create_list(int tile, int elevation, int objectType, Object*** objectLis
         return 0;
     }
 
-    Object** objects = *objectListPtr = (Object**)mem_malloc(sizeof(*objects) * count);
+    objects = *objectListPtr = (Object**)mem_malloc(sizeof(*objects) * count);
     if (objects == NULL) {
         return -1;
     }
 
     if (tile == -1) {
-        for (int index = 0; index < HEX_GRID_SIZE; index++) {
+		int index;
+        for (index = 0; index < HEX_GRID_SIZE; index++) {
             ObjectListNode* objectListNode = objectTable[index];
             while (objectListNode) {
                 Object* obj = objectListNode->obj;
@@ -2459,12 +2522,14 @@ void obj_delete_list(Object** objectList)
 // 0x47D634
 void translucent_trans_buf_to_buf(unsigned char* src, int srcWidth, int srcHeight, int srcPitch, unsigned char* dest, int destX, int destY, int destPitch, unsigned char* a9, unsigned char* a10)
 {
+	int x,y;
+	int srcStep,destStep;
     dest += destPitch * destY + destX;
-    int srcStep = srcPitch - srcWidth;
-    int destStep = destPitch - srcWidth;
+    srcStep = srcPitch - srcWidth;
+    destStep = destPitch - srcWidth;
 
-    for (int y = 0; y < srcHeight; y++) {
-        for (int x = 0; x < srcWidth; x++) {
+    for (y = 0; y < srcHeight; y++) {
+        for (x = 0; x < srcWidth; x++) {
             // TODO: Probably wrong.
             unsigned char v1 = a10[*src];
             unsigned char* v2 = a9 + (v1 << 8);
@@ -2486,14 +2551,15 @@ void dark_trans_buf_to_buf(unsigned char* src, int srcWidth, int srcHeight, int 
 {
     unsigned char* sp = src;
     unsigned char* dp = dest + destPitch * destY + destX;
+	int x,y;
 
     int srcStep = srcPitch - srcWidth;
     int destStep = destPitch - srcWidth;
     // TODO: Name might be confusing.
     int lightModifier = light >> 9;
 
-    for (int y = 0; y < srcHeight; y++) {
-        for (int x = 0; x < srcWidth; x++) {
+    for (y = 0; y < srcHeight; y++) {
+        for (x = 0; x < srcWidth; x++) {
             unsigned char b = *sp;
             if (b != 0) {
                 if (b < 0xE5) {
@@ -2518,11 +2584,12 @@ void dark_translucent_trans_buf_to_buf(unsigned char* src, int srcWidth, int src
     int srcStep = srcPitch - srcWidth;
     int destStep = destPitch - srcWidth;
     int lightModifier = light >> 9;
+	int x,y;
 
     dest += destPitch * destY + destX;
 
-    for (int y = 0; y < srcHeight; y++) {
-        for (int x = 0; x < srcWidth; x++) {
+    for (y = 0; y < srcHeight; y++) {
+        for (x = 0; x < srcWidth; x++) {
             unsigned char srcByte = *src;
             if (srcByte != 0) {
                 unsigned char destByte = *dest;
@@ -2546,14 +2613,16 @@ void intensity_mask_buf_to_buf(unsigned char* src, int srcWidth, int srcHeight, 
     int srcStep = srcPitch - srcWidth;
     int destStep = destPitch - srcWidth;
     int maskStep = maskPitch - srcWidth;
+	int x,y;
     light >>= 9;
 
-    for (int y = 0; y < srcHeight; y++) {
-        for (int x = 0; x < srcWidth; x++) {
+    for (y = 0; y < srcHeight; y++) {
+        for (x = 0; x < srcWidth; x++) {
+			unsigned char m;
             unsigned char b = *src;
             if (b != 0) {
                 b = intensityColorTable[b][light];
-                unsigned char m = *mask;
+                m = *mask;
                 if (m != 0) {
                     unsigned char d = *dest;
                     int q = intensityColorTable[d][128 - m];
@@ -2671,13 +2740,15 @@ int obj_intersects_with(Object* object, int x, int y)
                                 flags |= 0x02;
                             }
                         } else {
+                            bool v20;
+
                             int type = FID_TYPE(object->fid);
                             if (type == OBJ_TYPE_SCENERY || type == OBJ_TYPE_WALL) {
+								int extendedFlags;
                                 Proto* proto;
                                 proto_ptr(object->pid, &proto);
 
-                                bool v20;
-                                int extendedFlags = proto->scenery.extendedFlags;
+                                extendedFlags = proto->scenery.extendedFlags;
                                 if ((extendedFlags & 0x8000000) != 0 || (extendedFlags & 0x80000000) != 0) {
                                     v20 = tile_in_front_of(object->tile, obj_dude->tile);
                                 } else if ((extendedFlags & 0x10000000) != 0) {
@@ -2711,6 +2782,7 @@ int obj_intersects_with(Object* object, int x, int y)
 // 0x47DCC0
 int obj_create_intersect_list(int x, int y, int elevation, int objectType, ObjectWithFlags** entriesPtr)
 {
+	int index,count,parity;
     int v5 = tile_num(x - 320, y - 240, elevation);
     *entriesPtr = NULL;
 
@@ -2718,10 +2790,10 @@ int obj_create_intersect_list(int x, int y, int elevation, int objectType, Objec
         return 0;
     }
 
-    int count = 0;
+    count = 0;
 
-    int parity = tile_center_tile & 1;
-    for (int index = 0; index < updateHexArea; index++) {
+    parity = tile_center_tile & 1;
+    for (index = 0; index < updateHexArea; index++) {
         int v7 = orderTable[parity][index];
         if (offsetDivTable[v7] < 30 && offsetModTable[v7] < 20) {
             ObjectListNode* objectListNode = objectTable[offsetTable[parity][v7] + v5];
@@ -2856,15 +2928,20 @@ char* object_description(Object* obj)
 // 0x47E01C
 void obj_preload_art_cache(int flags)
 {
-    if (preload_list == NULL) {
+    unsigned char arr[4096];
+	int v11,v12;
+	int i;
+    CacheEntry* cache_handle;
+
+	if (preload_list == NULL) {
         return;
     }
 
-    unsigned char arr[4096];
     memset(arr, 0, sizeof(arr));
 
     if ((flags & 0x02) == 0) {
-        for (int i = 0; i < SQUARE_GRID_SIZE; i++) {
+		int i;
+        for (i = 0; i < SQUARE_GRID_SIZE; i++) {
             int v3 = square[0]->field_0[i];
             arr[v3 & 0xFFF] = 1;
             arr[(v3 >> 16) & 0xFFF] = 1;
@@ -2872,7 +2949,8 @@ void obj_preload_art_cache(int flags)
     }
 
     if ((flags & 0x04) == 0) {
-        for (int i = 0; i < SQUARE_GRID_SIZE; i++) {
+		int i;
+        for (i = 0; i < SQUARE_GRID_SIZE; i++) {
             int v3 = square[1]->field_0[i];
             arr[v3 & 0xFFF] = 1;
             arr[(v3 >> 16) & 0xFFF] = 1;
@@ -2880,7 +2958,8 @@ void obj_preload_art_cache(int flags)
     }
 
     if ((flags & 0x08) == 0) {
-        for (int i = 0; i < SQUARE_GRID_SIZE; i++) {
+		int i;
+        for (i = 0; i < SQUARE_GRID_SIZE; i++) {
             int v3 = square[2]->field_0[i];
             arr[v3 & 0xFFF] = 1;
             arr[(v3 >> 16) & 0xFFF] = 1;
@@ -2889,8 +2968,8 @@ void obj_preload_art_cache(int flags)
 
     qsort(preload_list, preload_list_index, sizeof(*preload_list), obj_preload_sort);
 
-    int v11 = preload_list_index;
-    int v12 = preload_list_index;
+    v11 = preload_list_index;
+    v12 = preload_list_index;
 
     if (FID_TYPE(preload_list[v12 - 1]) == OBJ_TYPE_WALL) {
         int objectType = OBJ_TYPE_ITEM;
@@ -2902,12 +2981,11 @@ void obj_preload_art_cache(int flags)
         v11++;
     }
 
-    CacheEntry* cache_handle;
     if (art_ptr_lock(*preload_list, &cache_handle) != NULL) {
         art_ptr_unlock(cache_handle);
     }
 
-    for (int i = 1; i < v11; i++) {
+    for (i = 1; i < v11; i++) {
         if (preload_list[i - 1] != preload_list[i]) {
             if (art_ptr_lock(preload_list[i], &cache_handle) != NULL) {
                 art_ptr_unlock(cache_handle);
@@ -2915,7 +2993,7 @@ void obj_preload_art_cache(int flags)
         }
     }
 
-    for (int i = 0; i < 4096; i++) {
+    for (i = 0; i < 4096; i++) {
         if (arr[i] != 0) {
             int fid = art_id(OBJ_TYPE_TILE, i, 0, 0, 0);
             if (art_ptr_lock(fid, &cache_handle) != NULL) {
@@ -2924,7 +3002,7 @@ void obj_preload_art_cache(int flags)
         }
     }
 
-    for (int i = v11; i < preload_list_index; i++) {
+    for (i = v11; i < preload_list_index; i++) {
         if (preload_list[i - 1] != preload_list[i]) {
             if (art_ptr_lock(preload_list[i], &cache_handle) != NULL) {
                 art_ptr_unlock(cache_handle);
@@ -2954,6 +3032,7 @@ static int obj_object_table_init()
 static int obj_offset_table_init()
 {
     int i;
+	int parity;
 
     if (offsetTable[0] != NULL) {
         return -1;
@@ -2973,24 +3052,27 @@ static int obj_offset_table_init()
         goto err;
     }
 
-    for (int parity = 0; parity < 2; parity++) {
+    for (parity = 0; parity < 2; parity++) {
         int originTile = tile_num(updateAreaPixelBounds.ulx, updateAreaPixelBounds.uly, 0);
         if (originTile != -1) {
+			int x,y;
             int* offsets = offsetTable[tile_center_tile & 1];
             int originTileX;
             int originTileY;
+			int parityShift;
+			int tileX;
             tile_coord(originTile, &originTileX, &originTileY, 0);
 
-            int parityShift = 16;
+            parityShift = 16;
             originTileX += 16;
             originTileY += 8;
             if (originTileX > updateAreaPixelBounds.ulx) {
                 parityShift = -parityShift;
             }
 
-            int tileX = originTileX;
-            for (int y = 0; y < updateHexHeight; y++) {
-                for (int x = 0; x < updateHexWidth; x++) {
+            tileX = originTileX;
+            for (y = 0; y < updateHexHeight; y++) {
+                for (x = 0; x < updateHexWidth; x++) {
                     int tile = tile_num(tileX, originTileY, 0);
                     if (tile == -1) {
                         goto err;
@@ -3064,6 +3146,7 @@ static void obj_offset_table_exit()
 // 0x47E4F4
 static int obj_order_table_init()
 {
+	int index;
     if (orderTable[0] != NULL || orderTable[1] != NULL) {
         return -1;
     }
@@ -3078,7 +3161,7 @@ static int obj_order_table_init()
         goto err;
     }
 
-    for (int index = 0; index < updateHexArea; index++) {
+    for (index = 0; index < updateHexArea; index++) {
         orderTable[0][index] = index;
         orderTable[1][index] = index;
     }
@@ -3129,6 +3212,8 @@ static void obj_order_table_exit()
 // 0x47E670
 static int obj_render_table_init()
 {
+	int index;
+
     if (renderTable != NULL) {
         return -1;
     }
@@ -3138,7 +3223,7 @@ static int obj_render_table_init()
         return -1;
     }
 
-    for (int index = 0; index < updateHexArea; index++) {
+    for (index = 0; index < updateHexArea; index++) {
         renderTable[index] = NULL;
     }
 
@@ -3157,15 +3242,18 @@ static void obj_render_table_exit()
 // 0x47E704
 static void obj_light_table_init()
 {
-    for (int s = 0; s < 2; s++) {
+	int s,i;
+    for (s = 0; s < 2; s++) {
         int v4 = tile_center_tile + s;
-        for (int i = 0; i < ROTATION_COUNT; i++) {
+        for (i = 0; i < ROTATION_COUNT; i++) {
+			int j;
             int v15 = 8;
             int* p = light_offsets[v4 & 1][i];
-            for (int j = 0; j < 8; j++) {
+            for (j = 0; j < 8; j++) {
+				int m;
                 int tile = tile_num_in_direction(v4, (i + 1) % ROTATION_COUNT, j);
 
-                for (int m = 0; m < v15; m++) {
+                for (m = 0; m < v15; m++) {
                     *p++ = tile_num_in_direction(tile, i, m + 1) - v4;
                 }
 
@@ -3178,7 +3266,8 @@ static void obj_light_table_init()
 // 0x47E8C8
 static void obj_blend_table_init()
 {
-    for (int index = 0; index < 256; index++) {
+	int index;
+    for (index = 0; index < 256; index++) {
         int r = (Color2RGB(index) & 0x7C00) >> 10;
         int g = (Color2RGB(index) & 0x3E0) >> 5;
         int b = Color2RGB(index) & 0x1F;
@@ -3215,12 +3304,14 @@ static void obj_misc_table_init()
 // 0x47EA2C
 int obj_save_obj(DB_FILE* stream, Object* object)
 {
+	int index;
+	Inventory* inventory;
+	CritterCombatData* combatData = NULL;
+	Object* whoHitMe = NULL;
     if ((object->flags & OBJECT_TEMPORARY) != 0) {
         return 0;
     }
-
-    CritterCombatData* combatData = NULL;
-    Object* whoHitMe = NULL;
+    
     if (PID_TYPE(object->pid) == OBJ_TYPE_CRITTER) {
         combatData = &(object->data.critter.combat);
         whoHitMe = combatData->whoHitMe;
@@ -3241,8 +3332,8 @@ int obj_save_obj(DB_FILE* stream, Object* object)
         combatData->whoHitMe = whoHitMe;
     }
 
-    Inventory* inventory = &(object->data.inventory);
-    for (int index = 0; index < inventory->length; index++) {
+    inventory = &(object->data.inventory);
+    for (index = 0; index < inventory->length; index++) {
         InventoryItem* inventoryItem = &(inventory->items[index]);
 
         if (db_fwriteInt(stream, inventoryItem->quantity) == -1) {
@@ -3265,6 +3356,9 @@ int obj_save_obj(DB_FILE* stream, Object* object)
 int obj_load_obj(DB_FILE* stream, Object** objectPtr, int elevation, Object* owner)
 {
     Object* obj;
+	Inventory* inventory;
+	InventoryItem* inventoryItems;
+	int inventoryItemIndex;
 
     if (obj_create_object(&obj) == -1) {
         *objectPtr = NULL;
@@ -3302,7 +3396,7 @@ int obj_load_obj(DB_FILE* stream, Object** objectPtr, int elevation, Object* own
 
     obj->owner = owner;
 
-    Inventory* inventory = &(obj->data.inventory);
+    inventory = &(obj->data.inventory);
     if (inventory->length <= 0) {
         inventory->capacity = 0;
         inventory->items = NULL;
@@ -3310,12 +3404,12 @@ int obj_load_obj(DB_FILE* stream, Object** objectPtr, int elevation, Object* own
         return 0;
     }
 
-    InventoryItem* inventoryItems = inventory->items = (InventoryItem*)mem_malloc(sizeof(*inventoryItems) * inventory->capacity);
+    inventoryItems = inventory->items = (InventoryItem*)mem_malloc(sizeof(*inventoryItems) * inventory->capacity);
     if (inventoryItems == NULL) {
         return -1;
     }
 
-    for (int inventoryItemIndex = 0; inventoryItemIndex < inventory->length; inventoryItemIndex++) {
+    for (inventoryItemIndex = 0; inventoryItemIndex < inventory->length; inventoryItemIndex++) {
         InventoryItem* inventoryItem = &(inventoryItems[inventoryItemIndex]);
         if (db_freadInt(stream, &(inventoryItem->quantity)) != 0) {
             return -1;
@@ -3334,12 +3428,14 @@ int obj_load_obj(DB_FILE* stream, Object** objectPtr, int elevation, Object* own
 // 0x47EC80
 int obj_save_dude(DB_FILE* stream)
 {
+	int rc;
+
     int field_78 = obj_dude->sid;
 
     obj_dude->flags &= ~OBJECT_TEMPORARY;
     obj_dude->sid = -1;
 
-    int rc = obj_save_obj(stream, obj_dude);
+    rc = obj_save_obj(stream, obj_dude);
 
     obj_dude->sid = field_78;
     obj_dude->flags |= OBJECT_TEMPORARY;
@@ -3359,11 +3455,18 @@ int obj_load_dude(DB_FILE* stream)
     int savedElevation = obj_dude->elevation;
     int savedRotation = obj_dude->rotation;
     int savedOid = obj_dude->id;
+	int rc;
+	int newTile,newElevation,newRotation;
+    Object* temp;
+	Inventory* inventory;
+	int index;
+    int tile;
+	Inventory* tempInventory;
+
 
     scr_clear_dude_script();
 
-    Object* temp;
-    int rc = obj_load_obj(stream, &temp, -1, NULL);
+    rc = obj_load_obj(stream, &temp, -1, NULL);
 
     memcpy(obj_dude, temp, sizeof(*obj_dude));
 
@@ -3375,13 +3478,13 @@ int obj_load_dude(DB_FILE* stream)
 
     scr_set_dude_script();
 
-    int newTile = obj_dude->tile;
+    newTile = obj_dude->tile;
     obj_dude->tile = savedTile;
 
-    int newElevation = obj_dude->elevation;
+    newElevation = obj_dude->elevation;
     obj_dude->elevation = savedElevation;
 
-    int newRotation = obj_dude->rotation;
+    newRotation = obj_dude->rotation;
     obj_dude->rotation = newRotation;
 
     scr_set_dude_script();
@@ -3392,8 +3495,8 @@ int obj_load_dude(DB_FILE* stream)
     }
 
     // Set ownership of inventory items from temporary instance to dude.
-    Inventory* inventory = &(obj_dude->data.inventory);
-    for (int index = 0; index < inventory->length; index++) {
+    inventory = &(obj_dude->data.inventory);
+    for (index = 0; index < inventory->length; index++) {
         InventoryItem* inventoryItem = &(inventory->items[index]);
         inventoryItem->item->owner = obj_dude;
     }
@@ -3403,7 +3506,7 @@ int obj_load_dude(DB_FILE* stream)
     // Dude has claimed ownership of items in temporary instance's inventory.
     // We don't need object's dealloc routine to remove these items from the
     // game, so simply nullify temporary inventory as if nothing was there.
-    Inventory* tempInventory = &(temp->data.inventory);
+    tempInventory = &(temp->data.inventory);
     tempInventory->length = 0;
     tempInventory->capacity = 0;
     tempInventory->items = NULL;
@@ -3416,7 +3519,6 @@ int obj_load_dude(DB_FILE* stream)
 
     inven_reset_dude();
 
-    int tile;
     if (db_freadInt(stream, &tile) == -1) {
         db_fclose(stream);
         return -1;
@@ -3430,11 +3532,12 @@ int obj_load_dude(DB_FILE* stream)
 // 0x47EE5C
 static int obj_create_object(Object** objectPtr)
 {
+	Object* object;
     if (objectPtr == NULL) {
         return -1;
     }
 
-    Object* object = *objectPtr = (Object*)mem_malloc(sizeof(Object));
+    object = *objectPtr = (Object*)mem_malloc(sizeof(Object));
     if (object == NULL) {
         return -1;
     }
@@ -3472,11 +3575,12 @@ static void obj_destroy_object(Object** objectPtr)
 // 0x47EEFC
 static int obj_create_object_node(ObjectListNode** nodePtr)
 {
+	ObjectListNode* node;
     if (nodePtr == NULL) {
         return -1;
     }
 
-    ObjectListNode* node = *nodePtr = (ObjectListNode*)mem_malloc(sizeof(*node));
+    node = *nodePtr = (ObjectListNode*)mem_malloc(sizeof(*node));
     if (node == NULL) {
         return -1;
     }
@@ -3506,6 +3610,7 @@ static void obj_destroy_object_node(ObjectListNode** nodePtr)
 // 0x47EF50
 static int obj_node_ptr(Object* object, ObjectListNode** nodePtr, ObjectListNode** previousNodePtr)
 {
+	int tile;
     if (object == NULL) {
         return -1;
     }
@@ -3514,7 +3619,7 @@ static int obj_node_ptr(Object* object, ObjectListNode** nodePtr, ObjectListNode
         return -1;
     }
 
-    int tile = object->tile;
+    tile = object->tile;
     if (tile != -1) {
         *nodePtr = objectTable[tile];
     } else {
@@ -3685,6 +3790,13 @@ static int obj_connect_to_tile(ObjectListNode* node, int tile, int elevation, Re
 // 0x47F30C
 static int obj_adjust_light(Object* obj, int a2, Rect* rect)
 {
+    int(*v70)[36] = light_offsets[obj->tile & 1];
+    int v7;
+    int v28[36];
+	int index;
+
+    Rect objectRect;
+	AdjustLightIntensityProc* adjustLightIntensity;
     if (obj == NULL) {
         return -1;
     }
@@ -3705,10 +3817,9 @@ static int obj_adjust_light(Object* obj, int a2, Rect* rect)
         return -1;
     }
 
-    AdjustLightIntensityProc* adjustLightIntensity = a2 ? light_subtract_from_tile : light_add_to_tile;
+    adjustLightIntensity = a2 ? light_subtract_from_tile : light_add_to_tile;
     adjustLightIntensity(obj->elevation, obj->tile, obj->lightIntensity);
 
-    Rect objectRect;
     obj_bound(obj, &objectRect);
 
     if (obj->lightDistance > 8) {
@@ -3719,9 +3830,9 @@ static int obj_adjust_light(Object* obj, int a2, Rect* rect)
         obj->lightIntensity = 65536;
     }
 
-    int(*v70)[36] = light_offsets[obj->tile & 1];
-    int v7 = (obj->lightIntensity - 655) / (obj->lightDistance + 1);
-    int v28[36];
+	(*v70)[36] = light_offsets[obj->tile & 1];
+    v7 = (obj->lightIntensity - 655) / (obj->lightDistance + 1);
+    v28[36];
     v28[0] = obj->lightIntensity - v7;
     v28[1] = v28[0] - v7;
     v28[8] = v28[0] - v7;
@@ -3759,9 +3870,10 @@ static int obj_adjust_light(Object* obj, int a2, Rect* rect)
     v28[34] = v28[6] - v7;
     v28[35] = v28[6] - v7;
 
-    for (int index = 0; index < 36; index++) {
+    for (index = 0; index < 36; index++) {
         if (obj->lightDistance >= light_distance[index]) {
-            for (int rotation = 0; rotation < ROTATION_COUNT; rotation++) {
+			int rotation;
+            for (rotation = 0; rotation < ROTATION_COUNT; rotation++) {
                 int v14;
                 int nextRotation = (rotation + 1) % ROTATION_COUNT;
                 int eax;
@@ -4329,11 +4441,12 @@ static int obj_adjust_light(Object* obj, int a2, Rect* rect)
     }
 
     if (rect != NULL) {
+		int x;
+        int y;
+
         Rect* lightDistanceRect = &(light_rect[obj->lightDistance]);
         memcpy(rect, lightDistanceRect, sizeof(*lightDistanceRect));
 
-        int x;
-        int y;
         tile_coord(obj->tile, &x, &y, obj->elevation);
         x += 16;
         y += 8;
@@ -4351,16 +4464,20 @@ static int obj_adjust_light(Object* obj, int a2, Rect* rect)
 // 0x4801A0
 static void obj_render_outline(Object* object, Rect* rect)
 {
+	int frameWidth,frameHeight;
+    Rect objectRect;
+    Rect v49;
     CacheEntry* cacheEntry;
+    Rect v32;
+	int v22;
     Art* art = art_ptr_lock(object->fid, &cacheEntry);
     if (art == NULL) {
         return;
     }
 
-    int frameWidth = art_frame_width(art, object->frame, object->rotation);
-    int frameHeight = art_frame_length(art, object->frame, object->rotation);
+    frameWidth = art_frame_width(art, object->frame, object->rotation);
+    frameHeight = art_frame_length(art, object->frame, object->rotation);
 
-    Rect v49;
     v49.ulx = 0;
     v49.uly = 0;
     v49.lrx = frameWidth - 1;
@@ -4369,7 +4486,6 @@ static void obj_render_outline(Object* object, Rect* rect)
     // to obtain height.
     v49.lry = art_frame_length(art, object->frame, object->rotation) - 1;
 
-    Rect objectRect;
     if (object->tile == -1) {
         objectRect.ulx = object->sx;
         objectRect.uly = object->sy;
@@ -4397,7 +4513,6 @@ static void obj_render_outline(Object* object, Rect* rect)
         object->sy = objectRect.uly;
     }
 
-    Rect v32;
     rectCopy(&v32, rect);
 
     v32.ulx--;
@@ -4408,23 +4523,34 @@ static void obj_render_outline(Object* object, Rect* rect)
     rect_inside_bound(&v32, &buf_rect, &v32);
 
     if (rect_inside_bound(&objectRect, &v32, &objectRect) == 0) {
+		unsigned char* src,dest;
+		int destStep;
+        unsigned char color;
+        unsigned char* v47 = NULL;
+        unsigned char* v48 = NULL;
+        int v53;
+        int outlineType;
+        int v43;
+        int v44;
+		unsigned char v54;
+        unsigned char* dest14;
+        unsigned char* src15;
+		int x,y;
+
         v49.ulx += objectRect.ulx - object->sx;
         v49.uly += objectRect.uly - object->sy;
         v49.lrx = v49.ulx + (objectRect.lrx - objectRect.ulx);
         v49.lry = v49.uly + (objectRect.lry - objectRect.uly);
 
-        unsigned char* src = art_frame_data(art, object->frame, object->rotation);
+        src = art_frame_data(art, object->frame, object->rotation);
 
-        unsigned char* dest = back_buf + buf_full * object->sy + object->sx;
-        int destStep = buf_full - frameWidth;
+        dest = back_buf + buf_full * object->sy + object->sx;
+        destStep = buf_full - frameWidth;
 
-        unsigned char color;
-        unsigned char* v47 = NULL;
-        unsigned char* v48 = NULL;
-        int v53 = object->outline & OUTLINE_PALETTED;
-        int outlineType = object->outline & OUTLINE_TYPE_MASK;
-        int v43;
-        int v44;
+        v47 = NULL;
+        v48 = NULL;
+        v53 = object->outline & OUTLINE_PALETTED;
+        outlineType = object->outline & OUTLINE_TYPE_MASK;
 
         switch (outlineType) {
         case OUTLINE_TYPE_HOSTILE:
@@ -4470,10 +4596,10 @@ static void obj_render_outline(Object* object, Rect* rect)
             break;
         }
 
-        unsigned char v54 = color;
-        unsigned char* dest14 = dest;
-        unsigned char* src15 = src;
-        for (int y = 0; y < frameHeight; y++) {
+        v54 = color;
+        dest14 = dest;
+        src15 = src;
+        for (y = 0; y < frameHeight; y++) {
             bool cycle = true;
             if (v44 != 0) {
                 if (y % v44 == 0) {
@@ -4485,8 +4611,8 @@ static void obj_render_outline(Object* object, Rect* rect)
                 }
             }
 
-            int v22 = dest14 - back_buf;
-            for (int x = 0; x < frameWidth; x++) {
+            v22 = dest14 - back_buf;
+            for (x = 0; x < frameWidth; x++) {
                 v22 = dest14 - back_buf;
                 if (*src15 != 0 && cycle) {
                     if (x >= v49.ulx && x <= v49.lrx && y >= v49.uly && y <= v49.lry && v22 > 0 && v22 % buf_full != 0) {
@@ -4531,12 +4657,13 @@ static void obj_render_outline(Object* object, Rect* rect)
             dest14 += destStep;
         }
 
-        for (int x = 0; x < frameWidth; x++) {
+        for (x = 0; x < frameWidth; x++) {
+			int y;
             bool cycle = true;
             unsigned char v28 = color;
             unsigned char* dest27 = dest + x;
             unsigned char* src27 = src + x;
-            for (int y = 0; y < frameHeight; y++) {
+            for (y = 0; y < frameHeight; y++) {
                 if (v44 != 0) {
                     if (y % v44 == 0) {
                         v28++;
@@ -4595,21 +4722,30 @@ static void obj_render_outline(Object* object, Rect* rect)
 // 0x480868
 static void obj_render_object(Object* object, Rect* rect, int light)
 {
+    Art* art;
+	CacheEntry* cacheEntry;
+	int frameWidth;
+	int frameHeight;
+    Rect objectRect;
+	unsigned char* src,src2;
+	int v49,v50;
+    int objectWidth;
+    int objectHeight;
+
+
     int type = FID_TYPE(object->fid);
     if (art_get_disable(type)) {
         return;
     }
 
-    CacheEntry* cacheEntry;
-    Art* art = art_ptr_lock(object->fid, &cacheEntry);
+	art = art_ptr_lock(object->fid, &cacheEntry);
     if (art == NULL) {
         return;
     }
 
-    int frameWidth = art_frame_width(art, object->frame, object->rotation);
-    int frameHeight = art_frame_length(art, object->frame, object->rotation);
+    frameWidth = art_frame_width(art, object->frame, object->rotation);
+    frameHeight = art_frame_length(art, object->frame, object->rotation);
 
-    Rect objectRect;
     if (object->tile == -1) {
         objectRect.ulx = object->sx;
         objectRect.uly = object->sy;
@@ -4642,13 +4778,13 @@ static void obj_render_object(Object* object, Rect* rect, int light)
         return;
     }
 
-    unsigned char* src = art_frame_data(art, object->frame, object->rotation);
-    unsigned char* src2 = src;
-    int v50 = objectRect.ulx - object->sx;
-    int v49 = objectRect.uly - object->sy;
+    src = art_frame_data(art, object->frame, object->rotation);
+    src2 = src;
+    v50 = objectRect.ulx - object->sx;
+    v49 = objectRect.uly - object->sy;
     src += frameWidth * v49 + v50;
-    int objectWidth = objectRect.lrx - objectRect.ulx + 1;
-    int objectHeight = objectRect.lry - objectRect.uly + 1;
+    objectWidth = objectRect.lrx - objectRect.ulx + 1;
+    objectHeight = objectRect.lry - objectRect.uly + 1;
 
     if (type == 6) {
         trans_buf_to_buf(src,
@@ -4663,11 +4799,12 @@ static void obj_render_object(Object* object, Rect* rect, int light)
 
     if (type == 2 || type == 3) {
         if ((obj_dude->flags & OBJECT_HIDDEN) == 0 && (object->flags & OBJECT_FLAG_0xFC000) == 0) {
+            bool v17;
             Proto* proto;
+			int extendedFlags;
             proto_ptr(object->pid, &proto);
 
-            bool v17;
-            int extendedFlags = proto->critter.extendedFlags;
+            extendedFlags = proto->critter.extendedFlags;
             if ((extendedFlags & 0x8000000) != 0 || (extendedFlags & 0x80000000) != 0) {
                 // TODO: Probably wrong.
                 v17 = tile_in_front_of(object->tile, obj_dude->tile);
@@ -4695,18 +4832,23 @@ static void obj_render_object(Object* object, Rect* rect, int light)
             }
 
             if (v17) {
+                int eggWidth;
+                int eggHeight;
+                int eggScreenX;
+                int eggScreenY;
+                Rect eggRect;
+                Rect updatedEggRect;
+
                 CacheEntry* eggHandle;
                 Art* egg = art_ptr_lock(obj_egg->fid, &eggHandle);
                 if (egg == NULL) {
                     return;
                 }
 
-                int eggWidth;
-                int eggHeight;
+
                 art_frame_width_length(egg, 0, 0, &eggWidth, &eggHeight);
 
-                int eggScreenX;
-                int eggScreenY;
+
                 tile_coord(obj_egg->tile, &eggScreenX, &eggScreenY, obj_egg->elevation);
                 eggScreenX += 16;
                 eggScreenY += 8;
@@ -4717,7 +4859,6 @@ static void obj_render_object(Object* object, Rect* rect, int light)
                 eggScreenX += obj_egg->x;
                 eggScreenY += obj_egg->y;
 
-                Rect eggRect;
                 eggRect.ulx = eggScreenX - eggWidth / 2;
                 eggRect.uly = eggScreenY - (eggHeight - 1);
                 eggRect.lrx = eggRect.ulx + eggWidth - 1;
@@ -4726,9 +4867,10 @@ static void obj_render_object(Object* object, Rect* rect, int light)
                 obj_egg->sx = eggRect.ulx;
                 obj_egg->sy = eggRect.uly;
 
-                Rect updatedEggRect;
                 if (rect_inside_bound(&eggRect, &objectRect, &updatedEggRect) == 0) {
+					int i;
                     Rect rects[4];
+					unsigned char* mask;
 
                     rects[0].ulx = objectRect.ulx;
                     rects[0].uly = objectRect.uly;
@@ -4750,7 +4892,7 @@ static void obj_render_object(Object* object, Rect* rect, int light)
                     rects[3].lrx = objectRect.lrx;
                     rects[3].lry = objectRect.lry;
 
-                    for (int i = 0; i < 4; i++) {
+                    for (i = 0; i < 4; i++) {
                         Rect* v21 = &(rects[i]);
                         if (v21->ulx <= v21->lrx && v21->uly <= v21->lry) {
                             unsigned char* sp = src + frameWidth * (v21->uly - objectRect.uly) + (v21->ulx - objectRect.ulx);
@@ -4758,7 +4900,7 @@ static void obj_render_object(Object* object, Rect* rect, int light)
                         }
                     }
 
-                    unsigned char* mask = art_frame_data(egg, 0, 0);
+                    mask = art_frame_data(egg, 0, 0);
                     intensity_mask_buf_to_buf(
                         src + frameWidth * (updatedEggRect.uly - objectRect.uly) + (updatedEggRect.ulx - objectRect.ulx),
                         updatedEggRect.lrx - updatedEggRect.ulx + 1,
@@ -4808,11 +4950,15 @@ static void obj_render_object(Object* object, Rect* rect, int light)
 // 0x4810EC
 void obj_fix_violence_settings(int* fid)
 {
+    int start;
+    int end;
+	int anim;
+    bool shouldResetViolenceLevel = false;
+
     if (FID_TYPE(*fid) != OBJ_TYPE_CRITTER) {
         return;
     }
 
-    bool shouldResetViolenceLevel = false;
     if (fix_violence_level == -1) {
         if (!config_get_value(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_VIOLENCE_LEVEL_KEY, &fix_violence_level)) {
             fix_violence_level = VIOLENCE_LEVEL_MAXIMUM_BLOOD;
@@ -4820,8 +4966,6 @@ void obj_fix_violence_settings(int* fid)
         shouldResetViolenceLevel = true;
     }
 
-    int start;
-    int end;
 
     switch (fix_violence_level) {
     case VIOLENCE_LEVEL_NONE:
@@ -4843,7 +4987,7 @@ void obj_fix_violence_settings(int* fid)
         break;
     }
 
-    int anim = FID_ANIM_TYPE(*fid);
+    anim = FID_ANIM_TYPE(*fid);
     if (anim >= start && anim <= end) {
         anim = (anim == ANIM_FALL_BACK_BLOOD_SF)
             ? ANIM_FALL_BACK_SF

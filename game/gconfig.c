@@ -159,11 +159,13 @@ bool gconfig_save()
 // 0x43DD30
 bool gconfig_exit(bool shouldSave)
 {
+	bool result;
+
     if (!gconfig_initialized) {
         return false;
     }
 
-    bool result = true;
+    result = true;
 
     if (shouldSave) {
         if (!config_save(&game_config, gconfig_file_name, false)) {

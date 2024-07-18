@@ -1,8 +1,3 @@
-# Goal
-
-It's my goal to have this building with Visual C++ 4.0, in an attemtp to get it running on RISC machines.
-Sadly, this meant that it needed to have NT 4.0 service pack 3 support, making this kind of useless.
-
 # Fallout Reference Edition
 
 In this repository you'll find reverse engineered source code for Fallout: A Post Nuclear Role Playing Game.

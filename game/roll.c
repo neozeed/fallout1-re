@@ -7,7 +7,8 @@
 // clang-format off
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <timeapi.h>
+#include <Mmsystem.h>
+//#include <timeapi.h>
 // clang-format on
 #else
 #include <sys/time.h>
@@ -134,6 +135,7 @@ int roll_random(int min, int max)
 // 0x49150C
 static int ran1(int max)
 {
+	int v2,v3;
     int v1 = 16807 * (idum % 127773) - 2836 * (idum / 127773);
 
     if (v1 < 0) {
@@ -144,8 +146,8 @@ static int ran1(int max)
         v1 += 0x7FFFFFFF;
     }
 
-    int v2 = iy & 0x1F;
-    int v3 = iv[v2];
+    v2 = iy & 0x1F;
+    v3 = iv[v2];
     iv[v2] = v1;
     iy = v3;
     idum = v1;
@@ -183,12 +185,13 @@ static int random_seed()
 // 0x4915F0
 static void seed_generator(int seed)
 {
+	int index;
     int num = seed;
     if (num < 1) {
         num = 1;
     }
 
-    for (int index = 40; index > 0; index--) {
+    for (index = 40; index > 0; index--) {
         num = 16807 * (num % 127773) - 2836 * (num / 127773);
 
         if (num < 0) {
@@ -223,12 +226,15 @@ static unsigned int timer_read()
 static void check_chi_squared()
 {
     int results[25];
+	int index;
+	int attempt;
+	double v1;
 
-    for (int index = 0; index < 25; index++) {
+    for (index = 0; index < 25; index++) {
         results[index] = 0;
     }
 
-    for (int attempt = 0; attempt < 100000; attempt++) {
+    for (attempt = 0; attempt < 100000; attempt++) {
         int value = roll_random(1, 25);
         if (value - 1 < 0) {
             debug_printf("I made a negative number %d\n", value - 1);
@@ -237,9 +243,9 @@ static void check_chi_squared()
         results[value - 1]++;
     }
 
-    double v1 = 0.0;
+    v1 = 0.0;
 
-    for (int index = 0; index < 25; index++) {
+    for (index = 0; index < 25; index++) {
         double v2 = ((double)results[index] - 4000.0) * ((double)results[index] - 4000.0) / 4000.0;
         v1 += v2;
     }

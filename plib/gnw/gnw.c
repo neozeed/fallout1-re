@@ -76,6 +76,11 @@ void* GNW_texture;
 // 0x4C1CF0
 int win_init(VideoSystemInitProc* videoSystemInitProc, VideoSystemExitProc* videoSystemExitProc, int flags)
 {
+	int index;
+	int rc;
+	Window* w;
+
+
     CloseHandle(GNW95_mutex);
     GNW95_mutex = INVALID_HANDLE_VALUE;
 
@@ -91,7 +96,7 @@ int win_init(VideoSystemInitProc* videoSystemInitProc, VideoSystemExitProc* vide
         return WINDOW_MANAGER_ERR_WINDOW_SYSTEM_ALREADY_INITIALIZED;
     }
 
-    for (int index = 0; index < MAX_WINDOW_COUNT; index++) {
+    for (index = 0; index < MAX_WINDOW_COUNT; index++) {
         window_index[index] = -1;
     }
 
@@ -110,7 +115,7 @@ int win_init(VideoSystemInitProc* videoSystemInitProc, VideoSystemExitProc* vide
     video_set = videoSystemInitProc;
     video_reset = GNW95_reset_mode;
 
-    int rc = videoSystemInitProc();
+    rc = videoSystemInitProc();
     if (rc == -1) {
         if (video_reset != NULL) {
             video_reset();
@@ -174,7 +179,7 @@ int win_init(VideoSystemInitProc* videoSystemInitProc, VideoSystemExitProc* vide
 
     GNW_intr_init();
 
-    Window* w = window[0] = (Window*)mem_malloc(sizeof(*w));
+    w = window[0] = (Window*)mem_malloc(sizeof(*w));
     if (w == NULL) {
         if (video_reset != NULL) {
             video_reset();
@@ -234,9 +239,10 @@ void win_exit(void)
     if (!insideWinExit) {
         insideWinExit = true;
         if (GNW_win_init_flag) {
+			int index;
             GNW_intr_exit();
 
-            for (int index = num_windows - 1; index >= 0; index--) {
+            for (index = num_windows - 1; index >= 0; index--) {
                 win_free(window[index]->id);
             }
 
@@ -272,6 +278,8 @@ int win_add(int x, int y, int width, int height, int color, int flags)
     int v23;
     int v25, v26;
     Window* tmp;
+	Window* w;
+	int index;
 
     if (!GNW_win_init_flag) {
         return -1;
@@ -289,7 +297,7 @@ int win_add(int x, int y, int width, int height, int color, int flags)
         return -1;
     }
 
-    Window* w = window[num_windows] = (Window*)mem_malloc(sizeof(*w));
+    w = window[num_windows] = (Window*)mem_malloc(sizeof(*w));
     if (w == NULL) {
         return -1;
     }
@@ -300,7 +308,7 @@ int win_add(int x, int y, int width, int height, int color, int flags)
         return -1;
     }
 
-    int index = 1;
+    index = 1;
     while (GNW_find(index) != NULL) {
         index++;
     }
@@ -371,6 +379,9 @@ int win_add(int x, int y, int width, int height, int color, int flags)
 // 0x4C2524
 void win_delete(int win)
 {
+	Rect rect;
+	int v1,index;
+
     Window* w = GNW_find(win);
 
     if (!GNW_win_init_flag) {
@@ -381,15 +392,14 @@ void win_delete(int win)
         return;
     }
 
-    Rect rect;
     rectCopy(&rect, &(w->rect));
 
-    int v1 = window_index[w->id];
+    v1 = window_index[w->id];
     win_free(win);
 
     window_index[win] = -1;
 
-    for (int index = v1; index < num_windows - 1; index++) {
+    for (index = v1; index < num_windows - 1; index++) {
         window[index] = window[index + 1];
         window_index[window[index]->id] = index;
     }
@@ -403,6 +413,7 @@ void win_delete(int win)
 // 0x4C25C8
 static void win_free(int win)
 {
+	Button* curr;
     Window* w = GNW_find(win);
     if (w == NULL) {
         return;
@@ -416,7 +427,7 @@ static void win_free(int win)
         mem_free(w->menuBar);
     }
 
-    Button* curr = w->buttonListHead;
+    curr = w->buttonListHead;
     while (curr != NULL) {
         Button* next = curr->next;
         GNW_delete_button(curr);
@@ -437,11 +448,13 @@ void win_buffering(bool state)
 // 0x4C2624
 void win_border(int win)
 {
+	Window* w;
+
     if (!GNW_win_init_flag) {
         return;
     }
 
-    Window* w = GNW_find(win);
+    w = GNW_find(win);
     if (w == NULL) {
         return;
     }
@@ -557,6 +570,11 @@ void win_print(int win, char* str, int a3, int x, int y, int a6)
 // 0x4C2A98
 void win_text(int win, char** fileNameList, int fileNameListLength, int maxWidth, int x, int y, int flags)
 {
+    int width;
+    unsigned char* ptr;
+    int lineHeight;
+    int step, index;
+    int v1 ,v2 ,v3;
     Window* w = GNW_find(win);
 
     if (!GNW_win_init_flag) {
@@ -567,16 +585,16 @@ void win_text(int win, char** fileNameList, int fileNameListLength, int maxWidth
         return;
     }
 
-    int width = w->width;
-    unsigned char* ptr = w->buffer + y * width + x;
-    int lineHeight = text_height();
+    width = w->width;
+    ptr = w->buffer + y * width + x;
+    lineHeight = text_height();
 
-    int step = width * lineHeight;
-    int v1 = lineHeight / 2;
-    int v2 = v1 + 1;
-    int v3 = maxWidth - 1;
+    step = width * lineHeight;
+    v1 = lineHeight / 2;
+    v2 = v1 + 1;
+    v3 = maxWidth - 1;
 
-    for (int index = 0; index < fileNameListLength; index++) {
+    for (index = 0; index < fileNameListLength; index++) {
         char* fileName = fileNameList[index];
         if (*fileName != '\0') {
             win_print(win, fileName, maxWidth, x, y, flags);
@@ -741,11 +759,13 @@ void win_show(int win)
 // 0x4C2F20
 void win_hide(int win)
 {
+	Window* w;
+
     if (!GNW_win_init_flag) {
         return;
     }
 
-    Window* w = GNW_find(win);
+    w = GNW_find(win);
     if (w == NULL) {
         return;
     }
@@ -759,6 +779,7 @@ void win_hide(int win)
 // 0x4C2F5C
 void win_move(int win, int x, int y)
 {
+	Rect rect;
     Window* w = GNW_find(win);
 
     if (!GNW_win_init_flag) {
@@ -769,7 +790,6 @@ void win_move(int win, int x, int y)
         return;
     }
 
-    Rect rect;
     rectCopy(&rect, &(w->rect));
 
     if (x < 0) {
@@ -830,6 +850,7 @@ void win_draw(int win)
 // 0x4C303C
 void win_draw_rect(int win, const Rect* rect)
 {
+	Rect newRect;
     Window* w = GNW_find(win);
 
     if (!GNW_win_init_flag) {
@@ -840,7 +861,6 @@ void win_draw_rect(int win, const Rect* rect)
         return;
     }
 
-    Rect newRect;
     rectCopy(&newRect, rect);
     rectOffset(&newRect, w->rect.ulx, w->rect.uly);
 
@@ -1021,12 +1041,13 @@ static void win_clip(Window* w, RectPtr* rectListNodePtr, unsigned char* a3)
     int win;
 
     for (win = window_index[w->id] + 1; win < num_windows; win++) {
+		Window* w;
         if (*rectListNodePtr == NULL) {
             break;
         }
 
         // TODO: Review.
-        Window* w = window[win];
+        w = window[win];
         if (!(w->flags & WINDOW_HIDDEN)) {
             if (!buffering || !(w->flags & WINDOW_FLAG_0x20)) {
                 rect_clip_list(rectListNodePtr, &(w->rect));
@@ -1052,6 +1073,7 @@ static void win_clip(Window* w, RectPtr* rectListNodePtr, unsigned char* a3)
 void win_drag(int win)
 {
     Window* w = GNW_find(win);
+    Rect rect;
 
     if (!GNW_win_init_flag) {
         return;
@@ -1063,7 +1085,6 @@ void win_drag(int win)
 
     win_show(win);
 
-    Rect rect;
     rectCopy(&rect, &(w->rect));
 
     GNW_do_bk_process();
@@ -1088,9 +1109,10 @@ void win_get_mouse_buf(unsigned char* a1)
 // 0x4C38CC
 static void refresh_all(Rect* rect, unsigned char* a2)
 {
+	int index;
     doing_refresh_all = 1;
 
-    for (int index = 0; index < num_windows; index++) {
+    for (index = 0; index < num_windows; index++) {
         GNW_win_refresh(window[index], rect, a2);
     }
 
@@ -1141,7 +1163,8 @@ unsigned char* win_get_buf(int win)
 // 0x4C3984
 int win_get_top_win(int x, int y)
 {
-    for (int index = num_windows - 1; index >= 0; index--) {
+	int index;
+    for (index = num_windows - 1; index >= 0; index--) {
         Window* w = window[index];
         if (x >= w->rect.ulx && x <= w->rect.lrx
             && y >= w->rect.uly && y <= w->rect.lry) {
@@ -1205,12 +1228,13 @@ int win_get_rect(int win, Rect* rect)
 // 0x4C3A34
 int win_check_all_buttons()
 {
+	int index, v1;
     if (!GNW_win_init_flag) {
         return -1;
     }
 
-    int v1 = -1;
-    for (int index = num_windows - 1; index >= 1; index--) {
+    v1 = -1;
+    for (index = num_windows - 1; index >= 1; index--) {
         if (GNW_check_buttons(window[index], &v1) == 0) {
             break;
         }
@@ -1226,7 +1250,9 @@ int win_check_all_buttons()
 // 0x4C3A94
 Button* GNW_find_button(int btn, Window** windowPtr)
 {
-    for (int index = 0; index < num_windows; index++) {
+	int index;
+
+    for (index = 0; index < num_windows; index++) {
         Window* w = window[index];
         Button* button = w->buttonListHead;
         while (button != NULL) {
@@ -1247,15 +1273,17 @@ Button* GNW_find_button(int btn, Window** windowPtr)
 // 0x4C3AEC
 int GNW_check_menu_bars(int a1)
 {
+	int index ,v1;
     if (!GNW_win_init_flag) {
         return -1;
     }
 
-    int v1 = a1;
-    for (int index = num_windows - 1; index >= 1; index--) {
+    v1 = a1;
+    for (index = num_windows - 1; index >= 1; index--) {
         Window* w = window[index];
         if (w->menuBar != NULL) {
-            for (int pulldownIndex = 0; pulldownIndex < w->menuBar->pulldownsLength; pulldownIndex++) {
+			int pulldownIndex;
+            for (pulldownIndex = 0; pulldownIndex < w->menuBar->pulldownsLength; pulldownIndex++) {
                 if (v1 == w->menuBar->pulldowns[pulldownIndex].keyCode) {
                     v1 = GNW_process_menu(w->menuBar, pulldownIndex);
                     break;
@@ -1322,6 +1350,7 @@ void win_set_trans_b2b(int id, WindowBlitProc* trans_b2b)
 static int colorOpen(const char* path, int flags)
 {
     char mode[4];
+	DB_FILE* stream;
     memset(mode, 0, sizeof(mode));
 
     if ((flags & 0x01) != 0) {
@@ -1338,7 +1367,7 @@ static int colorOpen(const char* path, int flags)
         mode[1] = 'b';
     }
 
-    DB_FILE* stream = db_fopen(path, mode);
+    stream = db_fopen(path, mode);
     if (stream != NULL) {
         return (int)stream;
     }

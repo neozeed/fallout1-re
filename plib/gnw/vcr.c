@@ -59,6 +59,8 @@ static VcrEntry vcr_last_play_event;
 // 0x4D2680
 bool vcr_record(const char* fileName)
 {
+	VcrEntry* vcrEntry;
+
     if (vcr_state != VCR_STATE_TURNED_OFF) {
         return false;
     }
@@ -83,7 +85,7 @@ bool vcr_record(const char* fileName)
         vcr_registered_atexit = atexit(vcr_stop);
     }
 
-    VcrEntry* vcrEntry = &(vcr_buffer[vcr_buffer_index]);
+    vcrEntry = &(vcr_buffer[vcr_buffer_index]);
     vcrEntry->type = VCR_ENTRY_TYPE_INITIAL_STATE;
     vcrEntry->time = 0;
     vcrEntry->counter = 0;
@@ -208,6 +210,7 @@ int vcr_update()
     }
 
     switch (vcr_state) {
+		int rc;
     case VCR_STATE_RECORDING:
         vcr_counter++;
         vcr_time = elapsed_time(vcr_start_time);
@@ -232,7 +235,7 @@ int vcr_update()
 
             vcr_counter++;
 
-            int rc = 0;
+            rc = 0;
             while (vcr_counter >= vcr_buffer[vcr_buffer_index].counter) {
                 vcr_time = elapsed_time(vcr_start_time);
                 if (vcr_time > vcr_buffer[vcr_buffer_index].time + 5
@@ -332,6 +335,8 @@ static bool vcr_clear_buffer()
 // 0x4D2CF0
 bool vcr_dump_buffer()
 {
+	int index;
+
     if (vcr_buffer == NULL) {
         return false;
     }
@@ -340,7 +345,7 @@ bool vcr_dump_buffer()
         return false;
     }
 
-    for (int index = 0; index < vcr_buffer_index; index++) {
+    for (index = 0; index < vcr_buffer_index; index++) {
         if (!vcr_save_record(&(vcr_buffer[index]), vcr_file)) {
             return false;
         }

@@ -22,7 +22,7 @@ typedef struct FadeSound {
     struct FadeSound* next;
 } FadeSound;
 
-static_assert(sizeof(Sound) == 156, "wrong size");
+//static_assert(sizeof(Sound) == 156, "wrong size");
 
 static void* defaultMalloc(size_t size);
 static void* defaultRealloc(void* ptr, size_t size);
@@ -38,6 +38,10 @@ static char* defaultMangler(char* fname);
 static void refreshSoundBuffers(Sound* sound);
 static int preloadBuffers(Sound* sound);
 static int addSoundData(Sound* sound, unsigned char* buf, int size);
+//#if _MSC_VER < 1000
+#if 0
+typedef unsigned long * DWORD_PTR;
+#endif
 static void CALLBACK doTimerEvent(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2);
 static void removeTimedEvent(unsigned int* timerId);
 static void removeFadeSound(FadeSound* fadeSound);
@@ -250,13 +254,22 @@ const char* soundError(int err)
 // 0x499D40
 static void refreshSoundBuffers(Sound* sound)
 {
+    DWORD readPos;
+    DWORD writePos;
+    HRESULT hr;
+    VOID* audioPtr1;
+    VOID* audioPtr2;
+    DWORD audioBytes1;
+    DWORD audioBytes2;
+	int v6,v53;
+	unsigned char* audioPtr;
+    int audioBytes;
+
     if (sound->field_3C & 0x80) {
         return;
     }
 
-    DWORD readPos;
-    DWORD writePos;
-    HRESULT hr = IDirectSoundBuffer_GetCurrentPosition(sound->directSoundBuffer, &readPos, &writePos);
+    hr = IDirectSoundBuffer_GetCurrentPosition(sound->directSoundBuffer, &readPos, &writePos);
     if (hr != DS_OK) {
         return;
     }
@@ -288,12 +301,11 @@ static void refreshSoundBuffers(Sound* sound)
         } while (v3 > sound->field_60);
     }
 
-    int v6 = readPos / sound->field_7C;
+    v6 = readPos / sound->field_7C;
     if (sound->field_70 == v6) {
         return;
     }
 
-    int v53;
     if (sound->field_70 > v6) {
         v53 = v6 + sound->field_78 - sound->field_70;
     } else {
@@ -308,10 +320,6 @@ static void refreshSoundBuffers(Sound* sound)
         return;
     }
 
-    VOID* audioPtr1;
-    VOID* audioPtr2;
-    DWORD audioBytes1;
-    DWORD audioBytes2;
     hr = IDirectSoundBuffer_Lock(sound->directSoundBuffer, sound->field_7C * sound->field_70, sound->field_7C * v53, &audioPtr1, &audioBytes1, &audioPtr2, &audioBytes2, 0);
     if (hr == DSERR_BUFFERLOST) {
         IDirectSoundBuffer_Restore(sound->directSoundBuffer);
@@ -332,8 +340,8 @@ static void refreshSoundBuffers(Sound* sound)
             return;
         }
     }
-    unsigned char* audioPtr = (unsigned char*)audioPtr1;
-    int audioBytes = audioBytes1;
+    audioPtr = (unsigned char*)audioPtr1;
+    audioBytes = audioBytes1;
     while (--v53 != -1) {
         int bytesRead;
         if (sound->field_3C & 0x0200) {
@@ -355,6 +363,7 @@ static void refreshSoundBuffers(Sound* sound)
                     sound->field_3C |= 0x0200;
                     bytesRead = sound->field_7C;
                 } else {
+					int v20;
                     while (bytesRead < sound->field_7C) {
                         if (sound->field_50 == -1) {
                             sound->io.seek(sound->io.fd, sound->field_54, SEEK_SET);
@@ -390,7 +399,7 @@ static void refreshSoundBuffers(Sound* sound)
                             }
                         }
 
-                        int v20 = sound->io.read(sound->io.fd, sound->field_20 + bytesRead, bytesToRead);
+                        v20 = sound->io.read(sound->io.fd, sound->field_20 + bytesRead, bytesToRead);
                         bytesRead += v20;
                         if (v20 < bytesToRead) {
                             break;
@@ -430,6 +439,9 @@ static void refreshSoundBuffers(Sound* sound)
 int soundInit(int a1, int a2, int a3, int a4, int rate)
 {
     HRESULT hr;
+    DSBUFFERDESC dsbdesc;
+    WAVEFORMATEX pcmwf;
+    DSCAPS dscaps;
     DWORD v24;
 
     if (GNW95_DirectSoundCreate(0, &soundDSObject, 0) != DS_OK) {
@@ -449,7 +461,6 @@ int soundInit(int a1, int a2, int a3, int a4, int rate)
     driverInit = true;
     deviceInit = 1;
 
-    DSBUFFERDESC dsbdesc;
     memset(&dsbdesc, 0, sizeof(dsbdesc));
     dsbdesc.dwSize = sizeof(dsbdesc);
     dsbdesc.dwFlags = DSCAPS_PRIMARYMONO;
@@ -484,10 +495,8 @@ int soundInit(int a1, int a2, int a3, int a4, int rate)
         exit(1);
     }
 
-    WAVEFORMATEX pcmwf;
     memset(&pcmwf, 0, sizeof(pcmwf));
 
-    DSCAPS dscaps;
     memset(&dscaps, 0, sizeof(dscaps));
     dscaps.dwSize = sizeof(dscaps);
 
@@ -597,17 +606,20 @@ void soundClose()
 // 0x49A688
 Sound* soundAllocate(int a1, int a2)
 {
+	Sound* sound;
+	WAVEFORMATEX* wfxFormat;
+
     if (!driverInit) {
         soundErrorno = SOUND_NOT_INITIALIZED;
         return NULL;
     }
 
-    Sound* sound = (Sound*)mallocPtr(sizeof(*sound));
+    sound = (Sound*)mallocPtr(sizeof(*sound));
     memset(sound, 0, sizeof(*sound));
 
     memcpy(&(sound->io), &defaultStream, sizeof(defaultStream));
 
-    WAVEFORMATEX* wfxFormat = (WAVEFORMATEX*)mallocPtr(sizeof(*wfxFormat));
+    wfxFormat = (WAVEFORMATEX*)mallocPtr(sizeof(*wfxFormat));
     memset(wfxFormat, 0, sizeof(*wfxFormat));
 
     wfxFormat->wFormatTag = 1;
@@ -1133,6 +1145,11 @@ int soundType(Sound* sound, int a2)
 // 0x49B188
 int soundLength(Sound* sound)
 {
+    int bytesPerSec;
+    int v3;
+    int v4;
+    int result;
+
     if (!driverInit) {
         soundErrorno = SOUND_NOT_INITIALIZED;
         return soundErrorno;
@@ -1143,10 +1160,10 @@ int soundLength(Sound* sound)
         return soundErrorno;
     }
 
-    int bytesPerSec = sound->directSoundBufferDescription.lpwfxFormat->nAvgBytesPerSec;
-    int v3 = sound->field_60;
-    int v4 = v3 % bytesPerSec;
-    int result = v3 / bytesPerSec;
+    bytesPerSec = sound->directSoundBufferDescription.lpwfxFormat->nAvgBytesPerSec;
+    v3 = sound->field_60;
+    v4 = v3 % bytesPerSec;
+    result = v3 / bytesPerSec;
     if (v4 != 0) {
         result += 1;
     }
@@ -1191,7 +1208,8 @@ int soundVolumeHMItoDirectSound(int volume)
     }
 
     if (volume != 0) {
-        normalizedVolume = -1000.0 * log2(32767.0 / volume);
+		//JASON was log2
+        normalizedVolume = -1000.0 * log(32767.0 / volume);
         normalizedVolume = max(min(normalizedVolume, 0.0), -10000.0);
     } else {
         normalizedVolume = -10000.0;
@@ -1530,6 +1548,8 @@ void soundMgrDelete(Sound* sound)
 // 0x49BAF8
 int soundSetMasterVolume(int volume)
 {
+	Sound* curr;
+
     if (volume < VOLUME_MIN || volume > VOLUME_MAX) {
         soundErrorno = SOUND_UNKNOWN_ERROR;
         return soundErrorno;
@@ -1537,7 +1557,7 @@ int soundSetMasterVolume(int volume)
 
     masterVol = volume;
 
-    Sound* curr = soundMgrList;
+    curr = soundMgrList;
     while (curr != NULL) {
         soundVolume(curr, curr->volume);
         curr = curr->next;
@@ -1570,6 +1590,9 @@ static void removeTimedEvent(unsigned int* timerId)
 // 0x49BBB4
 int soundGetPosition(Sound* sound)
 {
+    DWORD playPos;
+    DWORD writePos;
+
     if (!driverInit) {
         soundErrorno = SOUND_NOT_INITIALIZED;
         return soundErrorno;
@@ -1580,8 +1603,6 @@ int soundGetPosition(Sound* sound)
         return soundErrorno;
     }
 
-    DWORD playPos;
-    DWORD writePos;
     IDirectSoundBuffer_GetCurrentPosition(sound->directSoundBuffer, &playPos, &writePos);
 
     if ((sound->field_44 & 0x02) != 0) {
@@ -1614,12 +1635,15 @@ int soundSetPosition(Sound* sound, int a2)
     }
 
     if (sound->field_44 & 0x02) {
+		int bytes_read;
+		int v17;
+
         int v6 = a2 / sound->field_7C % sound->field_78;
 
         IDirectSoundBuffer_SetCurrentPosition(sound->directSoundBuffer, v6 * sound->field_7C + a2 % sound->field_7C);
 
         sound->io.seek(sound->io.fd, v6 * sound->field_7C, SEEK_SET);
-        int bytes_read = sound->io.read(sound->io.fd, sound->field_20, sound->field_7C);
+        bytes_read = sound->io.read(sound->io.fd, sound->field_20, sound->field_7C);
         if (bytes_read < sound->field_7C) {
             if (sound->field_44 & 0x02) {
                 sound->io.seek(sound->io.fd, 0, SEEK_SET);
@@ -1629,7 +1653,7 @@ int soundSetPosition(Sound* sound, int a2)
             }
         }
 
-        int v17 = v6 + 1;
+        v17 = v6 + 1;
         sound->field_64 = a2;
 
         if (v17 < sound->field_78) {
@@ -1730,6 +1754,7 @@ static void fadeSounds()
 static int internalSoundFade(Sound* sound, int duration, int targetVolume, int a4)
 {
     FadeSound* ptr;
+    bool v14;
 
     if (!deviceInit) {
         soundErrorno = SOUND_NOT_INITIALIZED;
@@ -1787,7 +1812,6 @@ static int internalSoundFade(Sound* sound, int duration, int targetVolume, int a
 
     sound->field_40 |= SOUND_FLAG_SOUND_IS_FADING;
 
-    bool v14;
     if (driverInit) {
         if (sound->directSoundBuffer != NULL) {
             v14 = (sound->field_40 & SOUND_FLAG_SOUND_IS_PLAYING) == 0;

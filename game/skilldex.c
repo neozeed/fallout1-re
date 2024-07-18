@@ -113,12 +113,14 @@ static int fontsave;
 // 0x499560
 int skilldex_select()
 {
+	int rc;
+
     if (skilldex_start() == -1) {
         debug_printf("\n ** Error loading skilldex dialog data! **\n");
         return -1;
     }
 
-    int rc = -1;
+    rc = -1;
     while (rc == -1) {
         int keyCode = get_input();
 
@@ -144,6 +146,24 @@ int skilldex_select()
 // 0x4995E4
 static int skilldex_start()
 {
+	char path[FILENAME_MAX];
+    int frmIndex;
+    bool cycle;
+    int buttonDataIndex;
+    unsigned char* data;
+    int size;
+	int index;
+	int skilldexWindowX, skilldexWindowY;
+	char* title;
+	int valueY,valueX;
+	int hundreds,tens,ones;
+	int lineHeight;
+    int buttonX,buttonY;
+    int nameX,nameY;
+	int btn;
+	int cancelBtn;
+	char* cancel;
+
     fontsave = text_curr();
     bk_enable = false;
 
@@ -154,14 +174,12 @@ static int skilldex_start()
         return -1;
     }
 
-    char path[FILENAME_MAX];
     sprintf(path, "%s%s", msg_path, "skilldex.msg");
 
     if (!message_load(&skldxmsg, path)) {
         return -1;
     }
 
-    int frmIndex;
     for (frmIndex = 0; frmIndex < SKILLDEX_FRM_COUNT; frmIndex++) {
         int fid = art_id(OBJ_TYPE_INTERFACE, grphfid[frmIndex], 0, 0, 0);
         skldxbmp[frmIndex] = art_lock(fid, &(grphkey[frmIndex]), &(ginfo[frmIndex].width), &(ginfo[frmIndex].height));
@@ -180,9 +198,9 @@ static int skilldex_start()
         return -1;
     }
 
-    bool cycle = false;
-    int buttonDataIndex;
-    for (buttonDataIndex = 0; buttonDataIndex < SKILLDEX_SKILL_BUTTON_BUFFER_COUNT; buttonDataIndex++) {
+    cycle = false;
+
+	for (buttonDataIndex = 0; buttonDataIndex < SKILLDEX_SKILL_BUTTON_BUFFER_COUNT; buttonDataIndex++) {
         skldxbtn[buttonDataIndex] = (unsigned char*)mem_malloc(ginfo[SKILLDEX_FRM_BUTTON_ON].height * ginfo[SKILLDEX_FRM_BUTTON_ON].width + 512);
         if (skldxbtn[buttonDataIndex] == NULL) {
             break;
@@ -191,8 +209,6 @@ static int skilldex_start()
         // NOTE: Original code uses bitwise XOR.
         cycle = !cycle;
 
-        unsigned char* data;
-        int size;
         if (cycle) {
             size = ginfo[SKILLDEX_FRM_BUTTON_OFF].width * ginfo[SKILLDEX_FRM_BUTTON_OFF].height;
             data = skldxbmp[SKILLDEX_FRM_BUTTON_OFF];
@@ -209,7 +225,7 @@ static int skilldex_start()
             mem_free(skldxbtn[buttonDataIndex]);
         }
 
-        for (int index = 0; index < SKILLDEX_FRM_COUNT; index++) {
+        for (index = 0; index < SKILLDEX_FRM_COUNT; index++) {
             art_ptr_unlock(grphkey[index]);
         }
 
@@ -218,8 +234,8 @@ static int skilldex_start()
         return -1;
     }
 
-    int skilldexWindowX = 640 - ginfo[SKILLDEX_FRM_BACKGROUND].width - SKILLDEX_WINDOW_RIGHT_MARGIN;
-    int skilldexWindowY = 480 - INTERFACE_BAR_HEIGHT - 1 - ginfo[SKILLDEX_FRM_BACKGROUND].height - SKILLDEX_WINDOW_BOTTOM_MARGIN;
+    skilldexWindowX = 640 - ginfo[SKILLDEX_FRM_BACKGROUND].width - SKILLDEX_WINDOW_RIGHT_MARGIN;
+    skilldexWindowY = 480 - INTERFACE_BAR_HEIGHT - 1 - ginfo[SKILLDEX_FRM_BACKGROUND].height - SKILLDEX_WINDOW_BOTTOM_MARGIN;
     skldxwin = win_add(skilldexWindowX,
         skilldexWindowY,
         ginfo[SKILLDEX_FRM_BACKGROUND].width,
@@ -227,11 +243,11 @@ static int skilldex_start()
         256,
         WINDOW_FLAG_0x10 | WINDOW_FLAG_0x02);
     if (skldxwin == -1) {
-        for (int index = 0; index < SKILLDEX_SKILL_BUTTON_BUFFER_COUNT; index++) {
+        for (index = 0; index < SKILLDEX_SKILL_BUTTON_BUFFER_COUNT; index++) {
             mem_free(skldxbtn[index]);
         }
 
-        for (int index = 0; index < SKILLDEX_FRM_COUNT; index++) {
+        for (index = 0; index < SKILLDEX_FRM_COUNT; index++) {
             art_ptr_unlock(grphkey[index]);
         }
 
@@ -253,7 +269,7 @@ static int skilldex_start()
     text_font(103);
 
     // Render "SKILLDEX" title.
-    char* title = getmsg(&skldxmsg, &mesg, 100);
+    title = getmsg(&skldxmsg, &mesg, 100);
     text_to_buf(winbuf + 14 * ginfo[SKILLDEX_FRM_BACKGROUND].width + 55,
         title,
         ginfo[SKILLDEX_FRM_BACKGROUND].width,
@@ -261,14 +277,14 @@ static int skilldex_start()
         colorTable[18979]);
 
     // Render skill values.
-    int valueY = 48;
-    for (int index = 0; index < SKILLDEX_SKILL_COUNT; index++) {
+    valueY = 48;
+    for (index = 0; index < SKILLDEX_SKILL_COUNT; index++) {
         int value = skill_level(obj_dude, sklxref[index]);
         if (value == -1) {
             value = 0;
         }
 
-        int hundreds = value / 100;
+        hundreds = value / 100;
         buf_to_buf(skldxbmp[SKILLDEX_FRM_BIG_NUMBERS] + 14 * hundreds,
             14,
             24,
@@ -276,7 +292,7 @@ static int skilldex_start()
             winbuf + ginfo[SKILLDEX_FRM_BACKGROUND].width * valueY + 110,
             ginfo[SKILLDEX_FRM_BACKGROUND].width);
 
-        int tens = (value % 100) / 10;
+        tens = (value % 100) / 10;
         buf_to_buf(skldxbmp[SKILLDEX_FRM_BIG_NUMBERS] + 14 * tens,
             14,
             24,
@@ -284,7 +300,7 @@ static int skilldex_start()
             winbuf + ginfo[SKILLDEX_FRM_BACKGROUND].width * valueY + 124,
             ginfo[SKILLDEX_FRM_BACKGROUND].width);
 
-        int ones = (value % 100) % 10;
+        ones = (value % 100) % 10;
         buf_to_buf(skldxbmp[SKILLDEX_FRM_BIG_NUMBERS] + 14 * ones,
             14,
             24,
@@ -296,15 +312,15 @@ static int skilldex_start()
     }
 
     // Render skill buttons.
-    int lineHeight = text_height();
+    lineHeight = text_height();
 
-    int buttonY = 45;
-    int nameY = ((ginfo[SKILLDEX_FRM_BUTTON_OFF].height - lineHeight) / 2) + 1;
-    for (int index = 0; index < SKILLDEX_SKILL_COUNT; index++) {
+    buttonY = 45;
+    nameY = ((ginfo[SKILLDEX_FRM_BUTTON_OFF].height - lineHeight) / 2) + 1;
+    for (index = 0; index < SKILLDEX_SKILL_COUNT; index++) {
         char name[MESSAGE_LIST_ITEM_FIELD_MAX_SIZE];
         strcpy(name, getmsg(&skldxmsg, &mesg, 102 + index));
 
-        int nameX = ((ginfo[SKILLDEX_FRM_BUTTON_OFF].width - text_width(name)) / 2) + 1;
+        nameX = ((ginfo[SKILLDEX_FRM_BUTTON_OFF].width - text_width(name)) / 2) + 1;
         if (nameX < 0) {
             nameX = 0;
         }
@@ -321,7 +337,7 @@ static int skilldex_start()
             ginfo[SKILLDEX_FRM_BUTTON_OFF].width,
             colorTable[14723]);
 
-        int btn = win_register_button(skldxwin,
+        btn = win_register_button(skldxwin,
             15,
             buttonY,
             ginfo[SKILLDEX_FRM_BUTTON_OFF].width,
@@ -342,14 +358,14 @@ static int skilldex_start()
     }
 
     // Render "CANCEL" button.
-    char* cancel = getmsg(&skldxmsg, &mesg, 101);
+    cancel = getmsg(&skldxmsg, &mesg, 101);
     text_to_buf(winbuf + ginfo[SKILLDEX_FRM_BACKGROUND].width * 337 + 72,
         cancel,
         ginfo[SKILLDEX_FRM_BACKGROUND].width,
         ginfo[SKILLDEX_FRM_BACKGROUND].width,
         colorTable[18979]);
 
-    int cancelBtn = win_register_button(skldxwin,
+    cancelBtn = win_register_button(skldxwin,
         48,
         338,
         ginfo[SKILLDEX_FRM_LITTLE_RED_BUTTON_UP].width,
@@ -374,13 +390,14 @@ static int skilldex_start()
 // 0x499C0C
 static void skilldex_end()
 {
+	int index;
     win_delete(skldxwin);
 
-    for (int index = 0; index < SKILLDEX_SKILL_BUTTON_BUFFER_COUNT; index++) {
+    for (index = 0; index < SKILLDEX_SKILL_BUTTON_BUFFER_COUNT; index++) {
         mem_free(skldxbtn[index]);
     }
 
-    for (int index = 0; index < SKILLDEX_FRM_COUNT; index++) {
+    for (index = 0; index < SKILLDEX_FRM_COUNT; index++) {
         art_ptr_unlock(grphkey[index]);
     }
 

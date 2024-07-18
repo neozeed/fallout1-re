@@ -95,6 +95,11 @@ int main_menu_create()
     int fid;
     MessageListItem msg;
     int len;
+	int mainMenuWindowX, mainMenuWindowY;
+	int backgroundFid;
+	int oldFont;
+    char version[VERSION_MAX];
+	int index;
 
     if (main_menu_created) {
         return 0;
@@ -102,8 +107,8 @@ int main_menu_create()
 
     loadColorTable("color.pal");
 
-    int mainMenuWindowX = 0;
-    int mainMenuWindowY = 0;
+    mainMenuWindowX = 0;
+    mainMenuWindowY = 0;
     main_window = win_add(mainMenuWindowX,
         mainMenuWindowY,
         MAIN_MENU_WINDOW_WIDTH,
@@ -118,7 +123,7 @@ int main_menu_create()
     main_window_buf = win_get_buf(main_window);
 
     // mainmenu.frm
-    int backgroundFid = art_id(OBJ_TYPE_INTERFACE, 140, 0, 0, 0);
+    backgroundFid = art_id(OBJ_TYPE_INTERFACE, 140, 0, 0, 0);
     background_data = art_ptr_lock_data(backgroundFid, 0, 0, &background_key);
     if (background_data == NULL) {
         // NOTE: Uninline.
@@ -132,7 +137,7 @@ int main_menu_create()
         MAIN_MENU_WINDOW_WIDTH);
     art_ptr_unlock(background_key);
 
-    int oldFont = text_curr();
+    oldFont = text_curr();
     text_font(100);
 
     // Copyright.
@@ -142,7 +147,6 @@ int main_menu_create()
     }
 
     // Version.
-    char version[VERSION_MAX];
     getverstr(version);
     len = text_width(version);
     win_print(main_window, version, 0, 615 - len, 460, colorTable[21204] | 0x4000000 | 0x2000000);
@@ -163,11 +167,11 @@ int main_menu_create()
         return main_menu_fatal_error();
     }
 
-    for (int index = 0; index < MAIN_MENU_BUTTON_COUNT; index++) {
+    for (index = 0; index < MAIN_MENU_BUTTON_COUNT; index++) {
         buttons[index] = -1;
     }
 
-    for (int index = 0; index < MAIN_MENU_BUTTON_COUNT; index++) {
+    for (index = 0; index < MAIN_MENU_BUTTON_COUNT; index++) {
         buttons[index] = win_register_button(main_window,
             425,
             index * 42 - index + 45,
@@ -191,7 +195,7 @@ int main_menu_create()
 
     text_font(104);
 
-    for (int index = 0; index < MAIN_MENU_BUTTON_COUNT; index++) {
+    for (index = 0; index < MAIN_MENU_BUTTON_COUNT; index++) {
         msg.num = 9 + index;
         if (message_search(&misc_message_file, &msg)) {
             len = text_width(msg.text);
@@ -214,11 +218,12 @@ int main_menu_create()
 // 0x473298
 void main_menu_destroy()
 {
+	int index;
     if (!main_menu_created) {
         return;
     }
 
-    for (int index = 0; index < MAIN_MENU_BUTTON_COUNT; index++) {
+    for (index = 0; index < MAIN_MENU_BUTTON_COUNT; index++) {
         // FIXME: Why it tries to free only invalid buttons?
         if (buttons[index] == -1) {
             win_delete_button(buttons[index]);
@@ -315,20 +320,25 @@ unsigned int main_menu_get_timeout()
 // 0x47341C
 int main_menu_loop()
 {
+	bool oldCursorIsHidden;
+	unsigned int tick;
+	int rc;
+
     in_main_menu = true;
 
-    bool oldCursorIsHidden = mouse_hidden();
+    oldCursorIsHidden = mouse_hidden();
     if (oldCursorIsHidden) {
         mouse_show();
     }
 
-    unsigned int tick = get_time();
+    tick = get_time();
 
-    int rc = -1;
+    rc = -1;
     while (rc == -1) {
+		int buttonIndex;
         int keyCode = get_input();
 
-        for (int buttonIndex = 0; buttonIndex < MAIN_MENU_BUTTON_COUNT; buttonIndex++) {
+        for (buttonIndex = 0; buttonIndex < MAIN_MENU_BUTTON_COUNT; buttonIndex++) {
             if (keyCode == button_values[buttonIndex] || keyCode == toupper(button_values[buttonIndex])) {
                 // NOTE: Uninline.
                 main_menu_play_sound("nmselec1");

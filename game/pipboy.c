@@ -595,6 +595,14 @@ int pipboy(int intent)
 // 0x486C5C
 static int StartPipboy(int intent)
 {
+    char path[MAX_PATH];
+    int index;
+	int pipboyWindowX,pipboyWindowY;
+	int alarmButton;
+	int y;
+    int eventCode;
+
+
     bk_enable = map_disable_bk_processes();
 
     cycle_disable();
@@ -616,14 +624,12 @@ static int StartPipboy(int intent)
         return -1;
     }
 
-    char path[MAX_PATH];
     sprintf(path, "%s%s", msg_path, "pipboy.msg");
 
     if (!(message_load(&pipboy_message_file, path))) {
         return -1;
     }
 
-    int index;
     for (index = 0; index < PIPBOY_FRM_COUNT; index++) {
         int fid = art_id(OBJ_TYPE_INTERFACE, pipgrphs[index], 0, 0, 0);
         pipbmp[index] = art_lock(fid, &(grphkey[index]), &(ginfo[index].width), &(ginfo[index].height));
@@ -642,12 +648,13 @@ static int StartPipboy(int intent)
         return -1;
     }
 
-    int pipboyWindowX = 0;
-    int pipboyWindowY = 0;
+    pipboyWindowX = 0;
+    pipboyWindowY = 0;
     pip_win = win_add(pipboyWindowX, pipboyWindowY, PIPBOY_WINDOW_WIDTH, PIPBOY_WINDOW_HEIGHT, colorTable[0], WINDOW_FLAG_0x10);
     if (pip_win == -1) {
+		int index;
         debug_printf("\n** Error opening pipboy window! **\n");
-        for (int index = 0; index < PIPBOY_FRM_COUNT; index++) {
+        for (index = 0; index < PIPBOY_FRM_COUNT; index++) {
             art_ptr_unlock(grphkey[index]);
         }
         return -1;
@@ -660,7 +667,7 @@ static int StartPipboy(int intent)
     pip_num(game_time_hour(), 4, PIPBOY_WINDOW_TIME_X, PIPBOY_WINDOW_TIME_Y);
     pip_date();
 
-    int alarmButton = win_register_button(pip_win,
+    alarmButton = win_register_button(pip_win,
         124,
         13,
         ginfo[PIPBOY_FRM_ALARM_UP].width,
@@ -677,9 +684,9 @@ static int StartPipboy(int intent)
         win_register_button_sound_func(alarmButton, gsound_med_butt_press, gsound_med_butt_release);
     }
 
-    int y = 341;
-    int eventCode = 500;
-    for (int index = 0; index < 5; index += 1) {
+    y = 341;
+    eventCode = 500;
+    for (index = 0; index < 5; index += 1) {
         if (index != 1) {
             int btn = win_register_button(pip_win,
                 53,
@@ -706,6 +713,12 @@ static int StartPipboy(int intent)
 
     if (intent == PIPBOY_OPEN_INTENT_REST) {
         if (!critter_can_obj_dude_rest()) {
+			int month;
+            int day;
+            int year;
+			int holiday;
+			char *text;
+
             trans_buf_to_buf(
                 pipbmp[PIPBOY_FRM_LOGO],
                 ginfo[PIPBOY_FRM_LOGO].width,
@@ -714,13 +727,10 @@ static int StartPipboy(int intent)
                 scrn_buf + PIPBOY_WINDOW_WIDTH * 156 + 323,
                 PIPBOY_WINDOW_WIDTH);
 
-            int month;
-            int day;
-            int year;
+
             game_time_date(&month, &day, &year);
 
-            int holiday = 0;
-            for (; holiday < HOLIDAY_COUNT; holiday += 1) {
+            for (holiday = 0; holiday < HOLIDAY_COUNT; holiday += 1) {
                 const HolidayDescription* holidayDescription = &(SpclDate[holiday]);
                 if (holidayDescription->month == month && holidayDescription->day == day) {
                     break;
@@ -728,12 +738,13 @@ static int StartPipboy(int intent)
             }
 
             if (holiday != HOLIDAY_COUNT) {
+				int len;
                 const HolidayDescription* holidayDescription = &(SpclDate[holiday]);
                 const char* holidayName = getmsg(&pipboy_message_file, &pipmesg, holidayDescription->textId);
                 char holidayNameCopy[256];
                 strcpy(holidayNameCopy, holidayName);
 
-                int len = text_width(holidayNameCopy);
+                len = text_width(holidayNameCopy);
                 text_to_buf(scrn_buf + PIPBOY_WINDOW_WIDTH * (ginfo[PIPBOY_FRM_LOGO].height + 174) + 6 + ginfo[PIPBOY_FRM_LOGO].width / 2 + 323 - len / 2,
                     holidayNameCopy,
                     350,
@@ -745,12 +756,16 @@ static int StartPipboy(int intent)
 
             gsound_play_sfx_file("iisxxxx1");
 
-            const char* text = getmsg(&pipboy_message_file, &pipmesg, 215);
+            text = getmsg(&pipboy_message_file, &pipmesg, 215);
             dialog_out(text, NULL, 0, 192, 135, colorTable[32328], 0, colorTable[32328], DIALOG_BOX_LARGE);
 
             intent = PIPBOY_OPEN_INTENT_UNSPECIFIED;
         }
     } else {
+		int month;
+        int day;
+        int year;
+		int holiday;
         trans_buf_to_buf(
             pipbmp[PIPBOY_FRM_LOGO],
             ginfo[PIPBOY_FRM_LOGO].width,
@@ -759,12 +774,8 @@ static int StartPipboy(int intent)
             scrn_buf + PIPBOY_WINDOW_WIDTH * 156 + 323,
             PIPBOY_WINDOW_WIDTH);
 
-        int month;
-        int day;
-        int year;
         game_time_date(&month, &day, &year);
 
-        int holiday;
         for (holiday = 0; holiday < HOLIDAY_COUNT; holiday += 1) {
             const HolidayDescription* holidayDescription = &(SpclDate[holiday]);
             if (holidayDescription->month == month && holidayDescription->day == day) {
@@ -773,12 +784,13 @@ static int StartPipboy(int intent)
         }
 
         if (holiday != HOLIDAY_COUNT) {
+			int length;
             const HolidayDescription* holidayDescription = &(SpclDate[holiday]);
             const char* holidayName = getmsg(&pipboy_message_file, &pipmesg, holidayDescription->textId);
             char holidayNameCopy[256];
             strcpy(holidayNameCopy, holidayName);
 
-            int length = text_width(holidayNameCopy);
+            length = text_width(holidayNameCopy);
             text_to_buf(scrn_buf + PIPBOY_WINDOW_WIDTH * (ginfo[PIPBOY_FRM_LOGO].height + 174) + 6 + ginfo[PIPBOY_FRM_LOGO].width / 2 + 323 - length / 2,
                 holidayNameCopy,
                 350,
@@ -798,6 +810,7 @@ static int StartPipboy(int intent)
 // 0x487218
 static void EndPipboy()
 {
+	int index;
     bool showScriptMessages = false;
     configGetBool(&game_config, GAME_CONFIG_DEBUG_KEY, GAME_CONFIG_SHOW_SCRIPT_MESSAGES_KEY, &showScriptMessages);
 
@@ -811,7 +824,7 @@ static void EndPipboy()
 
     message_exit(&pipboy_message_file);
 
-    for (int index = 0; index < PIPBOY_FRM_COUNT; index++) {
+    for (index = 0; index < PIPBOY_FRM_COUNT; index++) {
         art_ptr_unlock(grphkey[index]);
     }
 
@@ -861,9 +874,10 @@ static void pip_days_left(int days)
 // 0x487340
 static void pip_num(int value, int digits, int x, int y)
 {
+	int index;
     int offset = PIPBOY_WINDOW_WIDTH * y + x + 9 * (digits - 1);
 
-    for (int index = 0; index < digits; index++) {
+    for (index = 0; index < digits; index++) {
         buf_to_buf(pipbmp[PIPBOY_FRM_NUMBERS] + 9 * (value % 10), 9, 17, 360, scrn_buf + offset, PIPBOY_WINDOW_WIDTH);
         offset -= 9;
         value /= 10;
@@ -888,16 +902,17 @@ static void pip_date()
 // 0x487464
 static void pip_print(const char* text, int flags, int color)
 {
+	int left,length;
     if ((flags & PIPBOY_TEXT_STYLE_UNDERLINE) != 0) {
         color |= FONT_UNDERLINE;
     }
 
-    int left = 8;
+    left = 8;
     if ((flags & PIPBOY_TEXT_NO_INDENT) != 0) {
         left -= 7;
     }
 
-    int length = text_width(text);
+    length = text_width(text);
 
     if ((flags & PIPBOY_TEXT_ALIGNMENT_CENTER) != 0) {
         left = (350 - length) / 2;
@@ -924,6 +939,7 @@ static void pip_print(const char* text, int flags, int color)
 // 0x487588
 static void pip_back(int color)
 {
+	char* text;
     if (bottom_line >= 0) {
         cursor_line = bottom_line;
     }
@@ -931,7 +947,7 @@ static void pip_back(int color)
     buf_to_buf(pipbmp[PIPBOY_FRM_BACKGROUND] + PIPBOY_WINDOW_WIDTH * 436 + 254, 350, 20, PIPBOY_WINDOW_WIDTH, scrn_buf + PIPBOY_WINDOW_WIDTH * 436 + 254, PIPBOY_WINDOW_WIDTH);
 
     // BACK
-    const char* text = getmsg(&pipboy_message_file, &pipmesg, 201);
+    text = getmsg(&pipboy_message_file, &pipmesg, 201);
     pip_print(text, PIPBOY_TEXT_ALIGNMENT_CENTER, color);
 }
 
@@ -950,6 +966,12 @@ int load_pipboy(DB_FILE* stream)
 // 0x4875FC
 static void PipStatus(int a1)
 {
+	int quest;
+	int v13 = 0;
+    int location = 0;
+	int index;
+	int number;
+
     if (a1 == 1024) {
         NixHotLines();
         buf_to_buf(pipbmp[PIPBOY_FRM_BACKGROUND] + PIPBOY_WINDOW_WIDTH * PIPBOY_WINDOW_CONTENT_VIEW_Y + PIPBOY_WINDOW_CONTENT_VIEW_X,
@@ -968,7 +990,7 @@ static void PipStatus(int a1)
         view_page = 0;
         stat_flag = 0;
 
-        for (int index = 0; index < HOLODISK_COUNT; index += 1) {
+        for (index = 0; index < HOLODISK_COUNT; index += 1) {
             if (game_global_vars[holodisks[index]] != 0) {
                 holocount += 1;
                 break;
@@ -1006,11 +1028,11 @@ static void PipStatus(int a1)
             stat_flag = 1;
         } else {
             if (holocount != 0 && holocount >= a1 && mouse_x > 429) {
+				int index;
                 gsound_play_sfx_file("ib1p1xx1");
                 holodisk = 0;
 
-                int index = 0;
-                for (; index < HOLODISK_COUNT; index += 1) {
+                for (index = 0; index < HOLODISK_COUNT; index += 1) {
                     if (game_global_vars[holodisks[index]] > 0) {
                         if (a1 - 1 == holodisk) {
                             break;
@@ -1046,6 +1068,8 @@ static void PipStatus(int a1)
         if ((mouse_x > 459 && a1 != 1027) || a1 == 1026) {
             if (holopages <= view_page) {
                 if (a1 != 1026) {
+					char* text1;
+					char* text2;
                     gsound_play_sfx_file("ib1p1xx1");
                     buf_to_buf(pipbmp[PIPBOY_FRM_BACKGROUND] + PIPBOY_WINDOW_WIDTH * 436 + 254, 350, 20, PIPBOY_WINDOW_WIDTH, scrn_buf + PIPBOY_WINDOW_WIDTH * 436 + 254, PIPBOY_WINDOW_WIDTH);
 
@@ -1054,7 +1078,7 @@ static void PipStatus(int a1)
                     }
 
                     // Back
-                    const char* text1 = getmsg(&pipboy_message_file, &pipmesg, 201);
+                    text1 = getmsg(&pipboy_message_file, &pipmesg, 201);
                     pip_print(text1, PIPBOY_TEXT_ALIGNMENT_LEFT_COLUMN_CENTER, colorTable[992]);
 
                     if (bottom_line >= 0) {
@@ -1062,7 +1086,7 @@ static void PipStatus(int a1)
                     }
 
                     // Done
-                    const char* text2 = getmsg(&pipboy_message_file, &pipmesg, 214);
+                    text2 = getmsg(&pipboy_message_file, &pipmesg, 214);
                     pip_print(text2, PIPBOY_TEXT_ALIGNMENT_RIGHT_COLUMN_CENTER, colorTable[992]);
 
                     win_draw_rect(pip_win, &pip_rect);
@@ -1070,6 +1094,8 @@ static void PipStatus(int a1)
                     PipStatus(1024);
                 }
             } else {
+				char* text1;
+				char* text2;
                 gsound_play_sfx_file("ib1p1xx1");
                 buf_to_buf(pipbmp[PIPBOY_FRM_BACKGROUND] + PIPBOY_WINDOW_WIDTH * 436 + 254, 350, 20, PIPBOY_WINDOW_WIDTH, scrn_buf + PIPBOY_WINDOW_WIDTH * 436 + 254, PIPBOY_WINDOW_WIDTH);
 
@@ -1078,7 +1104,7 @@ static void PipStatus(int a1)
                 }
 
                 // Back
-                const char* text1 = getmsg(&pipboy_message_file, &pipmesg, 201);
+                text1 = getmsg(&pipboy_message_file, &pipmesg, 201);
                 pip_print(text1, PIPBOY_TEXT_ALIGNMENT_LEFT_COLUMN_CENTER, colorTable[992]);
 
                 if (bottom_line >= 0) {
@@ -1086,7 +1112,7 @@ static void PipStatus(int a1)
                 }
 
                 // More
-                const char* text2 = getmsg(&pipboy_message_file, &pipmesg, 200);
+                text2 = getmsg(&pipboy_message_file, &pipmesg, 200);
                 pip_print(text2, PIPBOY_TEXT_ALIGNMENT_RIGHT_COLUMN_CENTER, colorTable[992]);
 
                 win_draw_rect(pip_win, &pip_rect);
@@ -1100,6 +1126,8 @@ static void PipStatus(int a1)
         }
 
         if (a1 == 1027) {
+			char* text1;
+			char* text2;
             gsound_play_sfx_file("ib1p1xx1");
             buf_to_buf(pipbmp[PIPBOY_FRM_BACKGROUND] + PIPBOY_WINDOW_WIDTH * 436 + 254, 350, 20, PIPBOY_WINDOW_WIDTH, scrn_buf + PIPBOY_WINDOW_WIDTH * 436 + 254, PIPBOY_WINDOW_WIDTH);
 
@@ -1108,7 +1136,7 @@ static void PipStatus(int a1)
             }
 
             // Back
-            const char* text1 = getmsg(&pipboy_message_file, &pipmesg, 201);
+            text1 = getmsg(&pipboy_message_file, &pipmesg, 201);
             pip_print(text1, PIPBOY_TEXT_ALIGNMENT_LEFT_COLUMN_CENTER, colorTable[992]);
 
             if (bottom_line >= 0) {
@@ -1116,7 +1144,7 @@ static void PipStatus(int a1)
             }
 
             // More
-            const char* text2 = getmsg(&pipboy_message_file, &pipmesg, 200);
+            text2 = getmsg(&pipboy_message_file, &pipmesg, 200);
             pip_print(text2, PIPBOY_TEXT_ALIGNMENT_RIGHT_COLUMN_CENTER, colorTable[992]);
 
             win_draw_rect(pip_win, &pip_rect);
@@ -1129,6 +1157,8 @@ static void PipStatus(int a1)
                 return;
             }
         } else {
+			char* text1;
+			char* text2;
             if (mouse_x > 395) {
                 return;
             }
@@ -1141,7 +1171,7 @@ static void PipStatus(int a1)
             }
 
             // Back
-            const char* text1 = getmsg(&pipboy_message_file, &pipmesg, 201);
+            text1 = getmsg(&pipboy_message_file, &pipmesg, 201);
             pip_print(text1, PIPBOY_TEXT_ALIGNMENT_LEFT_COLUMN_CENTER, colorTable[992]);
 
             if (bottom_line >= 0) {
@@ -1149,7 +1179,7 @@ static void PipStatus(int a1)
             }
 
             // More
-            const char* text2 = getmsg(&pipboy_message_file, &pipmesg, 200);
+            text2 = getmsg(&pipboy_message_file, &pipmesg, 200);
             pip_print(text2, PIPBOY_TEXT_ALIGNMENT_RIGHT_COLUMN_CENTER, colorTable[992]);
 
             win_draw_rect(pip_win, &pip_rect);
@@ -1176,17 +1206,23 @@ static void PipStatus(int a1)
     }
 
     if (a1 <= statcount) {
+        char formattedText[1024];
+		char* text1;
+		char* text2;
+		int quest;
+		int value;
+
         gsound_play_sfx_file("ib1p1xx1");
 
-        int v13 = 0;
-        int location = 0;
+
         for (; location < QUEST_LOCATION_COUNT && v13 != -1; location++) {
-            for (int quest = 0; quest < QUEST_PER_LOCATION_COUNT; quest++) {
+            for (quest = 0; quest < QUEST_PER_LOCATION_COUNT; quest++) {
+				int value;
                 if (sthreads[location][quest] == 0) {
                     break;
                 }
 
-                int value = game_global_vars[sthreads[location][quest]];
+                value = game_global_vars[sthreads[location][quest]];
                 if (sthreads[location][quest] == GVAR_FIND_WATER_CHIP) {
                     value = 1;
                 }
@@ -1212,23 +1248,23 @@ static void PipStatus(int a1)
 
         AddHotLines(0, 0, true);
 
-        const char* text1 = getmsg(&pipboy_message_file, &pipmesg, 210);
-        const char* text2 = getmsg(&pipboy_message_file, &pipmesg, 700 + 10 * location);
-        char formattedText[1024];
-        sprintf(formattedText, "%s %s", text2, text1);
+        text1 = getmsg(&pipboy_message_file, &pipmesg, 210);
+        text2 = getmsg(&pipboy_message_file, &pipmesg, 700 + 10 * location);
+
+		sprintf(formattedText, "%s %s", text2, text1);
         pip_print(formattedText, PIPBOY_TEXT_STYLE_UNDERLINE, colorTable[992]);
 
         if (bottom_line >= 3) {
             cursor_line = 3;
         }
 
-        int number = 1;
-        for (int quest = 0; quest < QUEST_PER_LOCATION_COUNT; quest++) {
+        number = 1;
+        for (quest = 0; quest < QUEST_PER_LOCATION_COUNT; quest++) {
             if (sthreads[location][quest] == 0) {
                 break;
             }
 
-            int value = game_global_vars[sthreads[location][quest]];
+            value = game_global_vars[sthreads[location][quest]];
             if (sthreads[location][quest] == GVAR_FIND_WATER_CHIP) {
                 if (value > 1) {
                     value = 2;
@@ -1238,22 +1274,25 @@ static void PipStatus(int a1)
             }
 
             if (value > 0) {
+				short beginnings[WORD_WRAP_MAX_COUNT];
+                short count;
                 const char* text = getmsg(&pipboy_message_file, &pipmesg, 701 + 10 * location + quest);
                 char formattedText[1024];
+
                 sprintf(formattedText, "%d. %s", number, text);
                 number += 1;
 
-                short beginnings[WORD_WRAP_MAX_COUNT];
-                short count;
                 if (word_wrap(formattedText, 350, beginnings, &count) == 0) {
-                    for (int line = 0; line < count - 1; line += 1) {
+					int line;
+                    for (line = 0; line < count - 1; line += 1) {
+						int flags;
+                        int color;
                         char* beginning = formattedText + beginnings[line];
                         char* ending = formattedText + beginnings[line + 1];
                         char c = *ending;
                         *ending = '\0';
 
-                        int flags;
-                        int color;
+
                         if (value == 1) {
                             flags = 0;
                             color = colorTable[992];
@@ -1284,15 +1323,19 @@ static void PipStatus(int a1)
 // 0x4880FC
 static void ListStatLines(int a1)
 {
+	int flags;
+	char* statusText;
+	int location;
+
     if (bottom_line >= 0) {
         cursor_line = 0;
     }
 
-    int flags = holocount != 0 ? PIPBOY_TEXT_ALIGNMENT_LEFT_COLUMN_CENTER : PIPBOY_TEXT_ALIGNMENT_CENTER;
+    flags = holocount != 0 ? PIPBOY_TEXT_ALIGNMENT_LEFT_COLUMN_CENTER : PIPBOY_TEXT_ALIGNMENT_CENTER;
     flags |= PIPBOY_TEXT_STYLE_UNDERLINE;
 
     // STATUS
-    const char* statusText = getmsg(&pipboy_message_file, &pipmesg, 202);
+    statusText = getmsg(&pipboy_message_file, &pipmesg, 202);
     pip_print(statusText, flags, colorTable[992]);
 
     if (bottom_line >= 2) {
@@ -1301,8 +1344,9 @@ static void ListStatLines(int a1)
 
     statcount = 0;
 
-    for (int location = 0; location < QUEST_LOCATION_COUNT; location += 1) {
-        for (int quest = 0; quest < 9; quest++) {
+    for (location = 0; location < QUEST_LOCATION_COUNT; location += 1) {
+		int quest;
+        for (quest = 0; quest < 9; quest++) {
             int value = game_global_vars[sthreads[location][quest]];
             if (sthreads[location][quest] == GVAR_FIND_WATER_CHIP) {
                 value = 1;
@@ -1327,6 +1371,12 @@ static void ListStatLines(int a1)
 // 0x488254
 static void ShowHoloDisk()
 {
+	int holodiskTextId;
+	int moreOrDoneTextId;
+    int linesCount = 0;
+	int line;
+	char* moreOrDoneText;
+
     buf_to_buf(pipbmp[PIPBOY_FRM_BACKGROUND] + PIPBOY_WINDOW_WIDTH * PIPBOY_WINDOW_CONTENT_VIEW_Y + PIPBOY_WINDOW_CONTENT_VIEW_X,
         PIPBOY_WINDOW_CONTENT_VIEW_WIDTH,
         PIPBOY_WINDOW_CONTENT_VIEW_HEIGHT,
@@ -1338,8 +1388,7 @@ static void ShowHoloDisk()
         cursor_line = 0;
     }
 
-    int holodiskTextId;
-    int linesCount = 0;
+
 
     holopages = 0;
 
@@ -1394,12 +1443,13 @@ static void ShowHoloDisk()
     }
 
     if (holopages != 0) {
+		int len;
         // of
         const char* of = getmsg(&pipboy_message_file, &pipmesg, 212);
         char formattedText[60]; // TODO: Size is probably wrong.
         sprintf(formattedText, "%d %s %d", view_page + 1, of, holopages + 1);
 
-        int len = text_width(of);
+        len = text_width(of);
         text_to_buf(scrn_buf + PIPBOY_WINDOW_WIDTH * 47 + 616 + 604 - len, formattedText, 350, PIPBOY_WINDOW_WIDTH, colorTable[992]);
     }
 
@@ -1407,7 +1457,7 @@ static void ShowHoloDisk()
         cursor_line = 3;
     }
 
-    for (int line = 0; line < PIPBOY_HOLODISK_LINES_MAX; line += 1) {
+    for (line = 0; line < PIPBOY_HOLODISK_LINES_MAX; line += 1) {
         const char* text = getmsg(&pipboy_message_file, &pipmesg, holodiskTextId);
         if (strcmp(text, "**END-DISK**") == 0) {
             break;
@@ -1422,13 +1472,13 @@ static void ShowHoloDisk()
         holodiskTextId += 1;
     }
 
-    int moreOrDoneTextId;
     if (holopages <= view_page) {
+		char* back;
         if (bottom_line >= 0) {
             cursor_line = bottom_line;
         }
 
-        const char* back = getmsg(&pipboy_message_file, &pipmesg, 201);
+        back = getmsg(&pipboy_message_file, &pipmesg, 201);
         pip_print(back, PIPBOY_TEXT_ALIGNMENT_LEFT_COLUMN_CENTER, colorTable[992]);
 
         if (bottom_line >= 0) {
@@ -1437,11 +1487,12 @@ static void ShowHoloDisk()
 
         moreOrDoneTextId = 214;
     } else {
+		char* back;
         if (bottom_line >= 0) {
             cursor_line = bottom_line;
         }
 
-        const char* back = getmsg(&pipboy_message_file, &pipmesg, 201);
+        back = getmsg(&pipboy_message_file, &pipmesg, 201);
         pip_print(back, PIPBOY_TEXT_ALIGNMENT_LEFT_COLUMN_CENTER, colorTable[992]);
 
         if (bottom_line >= 0) {
@@ -1451,7 +1502,7 @@ static void ShowHoloDisk()
         moreOrDoneTextId = 200;
     }
 
-    const char* moreOrDoneText = getmsg(&pipboy_message_file, &pipmesg, moreOrDoneTextId);
+    moreOrDoneText = getmsg(&pipboy_message_file, &pipmesg, moreOrDoneTextId);
     pip_print(moreOrDoneText, PIPBOY_TEXT_ALIGNMENT_RIGHT_COLUMN_CENTER, colorTable[992]);
     win_draw(pip_win);
 }
@@ -1459,21 +1510,24 @@ static void ShowHoloDisk()
 // 0x4885E0
 static int ListHoloDiskTitles(int a1)
 {
+	int index;
+    int knownHolodisksCount = 0;
+
     if (bottom_line >= 2) {
         cursor_line = 2;
     }
 
-    int knownHolodisksCount = 0;
-    for (int index = 0; index < HOLODISK_COUNT; index++) {
+    for (index = 0; index < HOLODISK_COUNT; index++) {
         if (game_global_vars[holodisks[index]] != 0) {
             int color;
+			char* text;
             if ((cursor_line - 2) / 2 == a1) {
                 color = colorTable[32747];
             } else {
                 color = colorTable[992];
             }
 
-            const char* text = getmsg(&pipboy_message_file, &pipmesg, 400 + index);
+            text = getmsg(&pipboy_message_file, &pipmesg, 400 + index);
             pip_print(text, PIPBOY_TEXT_ALIGNMENT_RIGHT_COLUMN, color);
 
             cursor_line++;
@@ -1482,11 +1536,12 @@ static int ListHoloDiskTitles(int a1)
     }
 
     if (knownHolodisksCount != 0) {
+		char* text;
         if (bottom_line >= 0) {
             cursor_line = 0;
         }
 
-        const char* text = getmsg(&pipboy_message_file, &pipmesg, 211); // DATA
+        text = getmsg(&pipboy_message_file, &pipmesg, 211); // DATA
         pip_print(text, PIPBOY_TEXT_ALIGNMENT_RIGHT_COLUMN_CENTER | PIPBOY_TEXT_STYLE_UNDERLINE, colorTable[992]);
     }
 
@@ -1506,6 +1561,7 @@ static int qscmp(const void* a1, const void* a2)
 static void PipAutomaps(int a1)
 {
     if (a1 == 1024) {
+		char* title;
         NixHotLines();
         buf_to_buf(pipbmp[PIPBOY_FRM_BACKGROUND] + PIPBOY_WINDOW_WIDTH * PIPBOY_WINDOW_CONTENT_VIEW_Y + PIPBOY_WINDOW_CONTENT_VIEW_X,
             PIPBOY_WINDOW_CONTENT_VIEW_WIDTH,
@@ -1518,7 +1574,7 @@ static void PipAutomaps(int a1)
             cursor_line = 0;
         }
 
-        const char* title = getmsg(&pipboy_message_file, &pipmesg, 205);
+        title = getmsg(&pipboy_message_file, &pipmesg, 205);
         pip_print(title, PIPBOY_TEXT_ALIGNMENT_CENTER | PIPBOY_TEXT_STYLE_UNDERLINE, colorTable[992]);
 
         actcnt = PrintAMList(-1);
@@ -1563,13 +1619,19 @@ static void PipAutomaps(int a1)
 // 0x4888C0
 static int PrintAMelevList(int a1)
 {
+    int line = 0;
+	int elevation,map;
+	char* msg;
+	char* name;
+	int selectedPipboyLine;
+	int index;
+
     AutomapHeader* automapHeader;
     if (ReadAMList(&automapHeader) == -1) {
         return -1;
     }
 
-    int line = 0;
-    for (int elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+    for (elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
         if (automapHeader->offsets[amcty_indx][elevation] > 0) {
             sortlist[line].name = map_get_elev_idx(amcty_indx, elevation);
             sortlist[line].value = elevation;
@@ -1578,7 +1640,8 @@ static int PrintAMelevList(int a1)
         }
     }
 
-    for (int map = 0; map < 5; map++) {
+    for (map = 0; map < 5; map++) {
+		int elevation;
         if (map == amcty_indx) {
             continue;
         }
@@ -1587,7 +1650,7 @@ static int PrintAMelevList(int a1)
             continue;
         }
 
-        for (int elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+        for (elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
             if (automapHeader->offsets[map][elevation] > 0) {
                 sortlist[line].name = map_get_elev_idx(map, elevation);
                 sortlist[line].value = elevation;
@@ -1608,23 +1671,23 @@ static int PrintAMelevList(int a1)
         cursor_line = 0;
     }
 
-    const char* msg = getmsg(&pipboy_message_file, &pipmesg, 205);
+    msg = getmsg(&pipboy_message_file, &pipmesg, 205);
     pip_print(msg, PIPBOY_TEXT_ALIGNMENT_CENTER | PIPBOY_TEXT_STYLE_UNDERLINE, colorTable[992]);
 
     if (bottom_line >= 2) {
         cursor_line = 2;
     }
 
-    const char* name = map_get_description_idx(amcty_indx);
+    name = map_get_description_idx(amcty_indx);
     pip_print(name, PIPBOY_TEXT_ALIGNMENT_CENTER, colorTable[992]);
 
     if (bottom_line >= 4) {
         cursor_line = 4;
     }
 
-    int selectedPipboyLine = (a1 - 1) * 2;
+    selectedPipboyLine = (a1 - 1) * 2;
 
-    for (int index = 0; index < line; index++) {
+    for (index = 0; index < line; index++) {
         int color;
         if (cursor_line - 4 == selectedPipboyLine) {
             color = colorTable[32747];
@@ -1644,15 +1707,16 @@ static int PrintAMelevList(int a1)
 // 0x488AE4
 static int PrintAMList(int a1)
 {
+    int count = 0;
+    int index = 0;
+	int map;
+
     AutomapHeader* automapHeader;
     if (ReadAMList(&automapHeader) == -1) {
         return -1;
     }
 
-    int count = 0;
-    int index = 0;
-
-    for (int map = 0; map < MAP_COUNT; map++) {
+    for (map = 0; map < MAP_COUNT; map++) {
         int elevation;
         for (elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
             if (automapHeader->offsets[map][elevation] > 0) {
@@ -1663,8 +1727,9 @@ static int PrintAMList(int a1)
         if (elevation < ELEVATION_COUNT) {
             int v7;
             if (count != 0) {
+				int index;
                 v7 = 0;
-                for (int index = 0; index < count; index++) {
+                for (index = 0; index < count; index++) {
                     if (is_map_idx_same(map, sortlist[index].value)) {
                         break;
                     }
@@ -1684,6 +1749,8 @@ static int PrintAMList(int a1)
     }
 
     if (count != 0) {
+		char* msg;
+		int index;
         if (count > 1) {
             qsort(sortlist, count, sizeof(*sortlist), qscmp);
         }
@@ -1699,14 +1766,14 @@ static int PrintAMList(int a1)
             cursor_line = 0;
         }
 
-        const char* msg = getmsg(&pipboy_message_file, &pipmesg, 205);
+        msg = getmsg(&pipboy_message_file, &pipmesg, 205);
         pip_print(msg, PIPBOY_TEXT_ALIGNMENT_CENTER | PIPBOY_TEXT_STYLE_UNDERLINE, colorTable[992]);
 
         if (bottom_line >= 2) {
             cursor_line = 2;
         }
 
-        for (int index = 0; index < count; index++) {
+        for (index = 0; index < count; index++) {
             int color;
             if (cursor_line - 1 == a1) {
                 color = colorTable[32747];
@@ -1725,6 +1792,8 @@ static int PrintAMList(int a1)
 // 0x488CAC
 static void PipArchives(int a1)
 {
+    int movie;
+
     if (a1 == 1024) {
         NixHotLines();
         view_page = ListArchive(-1);
@@ -1734,7 +1803,6 @@ static void PipArchives(int a1)
 
         ListArchive(a1);
 
-        int movie;
         for (movie = MOVIE_VEXPLD; movie < MOVIE_COUNT; movie++) {
             if (gmovie_has_been_played(movie)) {
                 a1--;
@@ -1815,20 +1883,21 @@ static void PipAlarm(int a1)
             DrawAlarmText(0);
             AddHotLines(5, PIPBOY_REST_DURATION_COUNT_WITHOUT_PARTY, false);
         } else {
+			char* text;
             gsound_play_sfx_file("iisxxxx1");
 
             // You cannot rest at this location!
-            const char* text = getmsg(&pipboy_message_file, &pipmesg, 215);
+            text = getmsg(&pipboy_message_file, &pipmesg, 215);
             dialog_out(text, NULL, 0, 192, 135, colorTable[32328], 0, colorTable[32328], DIALOG_BOX_LARGE);
         }
     } else if (a1 >= 4 && a1 <= 17) {
+		int duration = a1 - 4;
+        int minutes = 0;
+        int hours = 0;
+
         gsound_play_sfx_file("ib1p1xx1");
 
         DrawAlarmText(a1 - 3);
-
-        int duration = a1 - 4;
-        int minutes = 0;
-        int hours = 0;
 
         switch (duration) {
         case PIPBOY_REST_DURATION_TEN_MINUTES:
@@ -1879,6 +1948,7 @@ static void PipAlarm(int a1)
 static void DrawAlarmText(int a1)
 {
     const char* text;
+	int option;
 
     buf_to_buf(pipbmp[PIPBOY_FRM_BACKGROUND] + PIPBOY_WINDOW_WIDTH * PIPBOY_WINDOW_CONTENT_VIEW_Y + PIPBOY_WINDOW_CONTENT_VIEW_X,
         PIPBOY_WINDOW_CONTENT_VIEW_WIDTH,
@@ -1903,12 +1973,13 @@ static void DrawAlarmText(int a1)
 
     // NOTE: I don't know if this +1 was a result of compiler optimization or it
     // was written like this in the first place.
-    for (int option = 1; option < PIPBOY_REST_DURATION_COUNT_WITHOUT_PARTY + 1; option++) {
+    for (option = 1; option < PIPBOY_REST_DURATION_COUNT_WITHOUT_PARTY + 1; option++) {
+		int color;
         // 302 - Rest for ten minutes
         // ...
         // 315 - Rest until party is healed
         text = getmsg(&pipboy_message_file, &pipmesg, 302 + option - 1);
-        int color = option == a1 ? colorTable[32747] : colorTable[992];
+        color = option == a1 ? colorTable[32747] : colorTable[992];
 
         pip_print(text, 0, color);
 
@@ -1961,17 +2032,20 @@ static void NewFuncDsply()
 // 0x48922C
 static void AddHotLines(int start, int count, bool add_back_button)
 {
+	int height;
+
     text_font(101);
 
-    int height = text_height();
+    height = text_height();
 
     hot_line_start = start;
     hot_line_count = count;
 
     if (count != 0) {
+		int index;
         int y = start * height + PIPBOY_WINDOW_CONTENT_VIEW_Y;
         int eventCode = start + 505;
-        for (int index = start; index < hot_line_count + hot_line_start && index < 20; index++) {
+        for (index = start; index < hot_line_count + hot_line_start && index < 20; index++) {
             HotLines[index] = win_register_button(pip_win,
                 254,
                 y,
@@ -2010,8 +2084,9 @@ static void AddHotLines(int start, int count, bool add_back_button)
 // 0x48932C
 static void NixHotLines()
 {
+	int index;
     if (hot_line_count != 0) {
-        for (int index = hot_line_start; index < hot_line_start + hot_line_count; index++) {
+        for (index = hot_line_start; index < hot_line_start + hot_line_count; index++) {
             win_delete_button(HotLines[index]);
         }
     }
@@ -2027,9 +2102,13 @@ static void NixHotLines()
 // 0x48938C
 static bool TimedRest(int hours, int minutes, int duration)
 {
+    bool rc = false;
+
+	int gameTime;
+	int nextEventGameTime;
+
     gmouse_set_cursor(MOUSE_CURSOR_WAIT_WATCH);
 
-    bool rc = false;
 
     if (duration == 0) {
         int hoursInMinutes = hours * 60;
@@ -2041,15 +2120,20 @@ static bool TimedRest(int hours, int minutes, int duration)
 
             double v4 = v3 * 20.0;
             int v5 = 0;
-            for (int v5 = 0; v5 < (int)v4; v5++) {
+            for (v5 = 0; v5 < (int)v4; v5++) {		//is this v5 the v5 from above?!  JASON
+				unsigned int start;
+                unsigned int v6;
+                unsigned int nextEventTime;
+
                 if (rc) {
                     break;
                 }
 
-                unsigned int start = get_time();
+                start = get_time();
 
-                unsigned int v6 = (unsigned int)((double)v5 / v4 * ((double)minutes * 600.0) + (double)gameTime);
-                unsigned int nextEventTime = queue_next_time();
+                v6 = (unsigned int)((double)v5 / v4 * ((double)minutes * 600.0) + (double)gameTime);
+                nextEventTime = queue_next_time();
+
                 if (v6 >= nextEventTime) {
                     set_game_time(nextEventTime + 1);
                     if (queue_process()) {
@@ -2097,22 +2181,28 @@ static bool TimedRest(int hours, int minutes, int duration)
         }
 
         if (hours != 0 && !rc) {
+			int hour;
             int gameTime = game_time();
             double v7 = (v2 - v3) * 20.0;
 
-            for (int hour = 0; hour < (int)v7; hour++) {
+            for (hour = 0; hour < (int)v7; hour++) {
+				unsigned int start;
+				unsigned int v8;
+                unsigned int nextEventTime;
+
+
                 if (rc) {
                     break;
                 }
 
-                unsigned int start = get_time();
+                start = get_time();
 
                 if (get_input() == KEY_ESCAPE || game_user_wants_to_quit != 0) {
                     rc = true;
                 }
 
-                unsigned int v8 = (unsigned int)((double)hour / v7 * (hours * GAME_TIME_TICKS_PER_HOUR) + gameTime);
-                unsigned int nextEventTime = queue_next_time();
+                v8 = (unsigned int)((double)hour / v7 * (hours * GAME_TIME_TICKS_PER_HOUR) + gameTime);
+                nextEventTime = queue_next_time();
                 if (!rc && v8 >= nextEventTime) {
                     set_game_time(nextEventTime + 1);
 
@@ -2129,9 +2219,10 @@ static bool TimedRest(int hours, int minutes, int duration)
                 }
 
                 if (!rc) {
+					int healthToAdd;
                     set_game_time(v8);
 
-                    int healthToAdd = (int)((double)hoursInMinutes / v7);
+                    healthToAdd = (int)((double)hoursInMinutes / v7);
                     if (Check4Health(healthToAdd)) {
                         // NOTE: Uninline.
                         AddHealth();
@@ -2197,8 +2288,8 @@ static bool TimedRest(int hours, int minutes, int duration)
         }
     }
 
-    int gameTime = game_time();
-    int nextEventGameTime = queue_next_time();
+    gameTime = game_time();
+    nextEventGameTime = queue_next_time();
     if (gameTime > nextEventGameTime) {
         if (queue_process()) {
             debug_printf("PIPBOY: Returning from Queue trigger...\n");
@@ -2235,10 +2326,13 @@ static bool Check4Health(int a1)
 // 0x489924
 static bool AddHealth()
 {
+	int currentHp;
+	int maxHp;
+
     partyMemberRestingHeal(3);
 
-    int currentHp = critter_get_hits(obj_dude);
-    int maxHp = stat_level(obj_dude, STAT_MAXIMUM_HIT_POINTS);
+    currentHp = critter_get_hits(obj_dude);
+    maxHp = stat_level(obj_dude, STAT_MAXIMUM_HIT_POINTS);
     return currentHp == maxHp;
 }
 
@@ -2277,17 +2371,20 @@ static void ClacTime(int* hours, int* minutes, int wakeUpHour)
 // 0x4899E4
 static int ScreenSaver()
 {
+	int index;
+	int v31;
+	unsigned char* buf;
     PipboyBomb bombs[PIPBOY_BOMB_COUNT];
 
     mouse_get_position(&old_mouse_x, &old_mouse_y);
 
-    for (int index = 0; index < PIPBOY_BOMB_COUNT; index += 1) {
+    for (index = 0; index < PIPBOY_BOMB_COUNT; index += 1) {
         bombs[index].field_10 = 0;
     }
 
     gmouse_disable(0);
 
-    unsigned char* buf = (unsigned char*)mem_malloc(412 * 374);
+    buf = (unsigned char*)mem_malloc(412 * 374);
     if (buf == NULL) {
         return -1;
     }
@@ -2306,8 +2403,9 @@ static int ScreenSaver()
         scrn_buf + PIPBOY_WINDOW_WIDTH * PIPBOY_WINDOW_CONTENT_VIEW_Y + PIPBOY_WINDOW_CONTENT_VIEW_X,
         PIPBOY_WINDOW_WIDTH);
 
-    int v31 = 50;
+    v31 = 50;
     while (true) {
+		double random;
         unsigned int time = get_time();
 
         mouse_get_position(&mouse_x, &mouse_y);
@@ -2315,7 +2413,7 @@ static int ScreenSaver()
             break;
         }
 
-        double random = roll_random(0, PIPBOY_RAND_MAX);
+        random = roll_random(0, PIPBOY_RAND_MAX);
 
         // TODO: Figure out what this constant means. Probably somehow related
         // to PIPBOY_RAND_MAX.
@@ -2355,18 +2453,25 @@ static int ScreenSaver()
                 PIPBOY_WINDOW_WIDTH);
         }
 
-        for (int index = 0; index < PIPBOY_BOMB_COUNT; index++) {
+        for (index = 0; index < PIPBOY_BOMB_COUNT; index++) {
+			int srcWidth;
+            int srcHeight;
+            int destX;
+            int destY;
+            int srcY;
+            int srcX;
+
             PipboyBomb* bomb = &(bombs[index]);
             if (bomb->field_10 != 1) {
                 continue;
             }
 
-            int srcWidth = ginfo[PIPBOY_FRM_BOMB].width;
-            int srcHeight = ginfo[PIPBOY_FRM_BOMB].height;
-            int destX = bomb->x;
-            int destY = bomb->y;
-            int srcY = 0;
-            int srcX = 0;
+            srcWidth = ginfo[PIPBOY_FRM_BOMB].width;
+            srcHeight = ginfo[PIPBOY_FRM_BOMB].height;
+            destX = bomb->x;
+            destY = bomb->y;
+            srcY = 0;
+            srcX = 0;
 
             if (destX >= PIPBOY_WINDOW_CONTENT_VIEW_X) {
                 if (destX + ginfo[PIPBOY_FRM_BOMB].width >= 604) {

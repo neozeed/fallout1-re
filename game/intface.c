@@ -389,6 +389,7 @@ int intface_init()
     int fid;
     CacheEntry* backgroundFrmHandle;
     unsigned char* backgroundFrmData;
+	int interfaceBarWindowX, interfaceBarWindowY;
 
     if (interfaceWindow != -1) {
         return -1;
@@ -396,8 +397,8 @@ int intface_init()
 
     insideInit = 1;
 
-    int interfaceBarWindowX = 0;
-    int interfaceBarWindowY = 480 - INTERFACE_BAR_HEIGHT - 1;
+    interfaceBarWindowX = 0;
+    interfaceBarWindowY = 480 - INTERFACE_BAR_HEIGHT - 1;
 
     interfaceWindow = win_add(interfaceBarWindowX, interfaceBarWindowY, INTERFACE_BAR_WIDTH, INTERFACE_BAR_HEIGHT, colorTable[0], WINDOW_HIDDEN);
     if (interfaceWindow == -1) {
@@ -898,22 +899,23 @@ void intface_exit()
 // 0x4541D0
 int intface_load(DB_FILE* stream)
 {
+    int enabled;
+    int hidden;
+    int hand;
+    int endButtonsVisible;
+
     if (interfaceWindow == -1) {
         if (intface_init() == -1) {
             return -1;
         }
     }
 
-    int enabled;
     if (db_freadInt(stream, &enabled) == -1) return -1;
 
-    int hidden;
     if (db_freadInt(stream, &hidden) == -1) return -1;
 
-    int hand;
     if (db_freadInt(stream, &hand) == -1) return -1;
 
-    int endButtonsVisible;
     if (db_freadInt(stream, &endButtonsVisible) == -1) return -1;
 
     if (!intfaceEnabled) {
@@ -1068,6 +1070,15 @@ void intface_redraw()
 // 0x4545A8
 void intface_update_hit_points(bool animate)
 {
+    int hp;
+    int maxHp;
+    int red;
+    int yellow;
+    int color;
+    int v1[4];
+    int v2[3];
+    int count = 1;
+
     // Last hit points rendered in interface.
     //
     // Used to animate changes.
@@ -1086,13 +1097,13 @@ void intface_update_hit_points(bool animate)
         return;
     }
 
-    int hp = critter_get_hits(obj_dude);
-    int maxHp = stat_level(obj_dude, STAT_MAXIMUM_HIT_POINTS);
+    hp = critter_get_hits(obj_dude);
+    maxHp = stat_level(obj_dude, STAT_MAXIMUM_HIT_POINTS);
 
-    int red = (int)((double)maxHp * 0.25);
-    int yellow = (int)((double)maxHp * 0.5);
+    red = (int)((double)maxHp * 0.25);
+    yellow = (int)((double)maxHp * 0.5);
 
-    int color;
+    color;
     if (hp < red) {
         color = INTERFACE_NUMBERS_COLOR_RED;
     } else if (hp < yellow) {
@@ -1100,10 +1111,6 @@ void intface_update_hit_points(bool animate)
     } else {
         color = INTERFACE_NUMBERS_COLOR_WHITE;
     }
-
-    int v1[4];
-    int v2[3];
-    int count = 1;
 
     v1[0] = last_points;
     v2[0] = last_points_color;
@@ -1139,8 +1146,9 @@ void intface_update_hit_points(bool animate)
     v1[count] = hp;
 
     if (animate) {
+		int index;
         int delay = 250 / (abs(last_points - hp) + 1);
-        for (int index = 0; index < count; index++) {
+        for (index = 0; index < count; index++) {
             intface_rotate_numbers(473, 40, v1[index], v1[index + 1], v2[index], delay);
         }
     } else {
@@ -1178,6 +1186,7 @@ void intface_update_ac(bool animate)
 // 0x4547D4
 void intface_update_move_points(int actionPointsLeft)
 {
+    int index;
     unsigned char* frmData;
 
     if (interfaceWindow == -1) {
@@ -1201,7 +1210,6 @@ void intface_update_move_points(int actionPointsLeft)
         }
     }
 
-    int index;
     for (index = 0; index < actionPointsLeft; index++) {
         buf_to_buf(frmData, 5, 5, 5, interfaceBuffer + 14 * 640 + 316 + index * 9, 640);
     }
@@ -1241,14 +1249,20 @@ int intface_get_attack(int* hitMode, bool* aiming)
 // 0x454918
 int intface_update_items(bool animated)
 {
+	Object* oldCurrentItem;
+	Object* item1;
+	Object* item2;
+	InterfaceItemState* leftItemState;
+	InterfaceItemState* rightItemState;
+
     if (interfaceWindow == -1) {
         return -1;
     }
 
-    Object* oldCurrentItem = itemButtonItems[itemCurrentItem].item;
+    oldCurrentItem = itemButtonItems[itemCurrentItem].item;
 
-    InterfaceItemState* leftItemState = &(itemButtonItems[HAND_LEFT]);
-    Object* item1 = inven_left_hand(obj_dude);
+    leftItemState = &(itemButtonItems[HAND_LEFT]);
+    item1 = inven_left_hand(obj_dude);
     if (item1 == leftItemState->item && leftItemState->item != NULL) {
         if (leftItemState->item != NULL) {
             leftItemState->isDisabled = item_grey(item1);
@@ -1275,9 +1289,9 @@ int intface_update_items(bool animated)
         }
     }
 
-    InterfaceItemState* rightItemState = &(itemButtonItems[HAND_RIGHT]);
+    rightItemState = &(itemButtonItems[HAND_RIGHT]);
 
-    Object* item2 = inven_right_hand(obj_dude);
+    item2 = inven_right_hand(obj_dude);
     if (item2 == rightItemState->item && rightItemState->item != NULL) {
         if (rightItemState->item != NULL) {
             rightItemState->isDisabled = item_grey(rightItemState->item);
@@ -1329,6 +1343,8 @@ int intface_update_items(bool animated)
 // 0x454C28
 int intface_toggle_items(bool animated)
 {
+	int mode;
+
     if (interfaceWindow == -1) {
         return -1;
     }
@@ -1349,7 +1365,7 @@ int intface_toggle_items(bool animated)
         intface_redraw_items();
     }
 
-    int mode = gmouse_3d_get_mode();
+    mode = gmouse_3d_get_mode();
     if (mode == GAME_MOUSE_MODE_CROSSHAIR || mode == GAME_MOUSE_MODE_USE_CROSSHAIR) {
         gmouse_3d_set_mode(GAME_MOUSE_MODE_MOVE);
     }
@@ -1360,13 +1376,16 @@ int intface_toggle_items(bool animated)
 // 0x454C28
 int intface_toggle_item_state()
 {
+	InterfaceItemState* itemState;
+	int oldAction;
+
     if (interfaceWindow == -1) {
         return -1;
     }
 
-    InterfaceItemState* itemState = &(itemButtonItems[itemCurrentItem]);
+    itemState = &(itemButtonItems[itemCurrentItem]);
 
-    int oldAction = itemState->action;
+    oldAction = itemState->action;
     if (itemState->isWeapon != 0) {
         bool done = false;
         while (!done) {
@@ -1417,11 +1436,13 @@ int intface_toggle_item_state()
 // 0x454D20
 void intface_use_item()
 {
+	InterfaceItemState* ptr;
+
     if (interfaceWindow == -1) {
         return;
     }
 
-    InterfaceItemState* ptr = &(itemButtonItems[itemCurrentItem]);
+    ptr = &(itemButtonItems[itemCurrentItem]);
 
     if (ptr->isWeapon != 0) {
         if (ptr->action == INTERFACE_ITEM_ACTION_RELOAD) {
@@ -1496,13 +1517,16 @@ int intface_get_current_item(Object** itemPtr)
 // 0x454F50
 int intface_update_ammo_lights()
 {
+	InterfaceItemState* p;
+	int ratio;
+
     if (interfaceWindow == -1) {
         return -1;
     }
 
-    InterfaceItemState* p = &(itemButtonItems[itemCurrentItem]);
+    p = &(itemButtonItems[itemCurrentItem]);
 
-    int ratio = 0;
+    ratio = 0;
 
     if (p->isWeapon != 0) {
         // calls sub_478674 twice, probably because if min/max kind macro
@@ -1530,6 +1554,11 @@ int intface_update_ammo_lights()
 // 0x455084
 void intface_end_window_open(bool animated)
 {
+    int fid;
+    CacheEntry* handle;
+    Art* art;
+	int frameCount;
+
     if (interfaceWindow == -1) {
         return;
     }
@@ -1538,14 +1567,13 @@ void intface_end_window_open(bool animated)
         return;
     }
 
-    int fid = art_id(OBJ_TYPE_INTERFACE, 104, 0, 0, 0);
-    CacheEntry* handle;
-    Art* art = art_ptr_lock(fid, &handle);
+    fid = art_id(OBJ_TYPE_INTERFACE, 104, 0, 0, 0);
+    art = art_ptr_lock(fid, &handle);
     if (art == NULL) {
         return;
     }
 
-    int frameCount = art_frame_max_frame(art);
+    frameCount = art_frame_max_frame(art);
     gsound_play_sfx_file("iciboxx1");
 
     if (animated) {
@@ -1582,6 +1610,10 @@ void intface_end_window_open(bool animated)
 // 0x4551D8
 void intface_end_window_close(bool animated)
 {
+    int fid;
+    CacheEntry* handle;
+    Art* art;
+
     if (interfaceWindow == -1) {
         return;
     }
@@ -1590,9 +1622,8 @@ void intface_end_window_close(bool animated)
         return;
     }
 
-    int fid = art_id(OBJ_TYPE_INTERFACE, 104, 0, 0, 0);
-    CacheEntry* handle;
-    Art* art = art_ptr_lock(fid, &handle);
+    fid = art_id(OBJ_TYPE_INTERFACE, 104, 0, 0, 0);
+    art = art_ptr_lock(fid, &handle);
     if (art == NULL) {
         return;
     }
@@ -1634,14 +1665,18 @@ void intface_end_window_close(bool animated)
 // 0x45531C
 void intface_end_buttons_enable()
 {
+    int lightsFid;
+    CacheEntry* lightsFrmHandle;
+	unsigned char* lightsFrmData;
+
     if (endWindowOpen) {
         win_enable_button(endTurnButton);
         win_enable_button(endCombatButton);
 
         // endltgrn.frm - green lights around end turn/combat window
-        int lightsFid = art_id(OBJ_TYPE_INTERFACE, 109, 0, 0, 0);
-        CacheEntry* lightsFrmHandle;
-        unsigned char* lightsFrmData = art_ptr_lock_data(lightsFid, 0, 0, &lightsFrmHandle);
+        lightsFid = art_id(OBJ_TYPE_INTERFACE, 109, 0, 0, 0);
+        lightsFrmHandle;
+        lightsFrmData = art_ptr_lock_data(lightsFid, 0, 0, &lightsFrmHandle);
         if (lightsFrmData == NULL) {
             return;
         }
@@ -1657,14 +1692,17 @@ void intface_end_buttons_enable()
 // 0x4553B0
 void intface_end_buttons_disable()
 {
+    CacheEntry* lightsFrmHandle;
+	int lightsFid;
+	unsigned char* lightsFrmData;
+
     if (endWindowOpen) {
         win_disable_button(endTurnButton);
         win_disable_button(endCombatButton);
 
-        CacheEntry* lightsFrmHandle;
         // endltred.frm - red lights around end turn/combat window
-        int lightsFid = art_id(OBJ_TYPE_INTERFACE, 110, 0, 0, 0);
-        unsigned char* lightsFrmData = art_ptr_lock_data(lightsFid, 0, 0, &lightsFrmHandle);
+        lightsFid = art_id(OBJ_TYPE_INTERFACE, 110, 0, 0, 0);
+        lightsFrmData = art_ptr_lock_data(lightsFid, 0, 0, &lightsFrmHandle);
         if (lightsFrmData == NULL) {
             return;
         }
@@ -1691,14 +1729,17 @@ static int intface_init_items()
 // 0x455470
 static int intface_redraw_items()
 {
+	InterfaceItemState* itemState;
+    int actionPoints;
+
     if (interfaceWindow == -1) {
         return -1;
     }
 
     win_enable_button(itemButton);
 
-    InterfaceItemState* itemState = &(itemButtonItems[itemCurrentItem]);
-    int actionPoints = -1;
+    itemState = &(itemButtonItems[itemCurrentItem]);
+    actionPoints = -1;
 
     if (itemState->isDisabled == 0) {
         memcpy(itemButtonUp, itemButtonUpBlank, sizeof(itemButtonUp));
@@ -1760,12 +1801,13 @@ static int intface_redraw_items()
                 CacheEntry* bullseyeFrmHandle;
                 Art* bullseyeFrm = art_ptr_lock(bullseyeFid, &bullseyeFrmHandle);
                 if (bullseyeFrm != NULL) {
+					int v9;
                     int width = art_frame_width(bullseyeFrm, 0, 0);
                     int height = art_frame_length(bullseyeFrm, 0, 0);
                     unsigned char* data = art_frame_data(bullseyeFrm, 0, 0);
                     trans_buf_to_buf(data, width, height, width, itemButtonUp + 188 * (60 - height) + (181 - width), 188);
 
-                    int v9 = 60 - height - 2;
+                    v9 = 60 - height - 2;
                     if (v9 < 0) {
                         v9 = 0;
                         height -= 2;
@@ -1777,10 +1819,11 @@ static int intface_redraw_items()
             }
 
             if (hitMode != -1) {
+                int id;
+				int anim;
                 actionPoints = item_w_mp_cost(obj_dude, hitMode, bullseyeFid != -1);
 
-                int id;
-                int anim = item_w_anim(obj_dude, hitMode);
+                anim = item_w_anim(obj_dude, hitMode);
                 switch (anim) {
                 case ANIM_THROW_PUNCH:
                     id = 42;
@@ -1827,17 +1870,18 @@ static int intface_redraw_items()
     if (actionPoints >= 0 && actionPoints < 10) {
         // movement point text
         int fid = art_id(OBJ_TYPE_INTERFACE, 289, 0, 0, 0);
-
+		int offset;
         CacheEntry* handle;
         Art* art = art_ptr_lock(fid, &handle);
         if (art != NULL) {
+			int v29;
             int width = art_frame_width(art, 0, 0);
             int height = art_frame_length(art, 0, 0);
             unsigned char* data = art_frame_data(art, 0, 0);
 
             trans_buf_to_buf(data, width, height, width, itemButtonUp + 188 * (60 - height) + 7, 188);
 
-            int v29 = 60 - height - 2;
+            v29 = 60 - height - 2;
             if (v29 < 0) {
                 v29 = 0;
                 height -= 2;
@@ -1846,19 +1890,20 @@ static int intface_redraw_items()
             dark_trans_buf_to_buf(data, width, height, width, itemButtonDown, 7 + 1, v29, 188, 59641);
             art_ptr_unlock(handle);
 
-            int offset = width + 7;
+            offset = width + 7;
 
             // movement point numbers - ten numbers 0 to 9, each 10 pixels wide.
             fid = art_id(OBJ_TYPE_INTERFACE, 290, 0, 0, 0);
             art = art_ptr_lock(fid, &handle);
             if (art != NULL) {
+				int v40;
                 width = art_frame_width(art, 0, 0);
                 height = art_frame_length(art, 0, 0);
                 data = art_frame_data(art, 0, 0);
 
                 trans_buf_to_buf(data + actionPoints * 10, 10, height, width, itemButtonUp + 188 * (60 - height) + 7 + offset, 188);
 
-                int v40 = 60 - height - 2;
+                v40 = 60 - height - 2;
                 if (v40 < 0) {
                     v40 = 0;
                     height -= 2;
@@ -1928,6 +1973,7 @@ static int intface_change_fid_callback(Object* a1, Object* a2)
 // 0x455C74
 static void intface_change_fid_animate(int previousWeaponAnimationCode, int weaponAnimationCode)
 {
+    bool interfaceBarWasEnabled = intfaceEnabled;
     intface_fid_is_changing = true;
 
     register_clear(obj_dude);
@@ -1955,9 +2001,7 @@ static void intface_change_fid_animate(int previousWeaponAnimationCode, int weap
         return;
     }
 
-    bool interfaceBarWasEnabled = intfaceEnabled;
-
-    intface_disable();
+	intface_disable();
     gmouse_disable(0);
 
     gmouse_set_cursor(MOUSE_CURSOR_WAIT_WATCH);
@@ -2108,13 +2152,16 @@ static int intface_destroy_end_combat_button()
 // 0x456064
 static void intface_draw_ammo_lights(int x, int ratio)
 {
+	unsigned char* dest;
+	int index;
+
     if ((ratio & 1) != 0) {
         ratio -= 1;
     }
 
-    unsigned char* dest = interfaceBuffer + 640 * 26 + x;
+    dest = interfaceBuffer + 640 * 26 + x;
 
-    for (int index = 70; index > ratio; index--) {
+    for (index = 70; index > ratio; index--) {
         *dest = 14;
         dest += 640;
     }
@@ -2142,11 +2189,14 @@ static void intface_draw_ammo_lights(int x, int ratio)
 // 0x4560E4
 static int intface_item_reload()
 {
+	bool v0;
+	char* sfx;
+
     if (interfaceWindow == -1) {
         return -1;
     }
 
-    bool v0 = false;
+    v0 = false;
     while (item_w_try_reload(obj_dude, itemButtonItems[itemCurrentItem].item) != -1) {
         v0 = true;
     }
@@ -2158,7 +2208,7 @@ static int intface_item_reload()
         return -1;
     }
 
-    const char* sfx = gsnd_build_weapon_sfx_name(WEAPON_SOUND_EFFECT_READY, itemButtonItems[itemCurrentItem].item, HIT_MODE_RIGHT_WEAPON_PRIMARY, NULL);
+    sfx = gsnd_build_weapon_sfx_name(WEAPON_SOUND_EFFECT_READY, itemButtonItems[itemCurrentItem].item, HIT_MODE_RIGHT_WEAPON_PRIMARY, NULL);
     gsound_play_sfx_file(sfx);
 
     return 0;
@@ -2167,12 +2217,6 @@ static int intface_item_reload()
 // 0x456160
 static void intface_rotate_numbers(int x, int y, int previousValue, int value, int offset, int delay)
 {
-    if (value > 999) {
-        value = 999;
-    } else if (value < -999) {
-        value = -999;
-    }
-
     unsigned char* numbers = numbersBuffer + offset;
     unsigned char* dest = interfaceBuffer + 640 * y;
 
@@ -2188,6 +2232,14 @@ static void intface_rotate_numbers(int x, int y, int previousValue, int value, i
 
     int normalizedSign;
     int normalizedValue;
+	int ones,tens,hundreds;
+
+    if (value > 999) {
+        value = 999;
+    } else if (value < -999) {
+        value = -999;
+    }
+
     if (insideInit || delay == 0) {
         normalizedSign = value >= 0 ? 1 : -1;
         normalizedValue = abs(value);
@@ -2196,9 +2248,9 @@ static void intface_rotate_numbers(int x, int y, int previousValue, int value, i
         normalizedValue = previousValue;
     }
 
-    int ones = normalizedValue % 10;
-    int tens = (normalizedValue / 10) % 10;
-    int hundreds = normalizedValue / 100;
+    ones = normalizedValue % 10;
+    tens = (normalizedValue / 10) % 10;
+    hundreds = normalizedValue / 100;
 
     buf_to_buf(numbers + 9 * hundreds, 9, 17, 360, hundredsDest, 640);
     buf_to_buf(numbers + 9 * tens, 9, 17, 360, tensDest, 640);
@@ -2292,20 +2344,27 @@ static int intface_fatal_error(int rc)
 // 0x4566F4
 static int construct_box_bar_win()
 {
+    char path[MAX_PATH];
+    MessageList messageList;
+    MessageListItem messageListItem;
+    int rc;
+    CacheEntry* indicatorBoxFrmHandle;
+    int width;
+    int height;
+    int indicatorBoxFid;
+    unsigned char* indicatorBoxFrmData;
+	int index;
     int oldFont = text_curr();
 
     if (bar_window != -1) {
         return 0;
     }
 
-    MessageList messageList;
-    MessageListItem messageListItem;
-    int rc = 0;
+	rc = 0;
     if (!message_init(&messageList)) {
         rc = -1;
     }
 
-    char path[MAX_PATH];
     sprintf(path, "%s%s", msg_path, "intrface.msg");
 
     if (rc != -1) {
@@ -2319,18 +2378,15 @@ static int construct_box_bar_win()
         return -1;
     }
 
-    CacheEntry* indicatorBoxFrmHandle;
-    int width;
-    int height;
-    int indicatorBoxFid = art_id(OBJ_TYPE_INTERFACE, 126, 0, 0, 0);
-    unsigned char* indicatorBoxFrmData = art_lock(indicatorBoxFid, &indicatorBoxFrmHandle, &width, &height);
+    indicatorBoxFid = art_id(OBJ_TYPE_INTERFACE, 126, 0, 0, 0);
+    indicatorBoxFrmData = art_lock(indicatorBoxFid, &indicatorBoxFrmHandle, &width, &height);
     if (indicatorBoxFrmData == NULL) {
         debug_printf("\nINTRFACE: Error initializing indicator box graphics! **\n");
         message_exit(&messageList);
         return -1;
     }
 
-    for (int index = 0; index < INDICATOR_COUNT; index++) {
+    for (index = 0; index < INDICATOR_COUNT; index++) {
         IndicatorDescription* indicatorDescription = &(bbox[index]);
 
         indicatorDescription->data = (unsigned char*)mem_malloc(INDICATOR_BOX_WIDTH * INDICATOR_BOX_HEIGHT);
@@ -2350,13 +2406,15 @@ static int construct_box_bar_win()
 
     text_font(101);
 
-    for (int index = 0; index < INDICATOR_COUNT; index++) {
+    for (index = 0; index < INDICATOR_COUNT; index++) {
+        char text[1024];
+		int color,x,y;
+
         IndicatorDescription* indicator = &(bbox[index]);
 
-        char text[1024];
         strcpy(text, getmsg(&messageList, &messageListItem, indicator->title));
 
-        int color = indicator->isBad ? colorTable[31744] : colorTable[992];
+        color = indicator->isBad ? colorTable[31744] : colorTable[992];
 
         memcpy(indicator->data, indicatorBoxFrmData, INDICATOR_BOX_WIDTH * INDICATOR_BOX_HEIGHT);
 
@@ -2365,8 +2423,8 @@ static int construct_box_bar_win()
         // this value was not changed. On the other hand 24 is
         // [INDICATOR_BOX_HEIGHT] + [INDICATOR_BOX_CONNECTOR_WIDTH]. Maybe just
         // a coincidence. I guess we'll never find out.
-        int y = (24 - text_height()) / 2;
-        int x = (INDICATOR_BOX_WIDTH - text_width(text)) / 2;
+        y = (24 - text_height()) / 2;
+        x = (INDICATOR_BOX_WIDTH - text_width(text)) / 2;
         text_to_buf(indicator->data + INDICATOR_BOX_WIDTH * y + x, text, INDICATOR_BOX_WIDTH, INDICATOR_BOX_WIDTH, color);
     }
 
@@ -2383,12 +2441,13 @@ static int construct_box_bar_win()
 // 0x456A14
 static void deconstruct_box_bar_win()
 {
+	int index;
     if (bar_window != -1) {
         win_delete(bar_window);
         bar_window = -1;
     }
 
-    for (int index = 0; index < INDICATOR_COUNT; index++) {
+    for (index = 0; index < INDICATOR_COUNT; index++) {
         IndicatorDescription* indicatorBoxDescription = &(bbox[index]);
         if (indicatorBoxDescription->data != NULL) {
             mem_free(indicatorBoxDescription->data);
@@ -2414,11 +2473,13 @@ static void reset_box_bar_win()
 int refresh_box_bar_win()
 {
     if (interfaceWindow != -1 && box_status_flag && !intfaceHidden) {
-        for (int index = 0; index < INDICATOR_SLOTS_COUNT; index++) {
+		int index;
+		int count;
+        for (index = 0; index < INDICATOR_SLOTS_COUNT; index++) {
             bboxslot[index] = -1;
         }
 
-        int count = 0;
+        count = 0;
 
         if (is_pc_flag(PC_FLAG_SNEAKING)) {
             if (add_bar_box(INDICATOR_SNEAK)) {
@@ -2489,6 +2550,14 @@ static int bbox_comp(const void* a, const void* b)
 // 0x456B8C
 static void draw_bboxes(int count)
 {
+	int windowWidth;
+	int index;
+    unsigned char* windowBuffer;
+	int connections;
+    int unconnectedIndicatorsWidth;
+    int x;
+    int connectorWidthCompensation;
+
     if (bar_window == -1) {
         return;
     }
@@ -2497,26 +2566,26 @@ static void draw_bboxes(int count)
         return;
     }
 
-    int windowWidth = win_width(bar_window);
-    unsigned char* windowBuffer = win_get_buf(bar_window);
+    windowWidth = win_width(bar_window);
+    windowBuffer = win_get_buf(bar_window);
 
     // The initial number of connections is 2 - one is first box to the screen
     // boundary, the other is female socket (initially empty). Every displayed
     // box adds one more connection (it is "plugged" into previous box and
     // exposes it's own empty female socket).
-    int connections = 2;
+    connections = 2;
 
     // The width of displayed indicator boxes as if there were no connections.
-    int unconnectedIndicatorsWidth = 0;
+    unconnectedIndicatorsWidth = 0;
 
     // The X offset to display next box.
-    int x = 0;
+    x = 0;
 
     // The first box is connected to the screen boundary, so we have to clamp
     // male connectors on the left.
-    int connectorWidthCompensation = INDICATOR_BOX_CONNECTOR_WIDTH;
+    connectorWidthCompensation = INDICATOR_BOX_CONNECTOR_WIDTH;
 
-    for (int index = 0; index < count; index++) {
+    for (index = 0; index < count; index++) {
         int indicator = bboxslot[index];
         IndicatorDescription* indicatorDescription = &(bbox[indicator]);
 
@@ -2542,7 +2611,8 @@ static void draw_bboxes(int count)
 // 0x456C34
 static bool add_bar_box(int indicator)
 {
-    for (int index = 0; index < INDICATOR_SLOTS_COUNT; index++) {
+	int index;
+    for (index = 0; index < INDICATOR_SLOTS_COUNT; index++) {
         if (bboxslot[index] == -1) {
             bboxslot[index] = indicator;
             return true;

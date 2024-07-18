@@ -473,6 +473,14 @@ int gmouse_is_scrolling()
 // 0x443274
 void gmouse_bk_process()
 {
+    int mouseX;
+    int mouseY;
+	int oldMouseCursor;
+	Rect r1;
+	unsigned int v3;
+    int v34 = 0;
+    Rect r2;
+    Rect r26;
     // 0x595214
     static Object* last_object;
 
@@ -483,16 +491,14 @@ void gmouse_bk_process()
         return;
     }
 
-    int mouseX;
-    int mouseY;
-
     if (gmouse_current_cursor >= FIRST_GAME_MOUSE_ANIMATED_CURSOR) {
         mouse_info();
 
         // NOTE: Uninline.
         if (gmouse_scrolling_is_enabled()) {
+			int oldMouseCursor;
             mouse_get_position(&mouseX, &mouseY);
-            int oldMouseCursor = gmouse_current_cursor;
+            oldMouseCursor = gmouse_current_cursor;
 
             if (gmouse_check_scrolling(mouseX, mouseY, gmouse_current_cursor) == 0) {
                 switch (oldMouseCursor) {
@@ -534,8 +540,9 @@ void gmouse_bk_process()
     if (!gmouse_enabled) {
         // NOTE: Uninline.
         if (gmouse_scrolling_is_enabled()) {
+			int oldMouseCursor;
             mouse_get_position(&mouseX, &mouseY);
-            int oldMouseCursor = gmouse_current_cursor;
+            oldMouseCursor = gmouse_current_cursor;
 
             if (gmouse_check_scrolling(mouseX, mouseY, gmouse_current_cursor) == 0) {
                 switch (oldMouseCursor) {
@@ -575,7 +582,7 @@ void gmouse_bk_process()
 
     mouse_get_position(&mouseX, &mouseY);
 
-    int oldMouseCursor = gmouse_current_cursor;
+    oldMouseCursor = gmouse_current_cursor;
     if (gmouse_check_scrolling(mouseX, mouseY, MOUSE_CURSOR_NONE) == 0) {
         switch (oldMouseCursor) {
         case MOUSE_CURSOR_SCROLL_NW:
@@ -636,7 +643,6 @@ void gmouse_bk_process()
         break;
     }
 
-    Rect r1;
     if (gmouse_3d_move_to(mouseX, mouseY, map_elevation, &r1) == 0) {
         tile_refresh_rect(&r1, map_elevation);
     }
@@ -645,18 +651,23 @@ void gmouse_bk_process()
         return;
     }
 
-    unsigned int v3 = get_bk_time();
+    v3 = get_bk_time();
     if (mouseX == gmouse_3d_last_mouse_x && mouseY == gmouse_3d_last_mouse_y) {
+		char formattedActionPoints[8];
+        int color;
+        int v6;
+
         if (gmouse_3d_hover_test || elapsed_tocks(v3, gmouse_3d_last_move_time) < 250) {
             return;
         }
 
         if (gmouse_3d_current_mode != GAME_MOUSE_MODE_MOVE) {
+			Object* target;
             if (gmouse_3d_current_mode == GAME_MOUSE_MODE_ARROW) {
                 gmouse_3d_last_move_time = v3;
                 gmouse_3d_hover_test = true;
 
-                Object* target = object_under_mouse(-1, true, map_elevation);
+                target = object_under_mouse(-1, true, map_elevation);
                 if (target != NULL) {
                     int primaryAction = -1;
 
@@ -753,9 +764,8 @@ void gmouse_bk_process()
             return;
         }
 
-        char formattedActionPoints[8];
-        int color;
-        int v6 = make_path(obj_dude, obj_dude->tile, obj_mouse_flat->tile, NULL, 1);
+
+		v6 = make_path(obj_dude, obj_dude->tile, obj_mouse_flat->tile, NULL, 1);
         if (v6) {
             if (!isInCombat()) {
                 formattedActionPoints[0] = '\0';
@@ -803,10 +813,6 @@ void gmouse_bk_process()
         gmouse_3d_reset_fid();
     }
 
-    int v34 = 0;
-
-    Rect r2;
-    Rect r26;
     if (gmouse_3d_reset_flat_fid(&r2) == 0) {
         v34 |= 1;
     }
@@ -867,6 +873,8 @@ void gmouse_handle_event(int mouseX, int mouseY, int mouseState)
 
     if ((mouseState & MOUSE_EVENT_LEFT_BUTTON_UP) != 0) {
         if (gmouse_3d_current_mode == GAME_MOUSE_MODE_MOVE) {
+            bool running;
+
             int actionPoints;
             if (isInCombat()) {
                 actionPoints = combat_free_move + obj_dude->data.critter.combat.ap;
@@ -874,7 +882,6 @@ void gmouse_handle_event(int mouseX, int mouseY, int mouseState)
                 actionPoints = -1;
             }
 
-            bool running;
             configGetBool(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_RUNNING_KEY, &running);
 
             if (keys[DIK_LSHIFT] || keys[DIK_RSHIFT]) {
@@ -1058,20 +1065,23 @@ void gmouse_handle_event(int mouseX, int mouseY, int mouseState)
                 int fid = art_id(OBJ_TYPE_INTERFACE, 283, 0, 0, 0);
                 // NOTE: Uninline.
                 if (gmouse_3d_set_flat_fid(fid, &v43) == 0 && gmouse_3d_move_to(mouseX, mouseY, map_elevation, &v43) == 0) {
+                    int v33;
+                    int actionIndex;
+
                     tile_refresh_rect(&v43, map_elevation);
                     map_disable_bk_processes();
 
-                    int v33 = mouseY;
-                    int actionIndex = 0;
+                    v33 = mouseY;
+                    actionIndex = 0;
                     while ((mouse_get_buttons() & MOUSE_EVENT_LEFT_BUTTON_UP) == 0) {
+                        int v48;
+                        int v47;
                         get_input();
 
                         if (game_user_wants_to_quit != 0) {
                             actionMenuItems[actionIndex] = 0;
                         }
 
-                        int v48;
-                        int v47;
                         mouse_get_position(&v48, &v47);
 
                         if (abs(v47 - v33) > 10) {
@@ -1178,6 +1188,16 @@ void gmouse_handle_event(int mouseX, int mouseY, int mouseState)
 // 0x4442D4
 int gmouse_set_cursor(int cursor)
 {
+    CacheEntry* mouseCursorFrmHandle;
+    int fid;
+    Art* mouseCursorFrm;
+    bool shouldUpdate;
+    int frame;
+    int width,height;
+    int offsetX;
+    int offsetY;
+	unsigned char* mouseCursorFrmData;
+
     if (!gmouse_initialized) {
         return -1;
     }
@@ -1186,23 +1206,24 @@ int gmouse_set_cursor(int cursor)
         return -1;
     }
 
-    CacheEntry* mouseCursorFrmHandle;
-    int fid = art_id(OBJ_TYPE_INTERFACE, gmouse_cursor_nums[cursor], 0, 0, 0);
-    Art* mouseCursorFrm = art_ptr_lock(fid, &mouseCursorFrmHandle);
+    mouseCursorFrmHandle;
+    fid = art_id(OBJ_TYPE_INTERFACE, gmouse_cursor_nums[cursor], 0, 0, 0);
+    mouseCursorFrm = art_ptr_lock(fid, &mouseCursorFrmHandle);
     if (mouseCursorFrm == NULL) {
         return -1;
     }
 
-    bool shouldUpdate = true;
-    int frame = 0;
+    shouldUpdate = true;
+    frame = 0;
     if (cursor >= FIRST_GAME_MOUSE_ANIMATED_CURSOR) {
+		unsigned int delay;
         unsigned int tick = get_time();
 
         if (gmouse_3d_is_on()) {
             gmouse_3d_off();
         }
 
-        unsigned int delay = 1000 / art_frame_fps(mouseCursorFrm);
+        delay = 1000 / art_frame_fps(mouseCursorFrm);
         if (elapsed_tocks(tick, gmouse_wait_cursor_time) < delay) {
             shouldUpdate = false;
         } else {
@@ -1220,17 +1241,15 @@ int gmouse_set_cursor(int cursor)
         return -1;
     }
 
-    int width = art_frame_width(mouseCursorFrm, frame, 0);
-    int height = art_frame_length(mouseCursorFrm, frame, 0);
+    width = art_frame_width(mouseCursorFrm, frame, 0);
+    height = art_frame_length(mouseCursorFrm, frame, 0);
 
-    int offsetX;
-    int offsetY;
-    art_frame_offset(mouseCursorFrm, 0, &offsetX, &offsetY);
+	art_frame_offset(mouseCursorFrm, 0, &offsetX, &offsetY);
 
     offsetX = width / 2 - offsetX;
     offsetY = height - 1 - offsetY;
 
-    unsigned char* mouseCursorFrmData = art_frame_data(mouseCursorFrm, frame, 0);
+    mouseCursorFrmData = art_frame_data(mouseCursorFrm, frame, 0);
     if (mouse_set_shape(mouseCursorFrmData, width, height, width, offsetX, offsetY, 0) != 0) {
         return -1;
     }
@@ -1278,6 +1297,13 @@ int gmouse_3d_modes_are_enabled()
 // 0x4444AC
 void gmouse_3d_set_mode(int mode)
 {
+    Rect rect;
+    Rect r2;
+	int v5;
+    int mouseX;
+    int mouseY;
+
+	int fid;
     if (!gmouse_initialized) {
         return;
     }
@@ -1290,27 +1316,23 @@ void gmouse_3d_set_mode(int mode)
         return;
     }
 
-    int fid = art_id(OBJ_TYPE_INTERFACE, 0, 0, 0, 0);
+    fid = art_id(OBJ_TYPE_INTERFACE, 0, 0, 0, 0);
     gmouse_3d_set_fid(fid);
 
     fid = art_id(OBJ_TYPE_INTERFACE, gmouse_3d_mode_nums[mode], 0, 0, 0);
 
-    Rect rect;
     // NOTE: Uninline.
     if (gmouse_3d_set_flat_fid(fid, &rect) == -1) {
         return;
     }
 
-    int mouseX;
-    int mouseY;
     mouse_get_position(&mouseX, &mouseY);
 
-    Rect r2;
     if (gmouse_3d_move_to(mouseX, mouseY, map_elevation, &r2) == 0) {
         rect_min_bound(&rect, &r2, &rect);
     }
 
-    int v5 = 0;
+    v5 = 0;
     if (gmouse_3d_current_mode == GAME_MOUSE_MODE_CROSSHAIR) {
         v5 = -1;
     }
@@ -1387,6 +1409,11 @@ void gmouse_3d_refresh()
 // 0x444690
 int gmouse_3d_set_fid(int fid)
 {
+    int v1;
+    Rect oldRect;
+    Rect rect;
+	int rc;
+
     if (!gmouse_initialized) {
         return -1;
     }
@@ -1403,17 +1430,15 @@ int gmouse_3d_set_fid(int fid)
         return obj_change_fid(obj_mouse, fid, NULL);
     }
 
-    int v1 = 0;
+    v1 = 0;
 
-    Rect oldRect;
     if (obj_mouse->fid != -1) {
         obj_bound(obj_mouse, &oldRect);
         v1 |= 1;
     }
 
-    int rc = -1;
+    rc = -1;
 
-    Rect rect;
     if (obj_change_fid(obj_mouse, fid, &rect) == 0) {
         rc = 0;
         v1 |= 2;
@@ -1453,23 +1478,25 @@ void gmouse_3d_reset_fid()
 // 0x4447C0
 void gmouse_3d_on()
 {
+	Rect rect1;
+    Rect rect2;
+    Rect tmp;
+	int v2;
+
     if (!gmouse_initialized) {
         return;
     }
 
-    int v2 = 0;
+    v2 = 0;
 
-    Rect rect1;
     if (obj_turn_on(obj_mouse, &rect1) == 0) {
         v2 |= 1;
     }
 
-    Rect rect2;
     if (obj_turn_on(obj_mouse_flat, &rect2) == 0) {
         v2 |= 2;
     }
 
-    Rect tmp;
     if (gmouse_3d_current_mode != GAME_MOUSE_MODE_MOVE) {
         if (obj_turn_off_outline(obj_mouse_flat, &tmp) == 0) {
             if ((v2 & 2) != 0) {
@@ -1517,18 +1544,20 @@ void gmouse_3d_on()
 // 0x4448C8
 void gmouse_3d_off()
 {
+	int v1;
+    Rect rect1;
+    Rect rect2;
+
     if (!gmouse_initialized) {
         return;
     }
 
-    int v1 = 0;
+    v1 = 0;
 
-    Rect rect1;
     if (obj_turn_off(obj_mouse, &rect1) == 0) {
         v1 |= 1;
     }
 
-    Rect rect2;
     if (obj_turn_off(obj_mouse_flat, &rect2) == 0) {
         v1 |= 2;
     }
@@ -1554,9 +1583,12 @@ Object* object_under_mouse(int objectType, bool a2, int elevation)
 {
     int mouseX;
     int mouseY;
+	bool v13;
+	Object* v4;
+
     mouse_get_position(&mouseX, &mouseY);
 
-    bool v13 = false;
+    v13 = false;
     if (objectType == -1) {
         if (square_roof_intersect(mouseX, mouseY, elevation)) {
             if (obj_intersects_with(obj_egg, mouseX, mouseY) == 0) {
@@ -1565,11 +1597,12 @@ Object* object_under_mouse(int objectType, bool a2, int elevation)
         }
     }
 
-    Object* v4 = NULL;
+    v4 = NULL;
     if (!v13) {
+		int index;
         ObjectWithFlags* entries;
         int count = obj_create_intersect_list(mouseX, mouseY, elevation, objectType, &entries);
-        for (int index = count - 1; index >= 0; index--) {
+        for (index = count - 1; index >= 0; index--) {
             ObjectWithFlags* ptr = &(entries[index]);
             if (a2 || obj_dude != ptr->object) {
                 v4 = ptr->object;
@@ -1593,32 +1626,43 @@ Object* object_under_mouse(int objectType, bool a2, int elevation)
 // 0x444A34
 int gmouse_3d_build_pick_frame(int x, int y, int menuItem, int width, int height)
 {
+    CacheEntry* arrowFrmHandle;
     CacheEntry* menuItemFrmHandle;
+	int arrowFid;
+	Art* arrowFrm;
+    unsigned char* arrowFrmData;
+    int arrowFrmWidth,arrowFrmHeight;
+    unsigned char* menuItemFrmData;
+    int menuItemFrmWidth;
+    int menuItemFrmHeight;
+    unsigned char* arrowFrmDest;
+    unsigned char* menuItemFrmDest;
+    int maxX,maxY,shiftY;
+
     int menuItemFid = art_id(OBJ_TYPE_INTERFACE, gmouse_3d_action_nums[menuItem], 0, 0, 0);
     Art* menuItemFrm = art_ptr_lock(menuItemFid, &menuItemFrmHandle);
     if (menuItemFrm == NULL) {
         return -1;
     }
 
-    CacheEntry* arrowFrmHandle;
-    int arrowFid = art_id(OBJ_TYPE_INTERFACE, gmouse_3d_mode_nums[GAME_MOUSE_MODE_ARROW], 0, 0, 0);
-    Art* arrowFrm = art_ptr_lock(arrowFid, &arrowFrmHandle);
+    arrowFid = art_id(OBJ_TYPE_INTERFACE, gmouse_3d_mode_nums[GAME_MOUSE_MODE_ARROW], 0, 0, 0);
+    arrowFrm = art_ptr_lock(arrowFid, &arrowFrmHandle);
     if (arrowFrm == NULL) {
         art_ptr_unlock(menuItemFrmHandle);
         // FIXME: Why this is success?
         return 0;
     }
 
-    unsigned char* arrowFrmData = art_frame_data(arrowFrm, 0, 0);
-    int arrowFrmWidth = art_frame_width(arrowFrm, 0, 0);
-    int arrowFrmHeight = art_frame_length(arrowFrm, 0, 0);
+    arrowFrmData = art_frame_data(arrowFrm, 0, 0);
+    arrowFrmWidth = art_frame_width(arrowFrm, 0, 0);
+    arrowFrmHeight = art_frame_length(arrowFrm, 0, 0);
 
-    unsigned char* menuItemFrmData = art_frame_data(menuItemFrm, 0, 0);
-    int menuItemFrmWidth = art_frame_width(menuItemFrm, 0, 0);
-    int menuItemFrmHeight = art_frame_length(menuItemFrm, 0, 0);
+    menuItemFrmData = art_frame_data(menuItemFrm, 0, 0);
+    menuItemFrmWidth = art_frame_width(menuItemFrm, 0, 0);
+    menuItemFrmHeight = art_frame_length(menuItemFrm, 0, 0);
 
-    unsigned char* arrowFrmDest = gmouse_3d_pick_frame_data;
-    unsigned char* menuItemFrmDest = gmouse_3d_pick_frame_data;
+    arrowFrmDest = gmouse_3d_pick_frame_data;
+    menuItemFrmDest = gmouse_3d_pick_frame_data;
 
     gmouse_3d_pick_frame_hot_x = 0;
     gmouse_3d_pick_frame_hot_y = 0;
@@ -1626,9 +1670,9 @@ int gmouse_3d_build_pick_frame(int x, int y, int menuItem, int width, int height
     gmouse_3d_pick_frame->xOffsets[0] = gmouse_3d_pick_frame_width / 2;
     gmouse_3d_pick_frame->yOffsets[0] = gmouse_3d_pick_frame_height - 1;
 
-    int maxX = x + menuItemFrmWidth + arrowFrmWidth - 1;
-    int maxY = y + menuItemFrmHeight - 1;
-    int shiftY = maxY - height + 2;
+    maxX = x + menuItemFrmWidth + arrowFrmWidth - 1;
+    maxY = y + menuItemFrmHeight - 1;
+     shiftY = maxY - height + 2;
 
     if (maxX < width) {
         menuItemFrmDest += arrowFrmWidth;
@@ -1678,6 +1722,21 @@ int gmouse_3d_pick_frame_hot(int* a1, int* a2)
 // 0x444CA8
 int gmouse_3d_build_menu_frame(int x, int y, const int* menuItems, int menuItemsLength, int width, int height)
 {
+    CacheEntry* menuItemFrmHandles[GAME_MOUSE_ACTION_MENU_ITEM_COUNT];
+    Art* menuItemFrms[GAME_MOUSE_ACTION_MENU_ITEM_COUNT];
+	int index;
+    int fid;
+    CacheEntry* arrowFrmHandle;
+    Art* arrowFrm;
+	int arrowWidth,arrowHeight;
+    int menuItemWidth,menuItemHeight;
+    int v60,v24;
+    unsigned char* v22;
+    unsigned char* v58;
+    unsigned char* arrowData;
+	unsigned char* v38;
+	Sound* sound;
+
     gmouse_3d_menu_actions_start = NULL;
     gmouse_3d_menu_current_action_index = 0;
     gmouse_3d_menu_available_actions = 0;
@@ -1690,16 +1749,14 @@ int gmouse_3d_build_menu_frame(int x, int y, const int* menuItems, int menuItems
         return -1;
     }
 
-    CacheEntry* menuItemFrmHandles[GAME_MOUSE_ACTION_MENU_ITEM_COUNT];
-    Art* menuItemFrms[GAME_MOUSE_ACTION_MENU_ITEM_COUNT];
-
-    for (int index = 0; index < menuItemsLength; index++) {
+    for (index = 0; index < menuItemsLength; index++) {
+		int fid;
         int frmId = gmouse_3d_action_nums[menuItems[index]] & 0xFFFF;
         if (index == 0) {
             frmId -= 1;
         }
 
-        int fid = art_id(OBJ_TYPE_INTERFACE, frmId, 0, 0, 0);
+        fid = art_id(OBJ_TYPE_INTERFACE, frmId, 0, 0, 0);
 
         menuItemFrms[index] = art_ptr_lock(fid, &(menuItemFrmHandles[index]));
         if (menuItemFrms[index] == NULL) {
@@ -1710,19 +1767,18 @@ int gmouse_3d_build_menu_frame(int x, int y, const int* menuItems, int menuItems
         }
     }
 
-    int fid = art_id(OBJ_TYPE_INTERFACE, gmouse_3d_mode_nums[GAME_MOUSE_MODE_ARROW], 0, 0, 0);
-    CacheEntry* arrowFrmHandle;
-    Art* arrowFrm = art_ptr_lock(fid, &arrowFrmHandle);
+    fid = art_id(OBJ_TYPE_INTERFACE, gmouse_3d_mode_nums[GAME_MOUSE_MODE_ARROW], 0, 0, 0);
+    arrowFrm = art_ptr_lock(fid, &arrowFrmHandle);
     if (arrowFrm == NULL) {
         // FIXME: Unlock arts.
         return -1;
     }
 
-    int arrowWidth = art_frame_width(arrowFrm, 0, 0);
-    int arrowHeight = art_frame_length(arrowFrm, 0, 0);
+    arrowWidth = art_frame_width(arrowFrm, 0, 0);
+    arrowHeight = art_frame_length(arrowFrm, 0, 0);
 
-    int menuItemWidth = art_frame_width(menuItemFrms[0], 0, 0);
-    int menuItemHeight = art_frame_length(menuItemFrms[0], 0, 0);
+    menuItemWidth = art_frame_width(menuItemFrms[0], 0, 0);
+    menuItemHeight = art_frame_length(menuItemFrms[0], 0, 0);
 
     gmouse_3d_menu_frame_hot_x = 0;
     gmouse_3d_menu_frame_hot_y = 0;
@@ -1730,12 +1786,11 @@ int gmouse_3d_build_menu_frame(int x, int y, const int* menuItems, int menuItems
     gmouse_3d_menu_frame->xOffsets[0] = gmouse_3d_menu_frame_width / 2;
     gmouse_3d_menu_frame->yOffsets[0] = gmouse_3d_menu_frame_height - 1;
 
-    int v60 = y + menuItemsLength * menuItemHeight - 1;
-    int v24 = v60 - height + 2;
-    unsigned char* v22 = gmouse_3d_menu_frame_data;
-    unsigned char* v58 = v22;
+    v60 = y + menuItemsLength * menuItemHeight - 1;
+    v24 = v60 - height + 2;
+    v22 = gmouse_3d_menu_frame_data;
+    v58 = v22;
 
-    unsigned char* arrowData;
     if (x + arrowWidth + menuItemWidth - 1 < width) {
         arrowData = art_frame_data(arrowFrm, 0, 0);
         v58 = v22 + arrowWidth;
@@ -1761,8 +1816,8 @@ int gmouse_3d_build_menu_frame(int x, int y, const int* menuItems, int menuItems
     memset(gmouse_3d_menu_frame_data, 0, gmouse_3d_menu_frame_size);
     buf_to_buf(arrowData, arrowWidth, arrowHeight, arrowWidth, v22, gmouse_3d_pick_frame_width);
 
-    unsigned char* v38 = v58;
-    for (int index = 0; index < menuItemsLength; index++) {
+    v38 = v58;
+    for (index = 0; index < menuItemsLength; index++) {
         unsigned char* data = art_frame_data(menuItemFrms[index], 0, 0);
         buf_to_buf(data, menuItemWidth, menuItemHeight, menuItemWidth, v38, gmouse_3d_pick_frame_width);
         v38 += gmouse_3d_menu_frame_width * menuItemHeight;
@@ -1770,7 +1825,7 @@ int gmouse_3d_build_menu_frame(int x, int y, const int* menuItems, int menuItems
 
     art_ptr_unlock(arrowFrmHandle);
 
-    for (int index = 0; index < menuItemsLength; index++) {
+    for (index = 0; index < menuItemsLength; index++) {
         art_ptr_unlock(menuItemFrmHandles[index]);
     }
 
@@ -1778,7 +1833,7 @@ int gmouse_3d_build_menu_frame(int x, int y, const int* menuItems, int menuItems
     gmouse_3d_menu_available_actions = menuItemsLength;
     gmouse_3d_menu_actions_start = v58;
 
-    Sound* sound = gsound_load_sound("iaccuxx1", NULL);
+    sound = gsound_load_sound("iaccuxx1", NULL);
     if (sound != NULL) {
         gsound_play_sound(sound);
     }
@@ -1797,20 +1852,25 @@ int gmouse_3d_menu_frame_hot(int* x, int* y)
 // 0x4450BC
 int gmouse_3d_highlight_menu_frame(int menuItemIndex)
 {
+    CacheEntry* handle;
+    int fid;
+    Art* art;
+    int width,height;
+    unsigned char* data;
+
     if (menuItemIndex < 0 || menuItemIndex >= gmouse_3d_menu_available_actions) {
         return -1;
     }
 
-    CacheEntry* handle;
-    int fid = art_id(OBJ_TYPE_INTERFACE, gmouse_3d_action_nums[gmouse_3d_menu_frame_actions[gmouse_3d_menu_current_action_index]], 0, 0, 0);
-    Art* art = art_ptr_lock(fid, &handle);
+    fid = art_id(OBJ_TYPE_INTERFACE, gmouse_3d_action_nums[gmouse_3d_menu_frame_actions[gmouse_3d_menu_current_action_index]], 0, 0, 0);
+    art = art_ptr_lock(fid, &handle);
     if (art == NULL) {
         return -1;
     }
 
-    int width = art_frame_width(art, 0, 0);
-    int height = art_frame_length(art, 0, 0);
-    unsigned char* data = art_frame_data(art, 0, 0);
+    width = art_frame_width(art, 0, 0);
+    height = art_frame_length(art, 0, 0);
+    data = art_frame_data(art, 0, 0);
     buf_to_buf(data, width, height, width, gmouse_3d_menu_actions_start + gmouse_3d_menu_frame_width * height * gmouse_3d_menu_current_action_index, gmouse_3d_menu_frame_width);
     art_ptr_unlock(handle);
 
@@ -1832,7 +1892,11 @@ int gmouse_3d_highlight_menu_frame(int menuItemIndex)
 // 0x445200
 int gmouse_3d_build_to_hit_frame(const char* string, int color)
 {
+    int crosshairFrmWidth,crosshairFrmHeight;
+    unsigned char* crosshairFrmData;
     CacheEntry* crosshairFrmHandle;
+	int oldFont;
+
     int fid = art_id(OBJ_TYPE_INTERFACE, gmouse_3d_mode_nums[GAME_MOUSE_MODE_CROSSHAIR], 0, 0, 0);
     Art* crosshairFrm = art_ptr_lock(fid, &crosshairFrmHandle);
     if (crosshairFrm == NULL) {
@@ -1841,9 +1905,9 @@ int gmouse_3d_build_to_hit_frame(const char* string, int color)
 
     memset(gmouse_3d_to_hit_frame_data, 0, gmouse_3d_to_hit_frame_size);
 
-    int crosshairFrmWidth = art_frame_width(crosshairFrm, 0, 0);
-    int crosshairFrmHeight = art_frame_length(crosshairFrm, 0, 0);
-    unsigned char* crosshairFrmData = art_frame_data(crosshairFrm, 0, 0);
+    crosshairFrmWidth = art_frame_width(crosshairFrm, 0, 0);
+    crosshairFrmHeight = art_frame_length(crosshairFrm, 0, 0);
+    crosshairFrmData = art_frame_data(crosshairFrm, 0, 0);
     buf_to_buf(crosshairFrmData,
         crosshairFrmWidth,
         crosshairFrmHeight,
@@ -1851,7 +1915,7 @@ int gmouse_3d_build_to_hit_frame(const char* string, int color)
         gmouse_3d_to_hit_frame_data,
         gmouse_3d_to_hit_frame_width);
 
-    int oldFont = text_curr();
+    oldFont = text_curr();
     text_font(101);
 
     text_to_buf(gmouse_3d_to_hit_frame_data + gmouse_3d_to_hit_frame_width + crosshairFrmWidth + 1,
@@ -1876,23 +1940,24 @@ int gmouse_3d_build_to_hit_frame(const char* string, int color)
 // 0x445304
 int gmouse_3d_build_hex_frame(const char* string, int color)
 {
+	int oldFont,length,fid;
     memset(gmouse_3d_hex_frame_data, 0, gmouse_3d_hex_frame_width * gmouse_3d_hex_frame_height);
 
     if (*string == '\0') {
         return 0;
     }
 
-    int oldFont = text_curr();
+    oldFont = text_curr();
     text_font(101);
 
-    int length = text_width(string);
+    length = text_width(string);
     text_to_buf(gmouse_3d_hex_frame_data + gmouse_3d_hex_frame_width * (gmouse_3d_hex_frame_height - text_height()) / 2 + (gmouse_3d_hex_frame_width - length) / 2, string, gmouse_3d_hex_frame_width, gmouse_3d_hex_frame_width, color);
 
     buf_outline(gmouse_3d_hex_frame_data, gmouse_3d_hex_frame_width, gmouse_3d_hex_frame_height, gmouse_3d_hex_frame_width, colorTable[0]);
 
     text_font(oldFont);
 
-    int fid = art_id(OBJ_TYPE_INTERFACE, 1, 0, 0, 0);
+    fid = art_id(OBJ_TYPE_INTERFACE, 1, 0, 0, 0);
     gmouse_3d_set_fid(fid);
 
     return 0;
@@ -1911,6 +1976,10 @@ void gmouse_3d_synch_item_highlight()
 static int gmouse_3d_init()
 {
     int fid;
+    int x;
+    int y;
+    Rect v9;
+
 
     if (gmouse_3d_initialized) {
         return -1;
@@ -1948,11 +2017,8 @@ static int gmouse_3d_init()
 
     obj_toggle_flat(obj_mouse_flat, NULL);
 
-    int x;
-    int y;
     mouse_get_position(&x, &y);
 
-    Rect v9;
     gmouse_3d_move_to(x, y, map_elevation, &v9);
 
     gmouse_3d_initialized = true;
@@ -2145,6 +2211,12 @@ static int gmouse_3d_reset_flat_fid(Rect* rect)
 // 0x445A20
 static int gmouse_3d_move_to(int x, int y, int elevation, Rect* a4)
 {
+    int tile;
+    int x1 = 0;
+    int y1 = 0;
+
+    int fid;
+
     if (gmouse_mapper_mode == 0) {
         if (gmouse_3d_current_mode != GAME_MOUSE_MODE_MOVE) {
             int offsetX = 0;
@@ -2152,10 +2224,10 @@ static int gmouse_3d_move_to(int x, int y, int elevation, Rect* a4)
             CacheEntry* hexCursorFrmHandle;
             Art* hexCursorFrm = art_ptr_lock(obj_mouse_flat->fid, &hexCursorFrmHandle);
             if (hexCursorFrm != NULL) {
+                int frameOffsetX,frameOffsetY;
+
                 art_frame_offset(hexCursorFrm, 0, &offsetX, &offsetY);
 
-                int frameOffsetX;
-                int frameOffsetY;
                 art_frame_hot(hexCursorFrm, 0, 0, &frameOffsetX, &frameOffsetY);
 
                 offsetX += frameOffsetX;
@@ -2173,13 +2245,13 @@ static int gmouse_3d_move_to(int x, int y, int elevation, Rect* a4)
 
                 bool v1 = false;
                 Rect rect1;
+                Rect rect2;
                 if (tile_coord(tile, &screenX, &screenY, 0) == 0) {
                     if (obj_move(obj_mouse, screenX + 16, screenY + 15, 0, &rect1) == 0) {
                         v1 = true;
                     }
                 }
 
-                Rect rect2;
                 if (obj_move_to_tile(obj_mouse_flat, tile, elevation, &rect2) == 0) {
                     if (v1) {
                         rect_min_bound(&rect1, &rect2, &rect1);
@@ -2194,19 +2266,19 @@ static int gmouse_3d_move_to(int x, int y, int elevation, Rect* a4)
         return 0;
     }
 
-    int tile;
-    int x1 = 0;
-    int y1 = 0;
+    tile;
+    x1 = 0;
+    y1 = 0;
 
-    int fid = obj_mouse->fid;
+    fid = obj_mouse->fid;
     if (FID_TYPE(fid) == OBJ_TYPE_TILE) {
         int squareTile = square_num(x, y, elevation);
         if (squareTile == -1) {
+            char* executable;
             tile = HEX_GRID_WIDTH * (2 * (squareTile / SQUARE_GRID_WIDTH) + 1) + 2 * (squareTile % SQUARE_GRID_WIDTH) + 1;
             x1 = -8;
             y1 = 13;
 
-            char* executable;
             config_get_string(&game_config, GAME_CONFIG_SYSTEM_KEY, GAME_CONFIG_EXECUTABLE_KEY, &executable);
             if (stricmp(executable, "mapper") == 0) {
                 if (tile_roof_visible()) {
@@ -2243,10 +2315,11 @@ static int gmouse_3d_move_to(int x, int y, int elevation, Rect* a4)
             CacheEntry* hexCursorFrmHandle;
             Art* hexCursorFrm = art_ptr_lock(obj_mouse_flat->fid, &hexCursorFrmHandle);
             if (hexCursorFrm != NULL) {
-                art_frame_offset(hexCursorFrm, 0, &offsetX, &offsetY);
-
                 int frameOffsetX;
                 int frameOffsetY;
+
+                art_frame_offset(hexCursorFrm, 0, &offsetX, &offsetY);
+
                 art_frame_hot(hexCursorFrm, 0, 0, &frameOffsetX, &frameOffsetY);
 
                 offsetX += frameOffsetX;
@@ -2285,11 +2358,15 @@ static int gmouse_3d_move_to(int x, int y, int elevation, Rect* a4)
 // 0x445EB8
 static int gmouse_check_scrolling(int x, int y, int cursor)
 {
+	int flags;
+	int dx,dy;
+	int rc;
+
     if (!gmouse_scrolling_enabled) {
         return -1;
     }
 
-    int flags = 0;
+    flags = 0;
 
     if (x <= scr_size.ulx) {
         flags |= SCROLLABLE_W;
@@ -2307,8 +2384,8 @@ static int gmouse_check_scrolling(int x, int y, int cursor)
         flags |= SCROLLABLE_S;
     }
 
-    int dx = 0;
-    int dy = 0;
+    dx = 0;
+    dy = 0;
 
     switch (flags) {
     case SCROLLABLE_W:
@@ -2353,7 +2430,7 @@ static int gmouse_check_scrolling(int x, int y, int cursor)
         return -1;
     }
 
-    int rc = map_scroll(dx, dy);
+    rc = map_scroll(dx, dy);
     switch (rc) {
     case -1:
         // Scrolling is blocked for whatever reason, upgrade cursor to

@@ -184,6 +184,12 @@ void proto_make_path(char* path, int pid)
 // 0x48CD64
 int proto_list_str(int pid, char* proto_path)
 {
+    char string[256];
+    char path[MAX_PATH];
+	DB_FILE* stream;
+	int i;
+	char* pch;
+
     if (pid == -1) {
         return -1;
     }
@@ -192,16 +198,14 @@ int proto_list_str(int pid, char* proto_path)
         return -1;
     }
 
-    char path[MAX_PATH];
     proto_make_path(path, pid);
     strcat(path, "\\");
     strcat(path, art_dir(PID_TYPE(pid)));
     strcat(path, ".lst");
 
-    DB_FILE* stream = db_fopen(path, "rt");
+    stream = db_fopen(path, "rt");
 
-    int i = 1;
-    char string[256];
+    i = 1;
     while (db_fgets(string, sizeof(string), stream)) {
         if (i == (pid & 0xFFFFFF)) {
             break;
@@ -216,7 +220,7 @@ int proto_list_str(int pid, char* proto_path)
         return -1;
     }
 
-    char* pch = strchr(string, ' ');
+    pch = strchr(string, ' ');
     if (pch != NULL) {
         *pch = '\0';
     }
@@ -305,11 +309,12 @@ bool proto_action_can_talk_to(int pid)
 // 0x48D068
 int proto_action_can_pickup(int pid)
 {
+    Proto* proto;
+
     if (PID_TYPE(pid) != OBJ_TYPE_ITEM) {
         return false;
     }
 
-    Proto* proto;
     if (proto_ptr(pid, &proto) == -1) {
         return false;
     }
@@ -361,11 +366,14 @@ char* proto_description(int pid)
 // 0x48D3C0
 int proto_critter_init(Proto* a1, int a2)
 {
+	int v1;
+	CritterProtoData* data;
+
     if (!protos_been_initialized) {
         return -1;
     }
 
-    int v1 = a2 & 0xFFFFFF;
+    v1 = a2 & 0xFFFFFF;
 
     a1->pid = -1;
     a1->messageId = 100 * v1;
@@ -383,7 +391,7 @@ int proto_critter_init(Proto* a1, int a2)
         a1->fid = art_id(OBJ_TYPE_CRITTER, 0, 0, 0, 0);
     }
 
-    CritterProtoData* data = &(a1->critter.data);
+    data = &(a1->critter.data);
     data->experience = 60;
     data->killType = 0;
     stat_set_defaults(data);
@@ -518,6 +526,7 @@ int proto_read_protoUpdateData(Object* obj, DB_FILE* stream)
 int proto_write_protoUpdateData(Object* obj, DB_FILE* stream)
 {
     Proto* proto;
+	typedef int intptr_t;
 
     ObjectData* data = &(obj->data);
     if (db_fwriteInt(stream, data->inventory.length) == -1) return -1;
@@ -600,12 +609,13 @@ int proto_write_protoUpdateData(Object* obj, DB_FILE* stream)
 int proto_update_gen(Object* obj)
 {
     Proto* proto;
+	ObjectData* data;
 
     if (!protos_been_initialized) {
         return -1;
     }
 
-    ObjectData* data = &(obj->data);
+    data = &(obj->data);
     data->inventory.length = 0;
     data->inventory.capacity = 0;
     data->inventory.items = NULL;
@@ -672,6 +682,10 @@ int proto_update_gen(Object* obj)
 // 0x48DDE4
 int proto_update_init(Object* obj)
 {
+	ObjectData* data;
+    Proto* proto;
+
+
     if (!protos_been_initialized) {
         return -1;
     }
@@ -690,7 +704,7 @@ int proto_update_init(Object* obj)
         return proto_update_gen(obj);
     }
 
-    ObjectData* data = &(obj->data);
+    data = &(obj->data);
     data->inventory.length = 0;
     data->inventory.capacity = 0;
     data->inventory.items = NULL;
@@ -700,7 +714,6 @@ int proto_update_init(Object* obj)
     stat_recalc_derived(obj);
     obj->data.critter.combat.whoHitMe = NULL;
 
-    Proto* proto;
     if (proto_ptr(obj->pid, &proto) != -1) {
         data->critter.combat.aiPacket = proto->critter.aiPacket;
         data->critter.combat.team = proto->critter.team;
@@ -713,11 +726,12 @@ int proto_update_init(Object* obj)
 int proto_dude_update_gender()
 {
     Proto* proto;
+    int art_num;
+
     if (proto_ptr(0x1000000, &proto) == -1) {
         return -1;
     }
 
-    int art_num;
     if (stat_level(obj_dude, STAT_GENDER) == GENDER_MALE) {
         art_num = art_vault_person_nums[GENDER_MALE];
     } else {
@@ -727,12 +741,13 @@ int proto_dude_update_gender()
     art_vault_guy_num = art_num;
 
     if (inven_worn(obj_dude) == NULL) {
+		int fid;
         int v1 = 0;
         if (inven_right_hand(obj_dude) != NULL || inven_left_hand(obj_dude) != NULL) {
             v1 = (obj_dude->fid & 0xF000) >> 12;
         }
 
-        int fid = art_id(OBJ_TYPE_CRITTER, art_vault_guy_num, 0, v1, 0);
+        fid = art_id(OBJ_TYPE_CRITTER, art_vault_guy_num, 0, v1, 0);
         obj_change_fid(obj_dude, fid, NULL);
     }
 
@@ -744,6 +759,8 @@ int proto_dude_update_gender()
 // 0x48DF90
 int proto_dude_init(const char* path)
 {
+    Proto* proto;
+
     // 0x51C538
     static int init_true = 0;
 
@@ -758,7 +775,6 @@ int proto_dude_init(const char* path)
 
     init_true = 1;
 
-    Proto* proto;
     if (proto_ptr(0x1000000, &proto) == -1) {
         return -1;
     }
@@ -1182,25 +1198,29 @@ void proto_exit()
 // 0x48ECD8
 int proto_header_load()
 {
-    for (int index = 0; index < 6; index++) {
+	char path[MAX_PATH];
+	DB_FILE* stream;
+	int index;
+	int ch;
+
+    for (index = 0; index < 6; index++) {
         ProtoList* ptr = &(protolists[index]);
         ptr->head = NULL;
         ptr->tail = NULL;
         ptr->length = 0;
         ptr->max_entries_num = 1;
 
-        char path[MAX_PATH];
         proto_make_path(path, index << 24);
         strcat(path, "\\");
         strcat(path, art_dir(index));
         strcat(path, ".lst");
 
-        DB_FILE* stream = db_fopen(path, "rt");
+        stream = db_fopen(path, "rt");
         if (stream == NULL) {
             return -1;
         }
 
-        int ch = '\0';
+        ch = '\0';
         while (1) {
             ch = db_fgetc(stream);
             if (ch == -1) {
@@ -1594,23 +1614,26 @@ static int proto_write_protoSubNode(Proto* proto, DB_FILE* stream)
 // 0x48FF28
 int proto_save_pid(int pid)
 {
+    char path[MAX_PATH];
+	DB_FILE* stream;
     Proto* proto;
+	int rc;
+
     if (proto_ptr(pid, &proto) == -1) {
         return -1;
     }
 
-    char path[MAX_PATH];
     proto_make_path(path, pid);
     strcat(path, "\\");
 
     proto_list_str(pid, path + strlen(path));
 
-    DB_FILE* stream = db_fopen(path, "wb");
+    stream = db_fopen(path, "wb");
     if (stream == NULL) {
         return -1;
     }
 
-    int rc = proto_write_protoSubNode(proto, stream);
+    rc = proto_write_protoSubNode(proto, stream);
 
     db_fclose(stream);
 
@@ -1620,6 +1643,7 @@ int proto_save_pid(int pid)
 // 0x490034
 int proto_load_pid(int pid, Proto** protoPtr)
 {
+	DB_FILE* stream;
     char path[MAX_PATH];
     proto_make_path(path, pid);
     strcat(path, "\\");
@@ -1628,7 +1652,7 @@ int proto_load_pid(int pid, Proto** protoPtr)
         return -1;
     }
 
-    DB_FILE* stream = db_fopen(path, "rb");
+    stream = db_fopen(path, "rb");
     if (stream == NULL) {
         debug_printf("\nError: Can't fopen proto!\n");
         *protoPtr = NULL;
@@ -1652,6 +1676,8 @@ int proto_load_pid(int pid, Proto** protoPtr)
 // 0x490190
 int proto_find_free_subnode(int type, Proto** protoPtr)
 {
+	ProtoList* protoList;
+    ProtoListExtent* protoListExtent;
     size_t size = (type >= 0 && type < 11) ? proto_sizes[type] : 0;
 
     Proto* proto = (Proto*)mem_malloc(size);
@@ -1660,8 +1686,8 @@ int proto_find_free_subnode(int type, Proto** protoPtr)
         return -1;
     }
 
-    ProtoList* protoList = &(protolists[type]);
-    ProtoListExtent* protoListExtent = protoList->tail;
+    protoList = &(protolists[type]);
+    protoListExtent = protoList->tail;
 
     if (protoList->head != NULL) {
         if (protoListExtent->length == PROTO_LIST_EXTENT_SIZE) {
@@ -1707,13 +1733,15 @@ int proto_find_free_subnode(int type, Proto** protoPtr)
 // 0x490438
 void proto_remove_all()
 {
-    for (int type = 0; type < 6; type++) {
+	int type;
+    for (type = 0; type < 6; type++) {
         ProtoList* protoList = &(protolists[type]);
 
         ProtoListExtent* curr = protoList->head;
         while (curr != NULL) {
+			int index;
             ProtoListExtent* next = curr->next;
-            for (int index = 0; index < curr->length; index++) {
+            for (index = 0; index < curr->length; index++) {
                 mem_free(curr->proto[index]);
             }
             mem_free(curr);
@@ -1729,6 +1757,8 @@ void proto_remove_all()
 // 0x4904AC
 int proto_ptr(int pid, Proto** protoPtr)
 {
+	ProtoList* protoList;
+    ProtoListExtent* protoListExtent;
     *protoPtr = NULL;
 
     if (pid == -1) {
@@ -1740,10 +1770,11 @@ int proto_ptr(int pid, Proto** protoPtr)
         return 0;
     }
 
-    ProtoList* protoList = &(protolists[PID_TYPE(pid)]);
-    ProtoListExtent* protoListExtent = protoList->head;
+    protoList = &(protolists[PID_TYPE(pid)]);
+    protoListExtent = protoList->head;
     while (protoListExtent != NULL) {
-        for (int index = 0; index < protoListExtent->length; index++) {
+		int index;
+        for (index = 0; index < protoListExtent->length; index++) {
             Proto* proto = (Proto*)protoListExtent->proto[index];
             if (pid == proto->pid) {
                 *protoPtr = proto;

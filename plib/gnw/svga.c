@@ -235,6 +235,8 @@ static int ffs(int bits)
 // 0x4CAF9C
 int GNW95_init_DirectDraw(int width, int height, int bpp)
 {
+    DDSURFACEDESC ddsd;
+
     if (GNW95_DDObject != NULL) {
         unsigned char* palette = GNW95_GetPalette();
         GNW95_reset_mode();
@@ -252,7 +254,7 @@ int GNW95_init_DirectDraw(int width, int height, int bpp)
         return -1;
     }
 
-    if (IDirectDraw_SetCooperativeLevel(GNW95_DDObject, GNW95_hwnd, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN) != DD_OK) {
+	if (IDirectDraw_SetCooperativeLevel(GNW95_DDObject, GNW95_hwnd, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN) != DD_OK) {
         return -1;
     }
 
@@ -260,7 +262,6 @@ int GNW95_init_DirectDraw(int width, int height, int bpp)
         return -1;
     }
 
-    DDSURFACEDESC ddsd;
     memset(&ddsd, 0, sizeof(DDSURFACEDESC));
 
     ddsd.dwSize = sizeof(DDSURFACEDESC);
@@ -274,8 +275,9 @@ int GNW95_init_DirectDraw(int width, int height, int bpp)
     GNW95_DDRestoreSurface = GNW95_DDPrimarySurface;
 
     if (bpp == 8) {
+		int index;
         PALETTEENTRY pe[256];
-        for (int index = 0; index < 256; index++) {
+        for (index = 0; index < 256; index++) {
             pe[index].peRed = index;
             pe[index].peGreen = index;
             pe[index].peBlue = index;
@@ -367,7 +369,8 @@ void GNW95_SetPaletteEntries(unsigned char* palette, int start, int count)
         PALETTEENTRY entries[256];
 
         if (count != 0) {
-            for (int index = 0; index < count; index++) {
+			int index;
+            for (index = 0; index < count; index++) {
                 entries[index].peRed = palette[index * 3] << 2;
                 entries[index].peGreen = palette[index * 3 + 1] << 2;
                 entries[index].peBlue = palette[index * 3 + 2] << 2;
@@ -377,7 +380,9 @@ void GNW95_SetPaletteEntries(unsigned char* palette, int start, int count)
 
         IDirectDrawPalette_SetEntries(GNW95_DDPrimaryPalette, 0, start, count, entries);
     } else {
-        for (int index = start; index < start + count; index++) {
+		int index;
+        for (index = start; index < start + count; index++) {
+			unsigned short rgb;
             unsigned short r = palette[0] << 2;
             unsigned short g = palette[1] << 2;
             unsigned short b = palette[2] << 2;
@@ -392,7 +397,7 @@ void GNW95_SetPaletteEntries(unsigned char* palette, int start, int count)
             b = w95bshift > 0 ? (b << w95bshift) : (b >> -w95bshift);
             b &= w95bmask;
 
-            unsigned short rgb = r | g | b;
+            rgb = r | g | b;
             GNW95_Pal16[index] = rgb;
         }
 
@@ -407,10 +412,12 @@ void GNW95_SetPaletteEntries(unsigned char* palette, int start, int count)
 // 0x4CB568
 void GNW95_SetPalette(unsigned char* palette)
 {
+	int index;
+
     if (GNW95_DDPrimaryPalette != NULL) {
         PALETTEENTRY entries[256];
 
-        for (int index = 0; index < 256; index++) {
+        for (index = 0; index < 256; index++) {
             entries[index].peRed = palette[index * 3] << 2;
             entries[index].peGreen = palette[index * 3 + 1] << 2;
             entries[index].peBlue = palette[index * 3 + 2] << 2;
@@ -419,7 +426,9 @@ void GNW95_SetPalette(unsigned char* palette)
 
         IDirectDrawPalette_SetEntries(GNW95_DDPrimaryPalette, 0, 0, 256, entries);
     } else {
-        for (int index = 0; index < 256; index++) {
+		int index;
+        for (index = 0; index < 256; index++) {
+			unsigned short rgb;
             unsigned short r = palette[index * 3] << 2;
             unsigned short g = palette[index * 3 + 1] << 2;
             unsigned short b = palette[index * 3 + 2] << 2;
@@ -433,7 +442,7 @@ void GNW95_SetPalette(unsigned char* palette)
             b = w95bshift > 0 ? (b << w95bshift) : (b >> -w95bshift);
             b &= w95bmask;
 
-            unsigned short rgb = r | g | b;
+            rgb = r | g | b;
             GNW95_Pal16[index] = rgb;
         }
 
@@ -454,7 +463,11 @@ unsigned char* GNW95_GetPalette()
     // buffer it too small to hold the entire palette, which require 256 * 3 bytes.
     //
     // 0x6ACA24
+	int index;
     static unsigned char cmap[256];
+    int redShift;
+    int greenShift;
+    int blueShift;
 
     if (GNW95_DDPrimaryPalette != NULL) {
         PALETTEENTRY paletteEntries[256];
@@ -462,7 +475,7 @@ unsigned char* GNW95_GetPalette()
             return NULL;
         }
 
-        for (int index = 0; index < 256; index++) {
+        for (index = 0; index < 256; index++) {
             PALETTEENTRY* paletteEntry = &(paletteEntries[index]);
             cmap[index * 3] = paletteEntry->peRed >> 2;
             cmap[index * 3 + 1] = paletteEntry->peGreen >> 2;
@@ -472,11 +485,11 @@ unsigned char* GNW95_GetPalette()
         return cmap;
     }
 
-    int redShift = w95rshift + 2;
-    int greenShift = w95gshift + 2;
-    int blueShift = w95bshift + 2;
+    redShift = w95rshift + 2;
+    greenShift = w95gshift + 2;
+    blueShift = w95bshift + 2;
 
-    for (int index = 0; index < 256; index++) {
+    for (index = 0; index < 256; index++) {
         unsigned short rgb = GNW95_Pal16[index];
 
         unsigned short r = redShift > 0 ? ((rgb & w95rmask) >> redShift) : ((rgb & w95rmask) << -redShift);
@@ -526,6 +539,8 @@ void GNW95_MouseShowRect16(unsigned char* src, unsigned int srcPitch, unsigned i
 {
     DDSURFACEDESC ddsd;
     HRESULT hr;
+	unsigned char* dest;
+	unsigned int y;
 
     if (!GNW95_isActive) {
         return;
@@ -546,14 +561,15 @@ void GNW95_MouseShowRect16(unsigned char* src, unsigned int srcPitch, unsigned i
         }
     }
 
-    unsigned char* dest = (unsigned char*)ddsd.lpSurface + ddsd.lPitch * destY + 2 * destX;
+    dest = (unsigned char*)ddsd.lpSurface + ddsd.lPitch * destY + 2 * destX;
 
     src += srcPitch * srcY + srcX;
 
-    for (unsigned int y = 0; y < srcHeight; y++) {
+    for (y = 0; y < srcHeight; y++) {
         unsigned short* destPtr = (unsigned short*)dest;
         unsigned char* srcPtr = src;
-        for (unsigned int x = 0; x < srcWidth; x++) {
+		unsigned int x;
+        for (x = 0; x < srcWidth; x++) {
             *destPtr = GNW95_Pal16[*srcPtr];
             destPtr++;
             srcPtr++;
@@ -577,6 +593,8 @@ void GNW95_MouseShowTransRect16(unsigned char* src, unsigned int srcPitch, unsig
 {
     DDSURFACEDESC ddsd;
     HRESULT hr;
+	unsigned int y;
+	unsigned char* dest;
 
     if (!GNW95_isActive) {
         return;
@@ -597,14 +615,15 @@ void GNW95_MouseShowTransRect16(unsigned char* src, unsigned int srcPitch, unsig
         }
     }
 
-    unsigned char* dest = (unsigned char*)ddsd.lpSurface + ddsd.lPitch * destY + 2 * destX;
+    dest = (unsigned char*)ddsd.lpSurface + ddsd.lPitch * destY + 2 * destX;
 
     src += srcPitch * srcY + srcX;
 
-    for (unsigned int y = 0; y < srcHeight; y++) {
+    for (y = 0; y < srcHeight; y++) {
         unsigned short* destPtr = (unsigned short*)dest;
         unsigned char* srcPtr = src;
-        for (unsigned int x = 0; x < srcWidth; x++) {
+		unsigned int x;
+        for (x = 0; x < srcWidth; x++) {
             if (*srcPtr != keyColor) {
                 *destPtr = GNW95_Pal16[*srcPtr];
             }

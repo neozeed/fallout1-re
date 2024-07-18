@@ -40,9 +40,11 @@ void setBitmapLoadFunc(DatafileLoader* loader)
 void datafileConvertData(unsigned char* data, unsigned char* palette, int width, int height)
 {
     unsigned char indexedPalette[256];
+	int index;
+	int size;
 
     indexedPalette[0] = 0;
-    for (int index = 1; index < 256; index++) {
+    for (index = 1; index < 256; index++) {
         // TODO: Check.
         int r = palette[index * 3 + 2] >> 3;
         int g = palette[index * 3 + 1] >> 3;
@@ -51,8 +53,8 @@ void datafileConvertData(unsigned char* data, unsigned char* palette, int width,
         indexedPalette[index] = colorTable[colorTableIndex];
     }
 
-    int size = width * height;
-    for (int index = 0; index < size; index++) {
+    size = width * height;
+    for (index = 0; index < size; index++) {
         data[index] = indexedPalette[data[index]];
     }
 }
@@ -61,9 +63,10 @@ void datafileConvertData(unsigned char* data, unsigned char* palette, int width,
 void datafileConvertDataVGA(unsigned char* data, unsigned char* palette, int width, int height)
 {
     unsigned char indexedPalette[256];
+	int index,size;
 
     indexedPalette[0] = 0;
-    for (int index = 1; index < 256; index++) {
+    for (index = 1; index < 256; index++) {
         // TODO: Check.
         int r = palette[index * 3 + 2] >> 1;
         int g = palette[index * 3 + 1] >> 1;
@@ -72,8 +75,8 @@ void datafileConvertDataVGA(unsigned char* data, unsigned char* palette, int wid
         indexedPalette[index] = colorTable[colorTableIndex];
     }
 
-    int size = width * height;
-    for (int index = 0; index < size; index++) {
+    size = width * height;
+    for (index = 0; index < size; index++) {
         data[index] = indexedPalette[data[index]];
     }
 }
@@ -126,18 +129,21 @@ void trimBuffer(unsigned char* data, int* widthPtr, int* heightPtr)
     int width = *widthPtr;
     int height = *heightPtr;
     unsigned char* temp = (unsigned char*)mymalloc(width * height, __FILE__, __LINE__); // "..\\int\\DATAFILE.C", 157
+    int y ,x;
+    unsigned char* src1;
 
     // NOTE: Original code does not initialize `x`.
-    int y = 0;
-    int x = 0;
-    unsigned char* src1 = data;
+    y = 0;
+    x = 0;
+    src1 = data;
 
     for (y = 0; y < height; y++) {
+		unsigned char* src2;
         if (*src1 == 0) {
             break;
         }
 
-        unsigned char* src2 = src1;
+        src2 = src1;
         for (x = 0; x < width; x++) {
             if (*src2 == 0) {
                 break;
@@ -164,12 +170,15 @@ unsigned char* datafileLoadBlock(char* path, int* sizePtr)
 {
     const char* mangledPath = mangleName(path);
     DB_FILE* stream = db_fopen(mangledPath, "rb");
+	int size;
+    void* data;
+
     if (stream == NULL) {
         return NULL;
     }
 
-    int size = db_filelength(stream);
-    void* data = mymalloc(size, __FILE__, __LINE__); // "..\\int\\DATAFILE.C", 185
+    size = db_filelength(stream);
+    data = mymalloc(size, __FILE__, __LINE__); // "..\\int\\DATAFILE.C", 185
     if (data == NULL) {
         // NOTE: This code is unreachable, mymalloc never fails.
         // Otherwise it leaks stream.

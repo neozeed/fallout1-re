@@ -42,6 +42,8 @@ static int title_color;
 // 0x426FE0
 void credits(const char* filePath, int backgroundFid, bool useReversedStyle)
 {
+    char localizedPath[MAX_PATH];
+
     int oldFont = text_curr();
 
     loadColorTable("color.pal");
@@ -60,29 +62,34 @@ void credits(const char* filePath, int backgroundFid, bool useReversedStyle)
 
     soundUpdate();
 
-    char localizedPath[MAX_PATH];
     if (message_make_path(localizedPath, filePath)) {
         credits_file = db_fopen(localizedPath, "rt");
         if (credits_file != NULL) {
+			bool cursorWasHidden;
+			int creditsWindowX,creditsWindowY;
+			int window;
+
             soundUpdate();
 
             cycle_disable();
             gmouse_set_cursor(MOUSE_CURSOR_NONE);
 
-            bool cursorWasHidden = mouse_hidden();
+            cursorWasHidden = mouse_hidden();
             if (cursorWasHidden) {
                 mouse_show();
             }
 
-            int creditsWindowX = 0;
-            int creditsWindowY = 0;
-            int window = win_add(creditsWindowX, creditsWindowY, CREDITS_WINDOW_WIDTH, CREDITS_WINDOW_HEIGHT, colorTable[0], 20);
+            creditsWindowX = 0;
+            creditsWindowY = 0;
+            window = win_add(creditsWindowX, creditsWindowY, CREDITS_WINDOW_WIDTH, CREDITS_WINDOW_HEIGHT, colorTable[0], 20);
             soundUpdate();
             if (window != -1) {
                 unsigned char* windowBuffer = win_get_buf(window);
                 if (windowBuffer != NULL) {
                     unsigned char* backgroundBuffer = (unsigned char*)mem_malloc(CREDITS_WINDOW_WIDTH * CREDITS_WINDOW_HEIGHT);
                     if (backgroundBuffer) {
+						unsigned char* intermediateBuffer;
+
                         soundUpdate();
 
                         memset(backgroundBuffer, colorTable[0], CREDITS_WINDOW_WIDTH * CREDITS_WINDOW_HEIGHT);
@@ -104,20 +111,33 @@ void credits(const char* filePath, int backgroundFid, bool useReversedStyle)
                             }
                         }
 
-                        unsigned char* intermediateBuffer = (unsigned char*)mem_malloc(CREDITS_WINDOW_WIDTH * CREDITS_WINDOW_HEIGHT);
+                        intermediateBuffer = (unsigned char*)mem_malloc(CREDITS_WINDOW_WIDTH * CREDITS_WINDOW_HEIGHT);
                         if (intermediateBuffer != NULL) {
+							int titleFontLineHeight;
+							int nameFontLineHeight;
+							int lineHeight;
+                            int stringBufferSize;
+                            unsigned char* stringBuffer;
+
                             memset(intermediateBuffer, 0, CREDITS_WINDOW_WIDTH * CREDITS_WINDOW_HEIGHT);
 
                             text_font(title_font);
-                            int titleFontLineHeight = text_height();
+                            titleFontLineHeight = text_height();
 
                             text_font(name_font);
-                            int nameFontLineHeight = text_height();
+                            nameFontLineHeight = text_height();
 
-                            int lineHeight = nameFontLineHeight + (titleFontLineHeight >= nameFontLineHeight ? titleFontLineHeight - nameFontLineHeight : 0);
-                            int stringBufferSize = CREDITS_WINDOW_WIDTH * lineHeight;
-                            unsigned char* stringBuffer = (unsigned char*)mem_malloc(stringBufferSize);
+                            lineHeight = nameFontLineHeight + (titleFontLineHeight >= nameFontLineHeight ? titleFontLineHeight - nameFontLineHeight : 0);
+                            stringBufferSize = CREDITS_WINDOW_WIDTH * lineHeight;
+                            stringBuffer = (unsigned char*)mem_malloc(stringBufferSize);
                             if (stringBuffer != NULL) {
+                                unsigned char* v40;
+                                char str[260];
+                                int font;
+                                int color;
+                                unsigned int tick;
+                                bool stop;
+
                                 const char* boom = "boom";
                                 int exploding_head_frame = 0;
                                 int exploding_head_cycle = 0;
@@ -136,16 +156,18 @@ void credits(const char* filePath, int backgroundFid, bool useReversedStyle)
 
                                 palette_fade_to(cmap);
 
-                                unsigned char* v40 = intermediateBuffer + CREDITS_WINDOW_WIDTH * CREDITS_WINDOW_HEIGHT - CREDITS_WINDOW_WIDTH;
-                                char str[260];
-                                int font;
-                                int color;
-                                unsigned int tick = 0;
-                                bool stop = false;
+                                v40 = intermediateBuffer + CREDITS_WINDOW_WIDTH * CREDITS_WINDOW_HEIGHT - CREDITS_WINDOW_WIDTH;
+                                tick = 0;
+                                stop = false;
                                 while (credits_get_next_line(str, &font, &color)) {
+									unsigned char* dest;
+									unsigned char* src;
+									int index;
+									int v19;
+
                                     text_font(font);
 
-                                    int v19 = text_width(str);
+                                    v19 = text_width(str);
                                     if (v19 >= CREDITS_WINDOW_WIDTH) {
                                         continue;
                                     }
@@ -153,9 +175,9 @@ void credits(const char* filePath, int backgroundFid, bool useReversedStyle)
                                     memset(stringBuffer, 0, stringBufferSize);
                                     text_to_buf(stringBuffer, str, CREDITS_WINDOW_WIDTH, CREDITS_WINDOW_WIDTH, color);
 
-                                    unsigned char* dest = intermediateBuffer + CREDITS_WINDOW_WIDTH * CREDITS_WINDOW_HEIGHT - CREDITS_WINDOW_WIDTH + (CREDITS_WINDOW_WIDTH - v19) / 2;
-                                    unsigned char* src = stringBuffer;
-                                    for (int index = 0; index < lineHeight; index++) {
+                                    dest = intermediateBuffer + CREDITS_WINDOW_WIDTH * CREDITS_WINDOW_HEIGHT - CREDITS_WINDOW_WIDTH + (CREDITS_WINDOW_WIDTH - v19) / 2;
+                                    src = stringBuffer;
+                                    for (index = 0; index < lineHeight; index++) {
                                         int input = get_input();
                                         if (input != -1) {
                                             if (input != *boom) {
@@ -231,7 +253,8 @@ void credits(const char* filePath, int backgroundFid, bool useReversedStyle)
                                 }
 
                                 if (!stop) {
-                                    for (int index = 0; index < CREDITS_WINDOW_HEIGHT; index++) {
+									int index;
+                                    for (index = 0; index < CREDITS_WINDOW_HEIGHT; index++) {
                                         if (get_input() != -1) {
                                             break;
                                         }

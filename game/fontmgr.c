@@ -51,9 +51,10 @@ static InterfaceFontDescriptor* gCurrentFont;
 // 0x43A780
 int FMInit()
 {
+	int font;
     int currentFont = -1;
 
-    for (int font = 0; font < INTERFACE_FONT_MAX; font++) {
+    for (font = 0; font < INTERFACE_FONT_MAX; font++) {
         if (FMLoadFont(font) == -1) {
             gFontCache[font].maxHeight = 0;
             gFontCache[font].data = NULL;
@@ -80,7 +81,9 @@ int FMInit()
 // 0x43A7EC
 void FMExit()
 {
-    for (int font = 0; font < INTERFACE_FONT_MAX; font++) {
+	int font;
+
+    for (font = 0; font < INTERFACE_FONT_MAX; font++) {
         if (gFontCache[font].data != NULL) {
             myfree(gFontCache[font].data, __FILE__, __LINE__); // FONTMGR.C, 124
         }
@@ -91,18 +94,22 @@ void FMExit()
 static int FMLoadFont(int font_index)
 {
     InterfaceFontDescriptor* fontDescriptor = &(gFontCache[font_index]);
-
+	DB_FILE* stream;
     char path[56];
+    int sig;
+	int fileSize;
+	int index;
+	int glyphDataSize;
+
     sprintf(path, "font%d.aaf", font_index);
 
-    DB_FILE* stream = db_fopen(path, "rb");
+    stream = db_fopen(path, "rb");
     if (stream == NULL) {
         return -1;
     }
 
-    int fileSize = db_filelength(stream);
+    fileSize = db_filelength(stream);
 
-    int sig;
     if (db_fread(&sig, 4, 1, stream) != 1) {
         db_fclose(stream);
         return -1;
@@ -138,7 +145,7 @@ static int FMLoadFont(int font_index)
     }
     Swap2(&(fontDescriptor->lineSpacing));
 
-    for (int index = 0; index < 256; index++) {
+    for (index = 0; index < 256; index++) {
         InterfaceFontGlyph* glyph = &(fontDescriptor->glyphs[index]);
 
         if (db_fread(&(glyph->width), 2, 1, stream) != 1) {
@@ -160,7 +167,7 @@ static int FMLoadFont(int font_index)
         Swap4(&(glyph->offset));
     }
 
-    int glyphDataSize = fileSize - 2060;
+    glyphDataSize = fileSize - 2060;
 
     fontDescriptor->data = (unsigned char*)mymalloc(glyphDataSize, __FILE__, __LINE__); // FONTMGR.C, 259
     if (fontDescriptor->data == NULL) {
@@ -207,11 +214,13 @@ int FMtext_height()
 // 0x43AC88
 int FMtext_width(const char* string)
 {
+	int stringWidth;
+
     if (!gFMInit) {
         return 0;
     }
 
-    int stringWidth = 0;
+    stringWidth = 0;
 
     while (*string != '\0') {
         unsigned char ch = (unsigned char)(*string++);
@@ -280,11 +289,12 @@ int FMtext_size(const char* str)
 // 0x43AD7C
 int FMtext_max()
 {
+	int v1;
+
     if (!gFMInit) {
         return 0;
     }
 
-    int v1;
     if (gCurrentFont->wordSpacing <= gCurrentFont->field_8) {
         v1 = gCurrentFont->lineSpacing;
     } else {
@@ -303,6 +313,10 @@ int FMtext_curr()
 // 0x43ADB8
 void FMtext_to_buf(unsigned char* buf, const char* string, int length, int pitch, int color)
 {
+	int monospacedCharacterWidth;
+	unsigned char* ptr;
+	unsigned char* palette;
+
     if (!gFMInit) {
         return;
     }
@@ -314,17 +328,21 @@ void FMtext_to_buf(unsigned char* buf, const char* string, int length, int pitch
         FMtext_to_buf(buf + pitch + 1, string, length, pitch, (color & ~0xFF) | colorTable[0]);
     }
 
-    unsigned char* palette = getColorBlendTable(color & 0xFF);
+    palette = getColorBlendTable(color & 0xFF);
 
-    int monospacedCharacterWidth;
     if ((color & FONT_MONO) != 0) {
         // NOTE: Uninline.
         monospacedCharacterWidth = FMtext_max();
     }
 
-    unsigned char* ptr = buf;
+    ptr = buf;
     while (*string != '\0') {
+		InterfaceFontGlyph* glyph;
+		unsigned char* glyphDataPtr;
+		int y;
         char ch = *string++;
+        unsigned char* end;
+
 
         int characterWidth;
         if (ch == ' ') {
@@ -333,7 +351,6 @@ void FMtext_to_buf(unsigned char* buf, const char* string, int length, int pitch
             characterWidth = gCurrentFont->glyphs[ch & 0xFF].width;
         }
 
-        unsigned char* end;
         if ((color & FONT_MONO) != 0) {
             end = ptr + monospacedCharacterWidth;
             ptr += (monospacedCharacterWidth - characterWidth - gCurrentFont->letterSpacing) / 2;
@@ -345,14 +362,15 @@ void FMtext_to_buf(unsigned char* buf, const char* string, int length, int pitch
             break;
         }
 
-        InterfaceFontGlyph* glyph = &(gCurrentFont->glyphs[ch & 0xFF]);
-        unsigned char* glyphDataPtr = gCurrentFont->data + glyph->offset;
+        glyph = &(gCurrentFont->glyphs[ch & 0xFF]);
+        glyphDataPtr = gCurrentFont->data + glyph->offset;
 
         // Skip blank pixels (difference between font's line height and glyph height).
         ptr += (gCurrentFont->maxHeight - glyph->height) * pitch;
 
-        for (int y = 0; y < glyph->height; y++) {
-            for (int x = 0; x < glyph->width; x++) {
+        for (y = 0; y < glyph->height; y++) {
+			int x;
+            for ( x = 0; x < glyph->width; x++) {
                 unsigned char byte = *glyphDataPtr++;
 
                 *ptr++ = palette[(byte << 8) + *ptr];
@@ -365,9 +383,10 @@ void FMtext_to_buf(unsigned char* buf, const char* string, int length, int pitch
     }
 
     if ((color & FONT_UNDERLINE) != 0) {
+		int index;
         int length = ptr - buf;
         unsigned char* underlinePtr = buf + pitch * (gCurrentFont->maxHeight - 1);
-        for (int index = 0; index < length; index++) {
+        for (index = 0; index < length; index++) {
             *underlinePtr++ = color & 0xFF;
         }
     }
@@ -398,11 +417,12 @@ int FMtext_space_width()
 // 0x442520
 static void Swap4(unsigned int* value)
 {
+	unsigned short low;
     unsigned int swapped = *value;
     unsigned short high = swapped >> 16;
     // NOTE: Uninline.
     Swap2(&high);
-    unsigned short low = swapped & 0xFFFF;
+    low = swapped & 0xFFFF;
     // NOTE: Uninline.
     Swap2(&low);
     *value = (low << 16) | high;

@@ -12,7 +12,7 @@ bool mmxTest()
     int v1;
 
     // TODO: There are other ways to determine MMX using FLAGS register.
-
+#if 0
     __asm
     {
         mov eax, 1
@@ -22,6 +22,9 @@ bool mmxTest()
     }
 
     return v1 != 0;
+#else
+return false;
+#endif
 }
 
 // 0x4CDB50
@@ -33,7 +36,8 @@ void srcCopy(unsigned char* dest, int destPitch, unsigned char* src, int srcPitc
         srcCopy(dest, destPitch, src, srcPitch, width, height);
         mmxEnabled = true;
     } else {
-        for (int y = 0; y < height; y++) {
+		int y;
+        for (y = 0; y < height; y++) {
             memcpy(dest, src, width);
             dest += destPitch;
             src += srcPitch;
@@ -50,11 +54,13 @@ void transSrcCopy(unsigned char* dest, int destPitch, unsigned char* src, int sr
         transSrcCopy(dest, destPitch, src, srcPitch, width, height);
         mmxEnabled = true;
     } else {
+		int y;
         int destSkip = destPitch - width;
         int srcSkip = srcPitch - width;
 
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
+        for (y = 0; y < height; y++) {
+			int x;
+            for (x = 0; x < width; x++) {
                 unsigned char c = *src++;
                 if (c != 0) {
                     *dest = c;

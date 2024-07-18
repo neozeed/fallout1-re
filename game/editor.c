@@ -630,6 +630,7 @@ int editor_design(bool isCreationMode)
     char line1[128];
     char line2[128];
     const char* lines[] = { line2 };
+	int rc;
 
     glblmode = isCreationMode;
 
@@ -651,12 +652,15 @@ int editor_design(bool isCreationMode)
         }
     }
 
-    int rc = -1;
+    rc = -1;
     while (rc == -1) {
-        frame_time = get_time();
-        int keyCode = get_input();
+		int keyCode;
+		bool done;
 
-        bool done = false;
+        frame_time = get_time();
+        keyCode = get_input();
+
+        done = false;
         if (keyCode == 500) {
             done = true;
         }
@@ -794,6 +798,7 @@ static int CharEditStart()
     char perks[32];
     char karma[32];
     char kills[32];
+	int editorWindowX,editorWindowY;
 
     fontsave = text_curr();
     old_tags = 0;
@@ -908,8 +913,8 @@ static int CharEditStart()
         return -1;
     }
 
-    int editorWindowX = EDITOR_WINDOW_X;
-    int editorWindowY = EDITOR_WINDOW_Y;
+    editorWindowX = EDITOR_WINDOW_X;
+    editorWindowY = EDITOR_WINDOW_Y;
     edit_win = win_add(editorWindowX,
         editorWindowY,
         EDITOR_WINDOW_WIDTH,
@@ -1377,9 +1382,11 @@ static int CharEditStart()
 // 0x42DA38
 static void CharEditEnd()
 {
+	int index;
+
     win_delete(edit_win);
 
-    for (int index = 0; index < EDITOR_GRAPHIC_COUNT; index++) {
+    for (index = 0; index < EDITOR_GRAPHIC_COUNT; index++) {
         art_ptr_unlock(grph_key[index]);
 
         if (copyflag[index]) {
@@ -1447,32 +1454,38 @@ int get_input_str(int win, int cancelKeyCode, char* text, int maxLength, int x, 
     int windowWidth = win_width(win);
     int v60 = text_height();
     unsigned char* windowBuffer = win_get_buf(win);
+    char copy[257];
+	int blinkingCounter;
+	int nameWidth,nameLength;
+	bool blink;
+	int rc;
+
     if (maxLength > 255) {
         maxLength = 255;
     }
 
-    char copy[257];
     strcpy(copy, text);
 
-    int nameLength = strlen(text);
+    nameLength = strlen(text);
     copy[nameLength] = ' ';
     copy[nameLength + 1] = '\0';
 
-    int nameWidth = text_width(copy);
+    nameWidth = text_width(copy);
 
     buf_fill(windowBuffer + windowWidth * y + x, nameWidth, text_height(), windowWidth, backgroundColor);
     text_to_buf(windowBuffer + windowWidth * y + x, copy, windowWidth, windowWidth, textColor);
 
     win_draw(win);
 
-    int blinkingCounter = 3;
-    bool blink = false;
+    blinkingCounter = 3;
+    blink = false;
 
-    int rc = 1;
+    rc = 1;
     while (rc == 1) {
+		int keyCode;
         frame_time = get_time();
 
-        int keyCode = get_input();
+        keyCode = get_input();
         if (keyCode == cancelKeyCode) {
             rc = 0;
         } else if (keyCode == KEY_RETURN) {
@@ -1510,9 +1523,11 @@ int get_input_str(int win, int cancelKeyCode, char* text, int maxLength, int x, 
 
         blinkingCounter -= 1;
         if (blinkingCounter == 0) {
+			int color;
+
             blinkingCounter = 3;
 
-            int color = blink ? backgroundColor : textColor;
+            color = blink ? backgroundColor : textColor;
             blink = !blink;
 
             buf_fill(windowBuffer + windowWidth * y + x + text_width(copy) - cursorWidth, cursorWidth, v60 - 2, windowWidth, color);
@@ -1534,14 +1549,16 @@ int get_input_str(int win, int cancelKeyCode, char* text, int maxLength, int x, 
 // 0x42DF68
 bool isdoschar(int ch)
 {
+	int length,index;
+
     const char* punctuations = "#@!$`'~^&()-_=[]{}";
 
     if (isalnum(ch)) {
         return true;
     }
 
-    int length = strlen(punctuations);
-    for (int index = 0; index < length; index++) {
+    length = strlen(punctuations);
+    for (index = 0; index < length; index++) {
         if (punctuations[index] == ch) {
             return true;
         }
@@ -1915,6 +1932,9 @@ static void PrintLevelWin()
     int y;
     char formattedValueBuffer[8];
     char stringBuffer[128];
+	int level;
+	int exp;
+	int expToNextLevel;
 
     if (glblmode == 1) {
         return;
@@ -1932,7 +1952,7 @@ static void PrintLevelWin()
         color = colorTable[32747];
     }
 
-    int level = stat_pc_get(PC_STAT_LEVEL);
+    level = stat_pc_get(PC_STAT_LEVEL);
     sprintf(stringBuffer, "%s %d",
         getmsg(&editor_message_file, &mesg, 113),
         level);
@@ -1946,7 +1966,7 @@ static void PrintLevelWin()
         color = colorTable[32747];
     }
 
-    int exp = stat_pc_get(PC_STAT_EXPERIENCE);
+    exp = stat_pc_get(PC_STAT_EXPERIENCE);
     sprintf(stringBuffer, "%s %s",
         getmsg(&editor_message_file, &mesg, 114),
         itostndn(exp, formattedValueBuffer));
@@ -1960,7 +1980,7 @@ static void PrintLevelWin()
         color = colorTable[32747];
     }
 
-    int expToNextLevel = stat_pc_min_exp();
+    expToNextLevel = stat_pc_min_exp();
     if (expToNextLevel == -1) {
         sprintf(stringBuffer, "%s %s",
             getmsg(&editor_message_file, &mesg, 115),
@@ -2167,6 +2187,8 @@ static void ListDrvdStats()
     const char* messageListItemText;
     char t[420]; // TODO: Size is wrong.
     int y;
+    int currHp;
+    int maxHp;
 
     conditions = obj_dude->data.critter.combat.results;
 
@@ -2183,8 +2205,6 @@ static void ListDrvdStats()
         color = colorTable[992];
     }
 
-    int currHp;
-    int maxHp;
     if (glblmode) {
         maxHp = stat_level(obj_dude, STAT_MAXIMUM_HIT_POINTS);
         currHp = maxHp;
@@ -2804,6 +2824,10 @@ static void DrawInfoWin()
 static int NameWindow()
 {
     char* text;
+	unsigned char* windowBuf;
+	int doneBtn;
+    char name[64];
+    char nameCopy[64];
 
     int windowWidth = GInfo[EDITOR_GRAPHIC_CHARWIN].width;
     int windowHeight = GInfo[EDITOR_GRAPHIC_CHARWIN].height;
@@ -2815,7 +2839,7 @@ static int NameWindow()
         return -1;
     }
 
-    unsigned char* windowBuf = win_get_buf(win);
+    windowBuf = win_get_buf(win);
 
     // Copy background
     memcpy(windowBuf, grphbmp[EDITOR_GRAPHIC_CHARWIN], windowWidth * windowHeight);
@@ -2839,7 +2863,7 @@ static int NameWindow()
     text = getmsg(&editor_message_file, &mesg, 100);
     text_to_buf(windowBuf + windowWidth * 44 + 50, text, windowWidth, windowWidth, colorTable[18979]);
 
-    int doneBtn = win_register_button(win,
+    doneBtn = win_register_button(win,
         26,
         44,
         GInfo[EDITOR_GRAPHIC_LITTLE_RED_BUTTON_UP].width,
@@ -2860,7 +2884,6 @@ static int NameWindow()
 
     text_font(101);
 
-    char name[64];
     strcpy(name, critter_name(obj_dude));
 
     if (strcmp(name, "None") == 0) {
@@ -2869,7 +2892,6 @@ static int NameWindow()
 
     // NOTE: I don't understand the nameCopy, not sure what it is used for. It's
     // definitely there, but I just don' get it.
-    char nameCopy[64];
     strcpy(nameCopy, name);
 
     if (get_input_str(win, 500, nameCopy, 11, 23, 19, colorTable[992], 100, 0) != -1) {
@@ -3029,9 +3051,10 @@ static int AgeWindow()
     }
 
     while (true) {
+		int v32;
         frame_time = get_time();
         change = 0;
-        int v32 = 0;
+        v32 = 0;
 
         keyCode = get_input();
 
@@ -3156,6 +3179,10 @@ static int AgeWindow()
 static void SexWindow()
 {
     char* text;
+	unsigned char* windowBuf;
+	int doneBtn;
+    int btns[2];
+    int savedGender;
 
     int windowWidth = GInfo[EDITOR_GRAPHIC_CHARWIN].width;
     int windowHeight = GInfo[EDITOR_GRAPHIC_CHARWIN].height;
@@ -3170,7 +3197,7 @@ static void SexWindow()
         return;
     }
 
-    unsigned char* windowBuf = win_get_buf(win);
+    windowBuf = win_get_buf(win);
 
     // Copy background
     memcpy(windowBuf, grphbmp[EDITOR_GRAPHIC_CHARWIN], windowWidth * windowHeight);
@@ -3187,7 +3214,7 @@ static void SexWindow()
     text = getmsg(&editor_message_file, &mesg, 100);
     text_to_buf(windowBuf + windowWidth * 48 + 52, text, windowWidth, windowWidth, colorTable[18979]);
 
-    int doneBtn = win_register_button(win,
+    doneBtn = win_register_button(win,
         28,
         48,
         GInfo[EDITOR_GRAPHIC_LITTLE_RED_BUTTON_UP].width,
@@ -3204,7 +3231,6 @@ static void SexWindow()
         win_register_button_sound_func(doneBtn, gsound_red_butt_press, gsound_red_butt_release);
     }
 
-    int btns[2];
     btns[0] = win_register_button(win,
         22,
         2,
@@ -3240,13 +3266,15 @@ static void SexWindow()
         win_register_button_sound_func(doneBtn, gsound_red_butt_press, NULL);
     }
 
-    int savedGender = stat_level(obj_dude, STAT_GENDER);
+    savedGender = stat_level(obj_dude, STAT_GENDER);
     win_set_button_rest_state(btns[savedGender], 1, 0);
 
     while (true) {
+		int eventCode;
+
         frame_time = get_time();
 
-        int eventCode = get_input();
+        eventCode = get_input();
 
         if (eventCode == 500) {
             break;
@@ -3284,20 +3312,26 @@ static void SexWindow()
 // 0x431B08
 static void StatButton(int eventCode)
 {
+    int incrementingStat;
+    int decrementingStat;
+    int v11;
+    bool cont;
+	int savedRemainingCharacterPoints;
+
     repFtime = 4;
 
-    int savedRemainingCharacterPoints = character_points;
+    savedRemainingCharacterPoints = character_points;
 
     if (!glblmode) {
         return;
     }
 
-    int incrementingStat = eventCode - 503;
-    int decrementingStat = eventCode - 510;
+    incrementingStat = eventCode - 503;
+    decrementingStat = eventCode - 510;
 
-    int v11 = 0;
+    v11 = 0;
 
-    bool cont = true;
+    cont = true;
     do {
         frame_time = get_time();
         if (v11 <= 19.2) {
@@ -3376,6 +3410,11 @@ static int OptionWindow()
     char string3[512];
     char string4[512];
     char string5[512];
+    char pattern[512];
+    char** fileNames;
+	int filesCount;
+    char title[512];
+    char fileName[512];
 
     // Only two of the these blocks are used as a dialog body. Depending on the
     // dialog either 1 or 2 strings used from this array.
@@ -3385,6 +3424,15 @@ static int OptionWindow()
     };
 
     if (glblmode) {
+		unsigned char* windowBuffer;
+        int err;
+        unsigned char* down[5];
+        unsigned char* up[5];
+        int size;
+        int y;
+        int index;
+		int rc;
+
         int optionsWindowX = 238;
         int optionsWindowY = 90;
         int win = win_add(optionsWindowX, optionsWindowY, GInfo[41].width, GInfo[41].height, 256, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x02);
@@ -3392,17 +3440,14 @@ static int OptionWindow()
             return -1;
         }
 
-        unsigned char* windowBuffer = win_get_buf(win);
+        windowBuffer = win_get_buf(win);
         memcpy(windowBuffer, grphbmp[41], GInfo[41].width * GInfo[41].height);
 
         text_font(103);
 
-        int err = 0;
-        unsigned char* down[5];
-        unsigned char* up[5];
-        int size = width * height;
-        int y = 17;
-        int index;
+        err = 0;
+        size = width * height;
+        y = 17;
 
         for (index = 0; index < 5; index++) {
             if (err != 0) {
@@ -3410,6 +3455,9 @@ static int OptionWindow()
             }
 
             do {
+				int offset;
+				int btn;
+
                 down[index] = (unsigned char*)mem_malloc(size);
                 if (down[index] == NULL) {
                     err = 1;
@@ -3427,11 +3475,11 @@ static int OptionWindow()
 
                 strcpy(string4, getmsg(&editor_message_file, &mesg, 600 + index));
 
-                int offset = width * 7 + width / 2 - text_width(string4) / 2;
+                offset = width * 7 + width / 2 - text_width(string4) / 2;
                 text_to_buf(up[index] + offset, string4, width, width, colorTable[18979]);
                 text_to_buf(down[index] + offset, string4, width, width, colorTable[14723]);
 
-                int btn = win_register_button(win, 13, y, width, height, -1, -1, -1, 500 + index, up[index], down[index], NULL, BUTTON_FLAG_TRANSPARENT);
+                btn = win_register_button(win, 13, y, width, height, -1, -1, -1, 500 + index, up[index], down[index], NULL, BUTTON_FLAG_TRANSPARENT);
                 if (btn != -1) {
                     win_register_button_sound_func(btn, gsound_lrg_butt_press, NULL);
                 }
@@ -3455,7 +3503,7 @@ static int OptionWindow()
 
         text_font(101);
 
-        int rc = 0;
+        rc = 0;
         while (rc == 0) {
             int keyCode = get_input();
 
@@ -3489,14 +3537,15 @@ static int OptionWindow()
                     ResetScreen();
                 }
             } else if (keyCode == 502 || keyCode == KEY_UPPERCASE_P || keyCode == KEY_LOWERCASE_P) {
+				char** fileList;
+                int fileListLength;
                 // PRINT TO FILE
                 string4[0] = '\0';
 
                 strcat(string4, "*.");
                 strcat(string4, "TXT");
 
-                char** fileList;
-                int fileListLength = db_get_file_list(string4, &fileList, NULL, 0);
+                fileListLength = db_get_file_list(string4, &fileList, NULL, 0);
                 if (fileListLength != -1) {
                     // PRINT
                     strcpy(string1, getmsg(&editor_message_file, &mesg, 616));
@@ -3562,13 +3611,14 @@ static int OptionWindow()
                     rc = 0;
                 }
             } else if (keyCode == 501 || keyCode == KEY_UPPERCASE_L || keyCode == KEY_LOWERCASE_L) {
+                char** fileNameList;
+                int fileNameListLength;
                 // LOAD
                 string4[0] = '\0';
                 strcat(string4, "*.");
                 strcat(string4, "GCD");
 
-                char** fileNameList;
-                int fileNameListLength = db_get_file_list(string4, &fileNameList, NULL, 0);
+                fileNameListLength = db_get_file_list(string4, &fileNameList, NULL, 0);
                 if (fileNameListLength != -1) {
                     // NOTE: This value is not copied as in save dialog.
                     char* title = getmsg(&editor_message_file, &mesg, 601);
@@ -3580,10 +3630,12 @@ static int OptionWindow()
                     }
 
                     if (loadFileDialogRc == 0) {
+						int oldRemainingCharacterPoints;
+
                         string4[0] = '\0';
                         strcat(string4, string3);
 
-                        int oldRemainingCharacterPoints = character_points;
+                        oldRemainingCharacterPoints = character_points;
 
                         ResetPlayer();
 
@@ -3633,25 +3685,27 @@ static int OptionWindow()
                     dialog_out(string4, NULL, 0, 169, 126, colorTable[32328], NULL, colorTable[32328], 0);
                 }
             } else if (keyCode == 500 || keyCode == KEY_UPPERCASE_S || keyCode == KEY_LOWERCASE_S) {
+                char** fileNameList;
+                int fileNameListLength;
                 // SAVE
                 string4[0] = '\0';
                 strcat(string4, "*.");
                 strcat(string4, "GCD");
 
-                char** fileNameList;
-                int fileNameListLength = db_get_file_list(string4, &fileNameList, NULL, 0);
+                fileNameListLength = db_get_file_list(string4, &fileNameList, NULL, 0);
                 if (fileNameListLength != -1) {
                     strcpy(string1, getmsg(&editor_message_file, &mesg, 617));
                     strcpy(string4, getmsg(&editor_message_file, &mesg, 600));
 
                     if (save_file_dialog(string4, fileNameList, string1, fileNameListLength, 168, 80, 0) == 0) {
+                        bool shouldSave;
+
                         strcat(string1, ".");
                         strcat(string1, "GCD");
 
                         string4[0] = '\0';
                         strcat(string4, string1);
 
-                        bool shouldSave;
                         if (db_access(string4)) {
                             sprintf(string4, "%s %s",
                                 strupr(string1),
@@ -3693,10 +3747,11 @@ static int OptionWindow()
 
                     db_free_file_list(&fileNameList, NULL);
                 } else {
+					char* msg;
                     gsound_play_sfx_file("iisxxxx1");
 
                     // Error reading file list!
-                    char* msg = getmsg(&editor_message_file, &mesg, 615);
+                    msg = getmsg(&editor_message_file, &mesg, 615);
                     dialog_out(msg, NULL, 0, 169, 126, colorTable[32328], NULL, colorTable[32328], 0);
 
                     rc = 0;
@@ -3719,11 +3774,10 @@ static int OptionWindow()
     // Character Editor is not in creation mode - this button is only for
     // printing character details.
 
-    char pattern[512];
     strcpy(pattern, "*.TXT");
 
-    char** fileNames;
-    int filesCount = db_get_file_list(pattern, &fileNames, NULL, 0);
+
+    filesCount = db_get_file_list(pattern, &fileNames, NULL, 0);
     if (filesCount == -1) {
         gsound_play_sfx_file("iisxxxx1");
 
@@ -3734,29 +3788,32 @@ static int OptionWindow()
     }
 
     // PRINT
-    char fileName[512];
     strcpy(fileName, getmsg(&editor_message_file, &mesg, 616));
 
-    char title[512];
     strcpy(title, getmsg(&editor_message_file, &mesg, 602));
 
     if (save_file_dialog(title, fileNames, fileName, filesCount, 168, 80, 0) == 0) {
+		int v42;
+
         strcat(fileName, ".TXT");
 
         title[0] = '\0';
         strcat(title, fileName);
 
-        int v42 = 0;
+        v42 = 0;
         if (db_access(title)) {
+            char line2[512];
+			char* lines[] = { line2 };
+
             sprintf(title,
                 "%s %s",
                 strupr(fileName),
                 getmsg(&editor_message_file, &mesg, 609));
 
-            char line2[512];
             strcpy(line2, getmsg(&editor_message_file, &mesg, 610));
 
-            const char* lines[] = { line2 };
+			//JASON not sure.
+//            lines = 
             v42 = dialog_out(title, lines, 1, 169, 126, colorTable[32328], NULL, colorTable[32328], 0x10);
             if (v42) {
                 v42 = 1;
@@ -3802,6 +3859,20 @@ bool db_access(const char* fname)
 // 0x433230
 static int Save_as_ASCII(const char* fileName)
 {
+    char title1[256];
+    char title2[256];
+    char title3[256];
+    char padding[256];
+    int month;
+    int day;
+    int year;
+	int paddingLength;
+	int perk = 0;
+    int killType = 0;
+	int skill;
+	Inventory* inventory;
+	int index;
+
     DB_FILE* stream = db_fopen(fileName, "wt");
     if (stream == NULL) {
         return -1;
@@ -3809,11 +3880,6 @@ static int Save_as_ASCII(const char* fileName)
 
     db_fputs("\n", stream);
     db_fputs("\n", stream);
-
-    char title1[256];
-    char title2[256];
-    char title3[256];
-    char padding[256];
 
     // FALLOUT
     strcpy(title1, getmsg(&editor_message_file, &mesg, 620));
@@ -3837,9 +3903,6 @@ static int Save_as_ASCII(const char* fileName)
     strcat(padding, "\n");
     db_fputs(padding, stream);
 
-    int month;
-    int day;
-    int year;
     game_time_date(&month, &day, &year);
 
     sprintf(title1, "%.2d %s %d  %.4d %s",
@@ -3866,7 +3929,7 @@ static int Save_as_ASCII(const char* fileName)
         getmsg(&editor_message_file, &mesg, 642),
         critter_name(obj_dude));
 
-    int paddingLength = 27 - strlen(title1);
+    paddingLength = 27 - strlen(title1);
     if (paddingLength > 0) {
         // NOTE: Uninline.
         padding[0] = '\0';
@@ -4005,12 +4068,13 @@ static int Save_as_ASCII(const char* fileName)
     db_fputs("\n", stream);
 
     if (temp_trait[0] != -1) {
+		int index;
         // ::: Traits :::
         sprintf(title1, "%s\n", getmsg(&editor_message_file, &mesg, 650));
         db_fputs(title1, stream);
 
         // NOTE: The original code does not use loop, or it was optimized away.
-        for (int index = 0; index < PC_TRAIT_MAX; index++) {
+        for (index = 0; index < PC_TRAIT_MAX; index++) {
             if (temp_trait[index] != -1) {
                 sprintf(title1, "  %s", trait_name(temp_trait[index]));
                 db_fputs(title1, stream);
@@ -4019,8 +4083,7 @@ static int Save_as_ASCII(const char* fileName)
         }
     }
 
-    int perk = 0;
-    for (; perk < PERK_COUNT; perk++) {
+    for (perk=0; perk < PERK_COUNT; perk++) {
         if (perk_level(perk) != 0) {
             break;
         }
@@ -4152,14 +4215,16 @@ static int Save_as_ASCII(const char* fileName)
     sprintf(title1, "%s\n", getmsg(&editor_message_file, &mesg, 653));
     db_fputs(title1, stream);
 
-    int killType = 0;
-    for (int skill = 0; skill < SKILL_COUNT; skill++) {
+    killType = 0;
+
+    for (skill = 0; skill < SKILL_COUNT; skill++) {
+		bool hasKillType;
         sprintf(title1, "%s ", skill_name(skill));
 
         // NOTE: Uninline.
         AddDots(title1 + strlen(title1), 16 - strlen(title1));
 
-        bool hasKillType = false;
+        hasKillType = false;
 
         for (; killType < KILL_TYPE_COUNT; killType++) {
             int killsCount = critter_kill_count(killType);
@@ -4195,24 +4260,27 @@ static int Save_as_ASCII(const char* fileName)
     sprintf(title1, "%s\n", getmsg(&editor_message_file, &mesg, 654));
     db_fputs(title1, stream);
 
-    Inventory* inventory = &(obj_dude->data.inventory);
-    for (int index = 0; index < inventory->length; index += 3) {
+    inventory = &(obj_dude->data.inventory);
+    for (index = 0; index < inventory->length; index += 3) {
+		int column;
         title1[0] = '\0';
 
-        for (int column = 0; column < 3; column++) {
+        for (column = 0; column < 3; column++) {
+			int length;
+			InventoryItem* inventoryItem;
             int inventoryItemIndex = index + column;
             if (inventoryItemIndex >= inventory->length) {
                 break;
             }
 
-            InventoryItem* inventoryItem = &(inventory->items[inventoryItemIndex]);
+            inventoryItem = &(inventory->items[inventoryItemIndex]);
 
             sprintf(title2,
                 "  %sx %s",
                 itostndn(inventoryItem->quantity, title3),
                 object_name(inventoryItem->item));
 
-            int length = 25 - strlen(title2);
+            length = 25 - strlen(title2);
             if (length < 0) {
                 length = 0;
             }
@@ -4272,9 +4340,10 @@ static void ResetScreen()
 // 0x434540
 char* AddSpaces(char* string, int length)
 {
+	int index;
     char* pch = string + strlen(string);
 
-    for (int index = 0; index < length; index++) {
+    for (index = 0; index < length; index++) {
         *pch++ = ' ';
     }
 
@@ -4286,9 +4355,10 @@ char* AddSpaces(char* string, int length)
 // 0x434570
 static char* AddDots(char* string, int length)
 {
+	int index;
     char* pch = string + strlen(string);
 
-    for (int index = 0; index < length; index++) {
+    for (index = 0; index < length; index++) {
         *pch++ = '.';
     }
 
@@ -4360,7 +4430,8 @@ static void SavePlayer()
     trait_get(&(trait_back[0]), &(trait_back[1]));
 
     if (!glblmode) {
-        for (int skill = 0; skill < SKILL_COUNT; skill++) {
+		int skill;
+        for (skill = 0; skill < SKILL_COUNT; skill++) {
             skillsav[skill] = skill_level(obj_dude, skill);
         }
     }
@@ -4421,10 +4492,12 @@ char* itostndn(int value, char* dest)
     char* savedDest = dest;
 
     if (value != 0) {
+		bool v3;
+		int index;
         *dest = '\0';
 
-        bool v3 = false;
-        for (int index = 0; index < 7; index++) {
+        v3 = false;
+        for (index = 0; index < 7; index++) {
             int v18 = value / v16[index];
             if (v18 > 0 || v3) {
                 char temp[64]; // TODO: Size is probably wrong.
@@ -4460,6 +4533,9 @@ static int DrawCard(int graphicId, const char* name, const char* attributes, cha
     int y;
     short beginnings[WORD_WRAP_MAX_COUNT];
     short beginningsCount;
+	int nameFontLineHeight;
+	int descriptionFontLineHeight;
+	short i;
 
     fid = art_id(OBJ_TYPE_SKILLDEX, graphicId, 0, 0, 0);
     buf = art_lock(fid, &graphicHandle, &(size.width), &(size.height));
@@ -4488,12 +4564,13 @@ static int DrawCard(int graphicId, const char* name, const char* attributes, cha
     text_font(102);
 
     text_to_buf(win_buf + 640 * 272 + 348, name, 640, 640, colorTable[0]);
-    int nameFontLineHeight = text_height();
+    nameFontLineHeight = text_height();
     if (attributes != NULL) {
+		int attributesFontLineHeight;
         int nameWidth = text_width(name);
 
         text_font(101);
-        int attributesFontLineHeight = text_height();
+        attributesFontLineHeight = text_height();
         text_to_buf(win_buf + 640 * (268 + nameFontLineHeight - attributesFontLineHeight) + 348 + nameWidth + 8, attributes, 640, 640, colorTable[0]);
     }
 
@@ -4503,7 +4580,7 @@ static int DrawCard(int graphicId, const char* name, const char* attributes, cha
 
     text_font(101);
 
-    int descriptionFontLineHeight = text_height();
+    descriptionFontLineHeight = text_height();
 
     if (word_wrap(description, v9 + 136, beginnings, &beginningsCount) != 0) {
         // TODO: Leaking graphic handle.
@@ -4511,7 +4588,7 @@ static int DrawCard(int graphicId, const char* name, const char* attributes, cha
     }
 
     y = 315;
-    for (short i = 0; i < beginningsCount - 1; i++) {
+    for (i = 0; i < beginningsCount - 1; i++) {
         short beginning = beginnings[i];
         short ending = beginnings[i + 1];
         char c = description[ending];
@@ -4585,9 +4662,10 @@ static void InfoButton(int eventCode)
     switch (eventCode) {
     case 525:
         if (1) {
+			int index;
             // TODO: Original code is slightly different.
             double mouseY = mouse_ypos;
-            for (int index = 0; index < 7; index++) {
+            for (index = 0; index < 7; index++) {
                 double buttonTop = StatYpos[index];
                 double buttonBottom = StatYpos[index] + 22;
                 double allowance = 5.0 - index * 0.25;
@@ -4612,8 +4690,9 @@ static void InfoButton(int eventCode)
         break;
     case 527:
         if (!glblmode) {
+			int offset;
             text_font(101);
-            int offset = mouse_ypos - 364;
+            offset = mouse_ypos - 364;
             if (offset < 0) {
                 offset = 0;
             }
@@ -4669,14 +4748,19 @@ static void InfoButton(int eventCode)
         break;
     case 534:
         if (1) {
+            double mouseY;
+            double fontLineHeight;
+            double y;
+            double step;
+            int index;
+
             text_font(101);
 
             // TODO: Original code is slightly different.
-            double mouseY = mouse_ypos;
-            double fontLineHeight = text_height();
-            double y = 353.0;
-            double step = text_height() + 3 + 0.56;
-            int index;
+            mouseY = mouse_ypos;
+            fontLineHeight = text_height();
+            y = 353.0;
+            step = text_height() + 3 + 0.56;
             for (index = 0; index < 8; index++) {
                 if (mouseY >= y - 4.0 && mouseY <= y + fontLineHeight) {
                     break;
@@ -4707,15 +4791,29 @@ static void InfoButton(int eventCode)
 // 0x435220
 static void SliderBtn(int keyCode)
 {
+	int unspentSp;
+	bool isUsingKeyboard;
+	int rc;
+    char title[64];
+    char body1[64];
+    char body2[64];
+    int repeatDelay;
+
+    const char* body[] = {
+        body1,
+        body2,
+    };
+
+
     if (glblmode) {
         return;
     }
 
-    int unspentSp = stat_pc_get(PC_STAT_UNSPENT_SKILL_POINTS);
+    unspentSp = stat_pc_get(PC_STAT_UNSPENT_SKILL_POINTS);
     repFtime = 4;
 
-    bool isUsingKeyboard = false;
-    int rc = 0;
+    isUsingKeyboard = false;
+    rc = 0;
 
     switch (keyCode) {
     case KEY_PLUS:
@@ -4732,16 +4830,7 @@ static void SliderBtn(int keyCode)
         break;
     }
 
-    char title[64];
-    char body1[64];
-    char body2[64];
-
-    const char* body[] = {
-        body1,
-        body2,
-    };
-
-    int repeatDelay = 0;
+    repeatDelay = 0;
     for (;;) {
         frame_time = get_time();
         if (repeatDelay <= 19.2) {
@@ -4749,6 +4838,7 @@ static void SliderBtn(int keyCode)
         }
 
         if (repeatDelay == 1 || repeatDelay > 19.2) {
+            int flags;
             if (repeatDelay > 19.2) {
                 repFtime++;
                 if (repFtime > 24) {
@@ -4804,7 +4894,6 @@ static void SliderBtn(int keyCode)
             DrawInfoWin();
             ListSkills(1);
 
-            int flags;
             if (rc == 1) {
                 flags = ANIMATE;
             } else {
@@ -4817,6 +4906,7 @@ static void SliderBtn(int keyCode)
         }
 
         if (!isUsingKeyboard) {
+			int keyCode;
             unspentSp = stat_pc_get(PC_STAT_UNSPENT_SKILL_POINTS);
             if (repeatDelay >= 19.2) {
                 while (elapsed_time(frame_time) < 1000 / repFtime) {
@@ -4826,7 +4916,7 @@ static void SliderBtn(int keyCode)
                 }
             }
 
-            int keyCode = get_input();
+            keyCode = get_input();
             if (keyCode != 522 && keyCode != 524 && rc != -1) {
                 continue;
             }
@@ -4878,8 +4968,10 @@ static void TagSkillSelect(int skill)
         }
     } else {
         if (tagskill_count > 0) {
+			int index;
+
             insertionIndex = 0;
-            for (int index = 0; index < 3; index++) {
+            for (index = 0; index < 3; index++) {
                 if (temp_tag_skill[index] == -1) {
                     break;
                 }
@@ -4887,15 +4979,16 @@ static void TagSkillSelect(int skill)
             }
             temp_tag_skill[insertionIndex] = skill;
         } else {
+            char line1[128];
+            char line2[128];
+            const char* lines[] = { line2 };
+
             gsound_play_sfx_file("iisxxxx1");
 
-            char line1[128];
             strcpy(line1, getmsg(&editor_message_file, &mesg, 140));
 
-            char line2[128];
             strcpy(line2, getmsg(&editor_message_file, &mesg, 141));
 
-            const char* lines[] = { line2 };
             dialog_out(line1, lines, 1, 192, 126, colorTable[32328], 0, colorTable[32328], 0);
         }
     }
@@ -5006,18 +5099,20 @@ static void TraitSelect(int trait)
         }
     } else {
         if (trait_count == 0) {
+            char line1[128];
+            char line2[128];
+            const char* lines = { line2 };
+
             gsound_play_sfx_file("iisxxxx1");
 
-            char line1[128];
             strcpy(line1, getmsg(&editor_message_file, &mesg, 148));
 
-            char line2[128];
             strcpy(line2, getmsg(&editor_message_file, &mesg, 149));
 
-            const char* lines = { line2 };
             dialog_out(line1, &lines, 1, 192, 126, colorTable[32328], 0, colorTable[32328], 0);
         } else {
-            for (int index = 0; index < 2; index++) {
+			int index;
+            for (index = 0; index < 2; index++) {
                 if (temp_trait[index] == -1) {
                     temp_trait[index] = trait;
                     break;
@@ -5144,7 +5239,10 @@ static int UpdateLevel()
 {
     int level = stat_pc_get(PC_STAT_LEVEL);
     if (level != last_level && level <= PC_LEVEL_MAX) {
-        for (int nextLevel = last_level + 1; nextLevel <= level; nextLevel++) {
+		int nextLevel;
+        for (nextLevel = last_level + 1; nextLevel <= level; nextLevel++) {
+			int selectedPerksCount;
+
             int sp = stat_pc_get(PC_STAT_UNSPENT_SKILL_POINTS);
             sp += 5;
             sp += stat_get_base(obj_dude, STAT_INTELLIGENCE) * 2;
@@ -5162,7 +5260,7 @@ static int UpdateLevel()
             stat_pc_set(PC_STAT_UNSPENT_SKILL_POINTS, sp);
 
             // NOTE: Uninline.
-            int selectedPerksCount = PerkCount();
+            selectedPerksCount = PerkCount();
 
             if (selectedPerksCount < 7) {
                 int progression = 3;
@@ -5178,11 +5276,13 @@ static int UpdateLevel()
     }
 
     if (free_perk != 0) {
+		int rc;
+
         folder = 0;
         DrawFolder();
         win_draw(edit_win);
 
-        int rc = perks_dialog();
+        rc = perks_dialog();
         if (rc == -1) {
             debug_printf("\n *** Error running perks dialog! ***\n");
             return -1;
@@ -5233,16 +5333,22 @@ static void RedrwDPrks()
 // 0x436178
 static int perks_dialog()
 {
+    CacheEntry* backgroundFrmHandle;
+    int backgroundWidth;
+    int backgroundHeight;
+    int fid;
+    int btn;
+    const char* msg;
+	int rc;
+	int count;
+
     crow = 0;
     cline = 0;
     old_fid2 = -1;
     old_str2[0] = '\0';
     frstc_draw2 = false;
 
-    CacheEntry* backgroundFrmHandle;
-    int backgroundWidth;
-    int backgroundHeight;
-    int fid = art_id(OBJ_TYPE_INTERFACE, 86, 0, 0, 0);
+	fid = art_id(OBJ_TYPE_INTERFACE, 86, 0, 0, 0);
     pbckgnd = art_lock(fid, &backgroundFrmHandle, &backgroundWidth, &backgroundHeight);
     if (pbckgnd == NULL) {
         printf("\n *** Error running perks dialog window ***\n");
@@ -5263,8 +5369,6 @@ static int perks_dialog()
 
     pwin_buf = win_get_buf(pwin);
     memcpy(pwin_buf, pbckgnd, PERK_WINDOW_WIDTH * PERK_WINDOW_HEIGHT);
-
-    int btn;
 
     btn = win_register_button(pwin,
         48,
@@ -5350,8 +5454,6 @@ static int perks_dialog()
 
     text_font(103);
 
-    const char* msg;
-
     // PICK A NEW PERK
     msg = getmsg(&editor_message_file, &mesg, 152);
     text_to_buf(pwin_buf + PERK_WINDOW_WIDTH * 16 + 49, msg, PERK_WINDOW_WIDTH, PERK_WINDOW_WIDTH, colorTable[18979]);
@@ -5364,7 +5466,7 @@ static int perks_dialog()
     msg = getmsg(&editor_message_file, &mesg, 102);
     text_to_buf(pwin_buf + PERK_WINDOW_WIDTH * 186 + 171, msg, PERK_WINDOW_WIDTH, PERK_WINDOW_WIDTH, colorTable[18979]);
 
-    int count = ListDPerks();
+    count = ListDPerks();
 
     if (perk_level(name_sort_list[crow + cline].value)) {
         char perkRankBuffer[32];
@@ -5382,7 +5484,7 @@ static int perks_dialog()
 
     win_draw(pwin);
 
-    int rc = InputPDLoop(count, RedrwDPrks);
+    rc = InputPDLoop(count, RedrwDPrks);
 
     if (rc == 1) {
         if (perk_add(name_sort_list[crow + cline].value) == -1) {
@@ -5429,17 +5531,21 @@ static int perks_dialog()
 // 0x43671C
 static int InputPDLoop(int count, void (*refreshProc)())
 {
+	int v3,v16,v7;
+	int rc;
+	int height;
+
     text_font(101);
 
-    int v3 = count - 11;
+    v3 = count - 11;
 
-    int height = text_height();
+    height = text_height();
     oldsline = -2;
-    int v16 = height + 2;
+    v16 = height + 2;
 
-    int v7 = 0;
+    v7 = 0;
 
-    int rc = 0;
+    rc = 0;
     while (rc == 0) {
         int keyCode = get_input();
         int v19 = 0;
@@ -5651,6 +5757,13 @@ static int InputPDLoop(int count, void (*refreshProc)())
 // 0x436CE4
 static int ListDPerks()
 {
+    int perks[PERK_COUNT];
+    int count;
+	int perk,index;
+	int v16;
+	int y;
+	int yStep;
+
     buf_to_buf(
         pbckgnd + PERK_WINDOW_WIDTH * 43 + 45,
         192,
@@ -5661,34 +5774,33 @@ static int ListDPerks()
 
     text_font(101);
 
-    int perks[PERK_COUNT];
-    int count = perk_make_list(perks);
+    count = perk_make_list(perks);
     if (count == 0) {
         return 0;
     }
 
-    for (int perk = 0; perk < PERK_COUNT; perk++) {
+    for (perk = 0; perk < PERK_COUNT; perk++) {
         name_sort_list[perk].value = 0;
         name_sort_list[perk].name = NULL;
     }
 
-    for (int index = 0; index < count; index++) {
+    for (index = 0; index < count; index++) {
         name_sort_list[index].value = perks[index];
         name_sort_list[index].name = perk_name(perks[index]);
     }
 
     qsort(name_sort_list, count, sizeof(*name_sort_list), name_sort_comp);
 
-    int v16 = count - crow;
+    v16 = count - crow;
     if (v16 > 11) {
         v16 = 11;
     }
 
     v16 += crow;
 
-    int y = 43;
-    int yStep = text_height() + 2;
-    for (int index = crow; index < v16; index++) {
+    y = 43;
+    yStep = text_height() + 2;
+    for (index = crow; index < v16; index++) {
         int color;
         if (index == crow + cline) {
             color = colorTable[32747];
@@ -5713,13 +5825,17 @@ static int ListDPerks()
 // 0x436F10
 void RedrwDMPrk()
 {
+	char* traitName;
+	char* tratDescription;
+	int frmId;
+
     buf_to_buf(pbckgnd + 280, 293, PERK_WINDOW_HEIGHT, PERK_WINDOW_WIDTH, pwin_buf + 280, PERK_WINDOW_WIDTH);
 
     ListMyTraits(optrt_count);
 
-    char* traitName = name_sort_list[crow + cline].name;
-    char* tratDescription = trait_description(name_sort_list[crow + cline].value);
-    int frmId = trait_pic(name_sort_list[crow + cline].value);
+    traitName = name_sort_list[crow + cline].name;
+    tratDescription = trait_description(name_sort_list[crow + cline].value);
+    frmId = trait_pic(name_sort_list[crow + cline].value);
     DrawCard2(frmId, traitName, NULL, tratDescription);
 
     win_draw(pwin);
@@ -5728,21 +5844,26 @@ void RedrwDMPrk()
 // 0x436FA4
 static bool GetMutateTrait()
 {
-    old_fid2 = -1;
+    bool result;
+
+	old_fid2 = -1;
     old_str2[0] = '\0';
     frstc_draw2 = false;
 
     // NOTE: Uninline.
     trait_count = PC_TRAIT_MAX - get_trait_count();
 
-    bool result = true;
+    result = true;
     if (trait_count >= 1) {
+		char* msg;
+		int rc;
+
         text_font(103);
 
         buf_to_buf(pbckgnd + PERK_WINDOW_WIDTH * 14 + 49, 206, text_height() + 2, PERK_WINDOW_WIDTH, pwin_buf + PERK_WINDOW_WIDTH * 15 + 49, PERK_WINDOW_WIDTH);
 
         // LOSE A TRAIT
-        char* msg = getmsg(&editor_message_file, &mesg, 154);
+        msg = getmsg(&editor_message_file, &mesg, 154);
         text_to_buf(pwin_buf + PERK_WINDOW_WIDTH * 16 + 49, msg, PERK_WINDOW_WIDTH, PERK_WINDOW_WIDTH, colorTable[18979]);
 
         optrt_count = 0;
@@ -5750,7 +5871,7 @@ static bool GetMutateTrait()
         crow = 0;
         RedrwDMPrk();
 
-        int rc = InputPDLoop(trait_count, RedrwDMPrk);
+        rc = InputPDLoop(trait_count, RedrwDMPrk);
         if (rc == 1) {
             if (cline == 0) {
                 if (trait_count == 1) {
@@ -5778,12 +5899,16 @@ static bool GetMutateTrait()
     }
 
     if (result) {
+		char* msg;
+		int count;
+		int rc;
+
         text_font(103);
 
         buf_to_buf(pbckgnd + PERK_WINDOW_WIDTH * 14 + 49, 206, text_height() + 2, PERK_WINDOW_WIDTH, pwin_buf + PERK_WINDOW_WIDTH * 15 + 49, PERK_WINDOW_WIDTH);
 
         // PICK A NEW TRAIT
-        char* msg = getmsg(&editor_message_file, &mesg, 153);
+        msg = getmsg(&editor_message_file, &mesg, 153);
         text_to_buf(pwin_buf + PERK_WINDOW_WIDTH * 16 + 49, msg, PERK_WINDOW_WIDTH, PERK_WINDOW_WIDTH, colorTable[18979]);
 
         cline = 0;
@@ -5792,12 +5917,12 @@ static bool GetMutateTrait()
 
         RedrwDMPrk();
 
-        int count = 16 - trait_count;
+        count = 16 - trait_count;
         if (count > 16) {
             count = 16;
         }
 
-        int rc = InputPDLoop(count, RedrwDMPrk);
+        rc = InputPDLoop(count, RedrwDMPrk);
         if (rc == 1) {
             if (trait_count != 0) {
                 temp_trait[1] = name_sort_list[cline + crow].value;
@@ -5822,13 +5947,17 @@ static bool GetMutateTrait()
 // 0x43727C
 static void RedrwDMTagSkl()
 {
+    char* name;
+    char* description;
+    int frmId;
+
     buf_to_buf(pbckgnd + 280, 293, PERK_WINDOW_HEIGHT, PERK_WINDOW_WIDTH, pwin_buf + 280, PERK_WINDOW_WIDTH);
 
     ListNewTagSkills();
 
-    char* name = name_sort_list[crow + cline].name;
-    char* description = skill_description(name_sort_list[crow + cline].value);
-    int frmId = skill_pic(name_sort_list[crow + cline].value);
+    name = name_sort_list[crow + cline].name;
+    description = skill_description(name_sort_list[crow + cline].value);
+    frmId = skill_pic(name_sort_list[crow + cline].value);
     DrawCard2(frmId, name, NULL, description);
 
     win_draw(pwin);
@@ -5837,12 +5966,15 @@ static void RedrwDMTagSkl()
 // 0x43730C
 static bool Add4thTagSkill()
 {
+	char* messageListItemText;
+	int rc;
+
     text_font(103);
 
     buf_to_buf(pbckgnd + 573 * 14 + 49, 206, text_height() + 2, 573, pwin_buf + 573 * 15 + 49, 573);
 
     // PICK A NEW TAG SKILL
-    char* messageListItemText = getmsg(&editor_message_file, &mesg, 155);
+    messageListItemText = getmsg(&editor_message_file, &mesg, 155);
     text_to_buf(pwin_buf + 573 * 16 + 49, messageListItemText, 573, 573, colorTable[18979]);
 
     cline = 0;
@@ -5852,7 +5984,7 @@ static bool Add4thTagSkill()
     frstc_draw2 = false;
     RedrwDMTagSkl();
 
-    int rc = InputPDLoop(optrt_count, RedrwDMTagSkl);
+    rc = InputPDLoop(optrt_count, RedrwDMTagSkl);
     if (rc != 1) {
         memcpy(temp_tag_skill, tag_skill_back, sizeof(temp_tag_skill));
         skill_set_tags(tag_skill_back, NUM_TAGGED_SKILLS);
@@ -5868,16 +6000,20 @@ static bool Add4thTagSkill()
 // 0x437430
 static void ListNewTagSkills()
 {
+	int y,yStep;
+	int skill;
+	int index;
+
     buf_to_buf(pbckgnd + PERK_WINDOW_WIDTH * 43 + 45, 192, 129, PERK_WINDOW_WIDTH, pwin_buf + PERK_WINDOW_WIDTH * 43 + 45, PERK_WINDOW_WIDTH);
 
     text_font(101);
 
     optrt_count = 0;
 
-    int y = 43;
-    int yStep = text_height() + 2;
+    y = 43;
+    yStep = text_height() + 2;
 
-    for (int skill = 0; skill < SKILL_COUNT; skill++) {
+    for (skill = 0; skill < SKILL_COUNT; skill++) {
         if (skill != temp_tag_skill[0] && skill != temp_tag_skill[1] && skill != temp_tag_skill[2] && skill != temp_tag_skill[3]) {
             name_sort_list[optrt_count].value = skill;
             name_sort_list[optrt_count].name = skill_name(skill);
@@ -5887,7 +6023,7 @@ static void ListNewTagSkills()
 
     qsort(name_sort_list, optrt_count, sizeof(*name_sort_list), name_sort_comp);
 
-    for (int index = crow; index < crow + 11; index++) {
+    for (index = crow; index < crow + 11; index++) {
         int color;
         if (index == cline + crow) {
             color = colorTable[32747];
@@ -5903,16 +6039,18 @@ static void ListNewTagSkills()
 // 0x437574
 static int ListMyTraits(int a1)
 {
+	int y,yStep,index;
     buf_to_buf(pbckgnd + PERK_WINDOW_WIDTH * 43 + 45, 192, 129, PERK_WINDOW_WIDTH, pwin_buf + PERK_WINDOW_WIDTH * 43 + 45, PERK_WINDOW_WIDTH);
 
     text_font(101);
 
-    int y = 43;
-    int yStep = text_height() + 2;
+    y = 43;
+    yStep = text_height() + 2;
 
     if (a1 != 0) {
+		int trait;
         int count = 0;
-        for (int trait = 0; trait < TRAIT_COUNT; trait++) {
+        for (trait = 0; trait < TRAIT_COUNT; trait++) {
             if (trait != trait_back[0] && trait != trait_back[1]) {
                 name_sort_list[count].value = trait;
                 name_sort_list[count].name = trait_name(trait);
@@ -5922,7 +6060,7 @@ static int ListMyTraits(int a1)
 
         qsort(name_sort_list, count, sizeof(*name_sort_list), name_sort_comp);
 
-        for (int index = crow; index < crow + 11; index++) {
+        for (index = crow; index < crow + 11; index++) {
             int color;
             if (index == cline + crow) {
                 color = colorTable[32747];
@@ -5934,8 +6072,9 @@ static int ListMyTraits(int a1)
             y += yStep;
         }
     } else {
+		int index;
         // NOTE: Original code does not use loop.
-        for (int index = 0; index < PC_TRAIT_MAX; index++) {
+        for (index = 0; index < PC_TRAIT_MAX; index++) {
             name_sort_list[index].value = temp_trait[index];
             name_sort_list[index].name = trait_name(temp_trait[index]);
         }
@@ -5944,7 +6083,7 @@ static int ListMyTraits(int a1)
             qsort(name_sort_list, trait_count, sizeof(*name_sort_list), name_sort_comp);
         }
 
-        for (int index = 0; index < trait_count; index++) {
+        for (index = 0; index < trait_count; index++) {
             int color;
             if (index == cline) {
                 color = colorTable[32747];
@@ -5976,6 +6115,14 @@ static int DrawCard2(int frmId, const char* name, const char* rank, char* descri
     int width;
     int height;
     unsigned char* data = art_lock(fid, &handle, &width, &height);
+	int y;
+    int yStep;
+	int extraDescriptionWidth;
+	int nameHeight;
+    short beginnings[WORD_WRAP_MAX_COUNT];
+    short count;
+	int index;
+
     if (data == NULL) {
         return -1;
     }
@@ -5984,10 +6131,11 @@ static int DrawCard2(int frmId, const char* name, const char* rank, char* descri
 
     // Calculate width of transparent pixels on the left side of the image. This
     // space will be occupied by description (in addition to fixed width).
-    int extraDescriptionWidth = 150;
-    for (int y = 0; y < height; y++) {
+    extraDescriptionWidth = 150;
+    for (y = 0; y < height; y++) {
+		int x;
         unsigned char* stride = data;
-        for (int x = 0; x < width; x++) {
+        for (x = 0; x < width; x++) {
             if (HighRGB(*stride) < 2) {
                 if (extraDescriptionWidth > x) {
                     extraDescriptionWidth = x;
@@ -6005,15 +6153,16 @@ static int DrawCard2(int frmId, const char* name, const char* rank, char* descri
     }
 
     text_font(102);
-    int nameHeight = text_height();
+    nameHeight = text_height();
 
     text_to_buf(pwin_buf + PERK_WINDOW_WIDTH * 27 + 280, name, PERK_WINDOW_WIDTH, PERK_WINDOW_WIDTH, colorTable[0]);
 
     if (rank != NULL) {
+		int rankHeight;
         int rankX = text_width(name) + 280 + 8;
         text_font(101);
 
-        int rankHeight = text_height();
+        rankHeight = text_height();
         text_to_buf(pwin_buf + PERK_WINDOW_WIDTH * (23 + nameHeight - rankHeight) + rankX, rank, PERK_WINDOW_WIDTH, PERK_WINDOW_WIDTH, colorTable[0]);
     }
 
@@ -6022,17 +6171,15 @@ static int DrawCard2(int frmId, const char* name, const char* rank, char* descri
 
     text_font(101);
 
-    int yStep = text_height() + 1;
-    int y = 70;
+    yStep = text_height() + 1;
+    y = 70;
 
-    short beginnings[WORD_WRAP_MAX_COUNT];
-    short count;
     if (word_wrap(description, 133 + extraDescriptionWidth, beginnings, &count) != 0) {
         // FIXME: Leaks handle.
         return -1;
     }
 
-    for (int index = 0; index < count - 1; index++) {
+    for (index = 0; index < count - 1; index++) {
         char* beginning = description + beginnings[index];
         char* ending = description + beginnings[index + 1];
 
@@ -6113,7 +6260,8 @@ static int PerkCount()
 // 0x437B3C
 static int is_supper_bonus()
 {
-    for (int stat = 0; stat < 7; stat++) {
+	int stat;
+    for (stat = 0; stat < 7; stat++) {
         int v1 = stat_get_base(obj_dude, stat);
         int v2 = stat_get_bonus(obj_dude, stat);
         if (v1 + v2 > 10) {

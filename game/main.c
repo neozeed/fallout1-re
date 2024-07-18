@@ -12,6 +12,9 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+//#include <limits.h>	//UINT_MAX
+#define UINT_MAX      0xffffffff
+
 
 #include "game/amutex.h"
 #include "game/art.h"
@@ -103,12 +106,13 @@ int gnw_main(int argc, char** argv)
         config_get_value(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_LANGUAGE_FILTER_KEY, &language_filter);
 
         while (!done) {
+			int mainMenuRc;
             kb_clear();
             gsound_background_play_level_music("07desert", 11);
             main_menu_show(1);
 
             mouse_show();
-            int mainMenuRc = main_menu_loop();
+            mainMenuRc = main_menu_loop();
             mouse_hide();
 
             switch (mainMenuRc) {
@@ -143,6 +147,7 @@ int gnw_main(int argc, char** argv)
                 break;
             case MAIN_MENU_LOAD_GAME:
                 if (1) {
+					int loadGameRc;
                     int win = win_add(0, 0, 640, 480, colorTable[0], WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
                     main_menu_hide(true);
                     main_menu_destroy();
@@ -153,7 +158,7 @@ int gnw_main(int argc, char** argv)
 
                     loadColorTable("color.pal");
                     palette_fade_to(cmap);
-                    int loadGameRc = LoadGame(LOAD_SAVE_MODE_FROM_MAIN_MENU);
+                    loadGameRc = LoadGame(LOAD_SAVE_MODE_FROM_MAIN_MENU);
                     if (loadGameRc == -1) {
                         debug_printf("\n ** Error running LoadGame()! **\n");
                     } else if (loadGameRc != 0) {
@@ -252,13 +257,14 @@ static void main_exit_system()
 // 0x472958
 static int main_load_new(char* mapFileName)
 {
+	int win;
     game_user_wants_to_quit = 0;
     main_show_death_scene = 0;
     obj_dude->flags &= ~OBJECT_FLAT;
     obj_turn_on(obj_dude, NULL);
     mouse_hide();
 
-    int win = win_add(0, 0, 640, 480, colorTable[0], WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
+    win = win_add(0, 0, 640, 480, colorTable[0], WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
     win_draw(win);
 
     loadColorTable("color.pal");
@@ -472,6 +478,9 @@ static void main_selfrun_play()
 // 0x472D90
 static void main_death_scene()
 {
+	bool oldCursorIsHidden;
+	int deathWindowX,deathWindowY;
+    int win;
     // 0x4725B0
     static const char* deathFileNameList[] = {
         "narrator\\nar_3",
@@ -484,14 +493,14 @@ static void main_death_scene()
     cycle_disable();
     gmouse_set_cursor(MOUSE_CURSOR_NONE);
 
-    bool oldCursorIsHidden = mouse_hidden();
+    oldCursorIsHidden = mouse_hidden();
     if (oldCursorIsHidden) {
         mouse_show();
     }
 
-    int deathWindowX = 0;
-    int deathWindowY = 0;
-    int win = win_add(deathWindowX,
+    deathWindowX = 0;
+    deathWindowY = 0;
+    win = win_add(deathWindowX,
         deathWindowY,
         DEATH_WINDOW_WIDTH,
         DEATH_WINDOW_HEIGHT,
@@ -505,6 +514,11 @@ static void main_death_scene()
             int fid = art_id(OBJ_TYPE_INTERFACE, 309, 0, 0, 0);
             unsigned char* background = art_ptr_lock_data(fid, 0, 0, &backgroundHandle);
             if (background != NULL) {
+				int deathFileNameIndex;
+                unsigned int delay;
+                unsigned int time;
+                int keyCode;
+
                 while (mouse_get_buttons() != 0) {
                     get_input();
                 }
@@ -525,12 +539,11 @@ static void main_death_scene()
                 loadColorTable("art\\intrface\\death.pal");
                 palette_fade_to(cmap);
 
-                int deathFileNameIndex = roll_random(1, sizeof(deathFileNameList) / sizeof(*deathFileNameList)) - 1;
+                deathFileNameIndex = roll_random(1, sizeof(deathFileNameList) / sizeof(*deathFileNameList)) - 1;
 
                 main_death_voiceover_done = false;
                 gsound_speech_callback_set(main_death_voiceover_callback);
 
-                unsigned int delay;
                 if (gsound_speech_play(deathFileNameList[deathFileNameIndex], 10, 14, 15) == -1) {
                     delay = 3000;
                 } else {
@@ -539,8 +552,7 @@ static void main_death_scene()
 
                 gsound_speech_play_preloaded();
 
-                unsigned int time = get_time();
-                int keyCode;
+                time = get_time();
                 do {
                     keyCode = get_input();
                     if (keyCode != -1) {

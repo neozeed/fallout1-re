@@ -7,8 +7,9 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <Mmsystem.h>
 
-#include <timeapi.h>
+//#include <timeapi.h>
 
 // 0x51EBD8
 int dword_51EBD8 = 0;

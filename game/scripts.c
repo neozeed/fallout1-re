@@ -45,7 +45,7 @@ typedef struct ScriptListExtent {
     struct ScriptListExtent* next;
 } ScriptListExtent;
 
-static_assert(sizeof(ScriptListExtent) == 0xD08, "wrong size");
+//static_assert(sizeof(ScriptListExtent) == 0xD08, "wrong size");
 
 typedef struct ScriptList {
     ScriptListExtent* head;
@@ -55,7 +55,7 @@ typedef struct ScriptList {
     int nextScriptId;
 } ScriptList;
 
-static_assert(sizeof(ScriptList) == 0x10, "wrong size");
+//static_assert(sizeof(ScriptList) == 0x10, "wrong size");
 
 typedef struct ScriptState {
     unsigned int requests;
@@ -430,10 +430,13 @@ int new_obj_id()
 // 0x491C00
 int scr_find_sid_from_program(Program* program)
 {
-    for (int type = 0; type < SCRIPT_TYPE_COUNT; type++) {
+	int type;
+	int index;
+
+    for (type = 0; type < SCRIPT_TYPE_COUNT; type++) {
         ScriptListExtent* extent = scriptlists[type].head;
         while (extent != NULL) {
-            for (int index = 0; index < extent->length; index++) {
+            for (index = 0; index < extent->length; index++) {
                 Script* script = &(extent->scripts[index]);
                 if (script->program == program) {
                     return script->scr_id;
@@ -449,6 +452,11 @@ int scr_find_sid_from_program(Program* program)
 // 0x491CA4
 Object* scr_find_obj_from_program(Program* program)
 {
+	Object* object;
+	Script* v1;
+	int fid;
+	int elevation;
+
     int sid = scr_find_sid_from_program(program);
 
     Script* script;
@@ -464,8 +472,7 @@ Object* scr_find_obj_from_program(Program* program)
         return NULL;
     }
 
-    Object* object;
-    int fid = art_id(OBJ_TYPE_INTERFACE, 3, 0, 0, 0);
+    fid = art_id(OBJ_TYPE_INTERFACE, 3, 0, 0, 0);
     obj_new(&object, fid, -1);
     obj_turn_off(object, NULL);
     obj_toggle_flat(object, NULL);
@@ -473,7 +480,6 @@ Object* scr_find_obj_from_program(Program* program)
 
     // NOTE: Redundant, we've already obtained script earlier. Probably
     // inlining.
-    Script* v1;
     if (scr_ptr(sid, &v1) == -1) {
         // FIXME: this is clearly an error, but I guess it's never reached since
         // we've already obtained script for given sid earlier.
@@ -484,7 +490,7 @@ Object* scr_find_obj_from_program(Program* program)
     v1->scr_oid = object->id;
     v1->owner = object;
 
-    for (int elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+    for (elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
         Script* spatialScript = scr_find_first_at(elevation);
         while (spatialScript != NULL) {
             if (spatialScript == script) {
@@ -553,6 +559,8 @@ static void doBkProcesses()
 {
     // 0x66774C
     static bool set;
+	int v0;
+	int index;
 
     // 0x667748
     static int lasttime;
@@ -562,13 +570,13 @@ static void doBkProcesses()
         set = 1;
     }
 
-    int v0 = get_bk_time();
+    v0 = get_bk_time();
     if (script_engine_running) {
         lasttime = v0;
 
         // NOTE: There is a loop at 0x4A3C64, consisting of one iteration, going
         // downwards from 1.
-        for (int index = 0; index < 1; index++) {
+        for (index = 0; index < 1; index++) {
             updatePrograms();
         }
     }
@@ -673,6 +681,7 @@ static void script_chk_timed_events()
 // 0x492100
 int script_q_add(int sid, int delay, int param)
 {
+    Script* script;
     ScriptEvent* scriptEvent = (ScriptEvent*)mem_malloc(sizeof(*scriptEvent));
     if (scriptEvent == NULL) {
         return -1;
@@ -681,7 +690,6 @@ int script_q_add(int sid, int delay, int param)
     scriptEvent->sid = sid;
     scriptEvent->fixedParam = param;
 
-    Script* script;
     if (scr_ptr(sid, &script) == -1) {
         mem_free(scriptEvent);
         return -1;
@@ -766,6 +774,8 @@ int scripts_clear_combat_requests(Script* script)
 int scripts_check_state()
 {
     WorldMapContext ctx;
+    MapTransition transition;
+
 
     if (scriptState.requests == 0) {
         return 0;
@@ -864,7 +874,6 @@ int scripts_check_state()
                     debug_printf("\nWarning: Elevator: Couldn't find old elevator doors!");
                 }
 
-                MapTransition transition;
                 memset(&transition, 0, sizeof(transition));
 
                 transition.map = map;
@@ -975,7 +984,7 @@ int scripts_check_state_in_combat()
 int scripts_request_combat(STRUCT_664980* a1)
 {
     if (a1) {
-        static_assert(sizeof(scriptState.combatState1) == sizeof(*a1), "wrong size");
+        //static_assert(sizeof(scriptState.combatState1) == sizeof(*a1), "wrong size");
         memcpy(&scriptState.combatState1, a1, sizeof(scriptState.combatState1));
     } else {
         scriptState.requests |= SCRIPT_REQUEST_NO_INITIAL_COMBAT_STATE;
@@ -1067,11 +1076,16 @@ void script_make_path(char* path)
 // 0x492924
 int exec_script_proc(int sid, int action)
 {
+	Script* script;
+    bool programLoaded = false;
+	char* pch;
+	Program* program;
+	int proc;
+
     if (!script_engine_running) {
         return -1;
     }
 
-    Script* script;
     if (scr_ptr(sid, &script) == -1) {
         return -1;
     }
@@ -1079,14 +1093,13 @@ int exec_script_proc(int sid, int action)
     script->action = action;
     script->scriptOverrides = 0;
 
-    bool programLoaded = false;
     if ((script->scr_flags & SCRIPT_FLAG_0x01) == 0) {
         char name[16];
         if (scr_list_str(script->scr_script_idx, name) == -1) {
             return -1;
         }
 
-        char* pch = strchr(name, '.');
+        pch = strchr(name, '.');
         if (pch != NULL) {
             *pch = '\0';
         }
@@ -1101,7 +1114,7 @@ int exec_script_proc(int sid, int action)
         script->scr_flags |= SCRIPT_FLAG_0x01;
     }
 
-    Program* program = script->program;
+    program = script->program;
     if (program == NULL) {
         return -1;
     }
@@ -1110,7 +1123,7 @@ int exec_script_proc(int sid, int action)
         return 0;
     }
 
-    int proc = script->procs[action];
+    proc = script->procs[action];
     if (proc == 0) {
         proc = 1;
     }
@@ -1279,6 +1292,9 @@ int scr_list_str(int index, char* name)
 // 0x493118
 int scr_set_dude_script()
 {
+    Proto* proto;
+    Script* script;
+
     if (scr_clear_dude_script() == -1) {
         return -1;
     }
@@ -1288,7 +1304,6 @@ int scr_set_dude_script()
         return -1;
     }
 
-    Proto* proto;
     if (proto_ptr(0x1000000, &proto) == -1) {
         debug_printf("Error in scr_set_dude_script: can't find obj_dude proto!");
         return -1;
@@ -1298,7 +1313,6 @@ int scr_set_dude_script()
 
     obj_new_sid(obj_dude, &(obj_dude->sid));
 
-    Script* script;
     if (scr_ptr(obj_dude->sid, &script) == -1) {
         debug_printf("Error in scr_set_dude_script: can't find obj_dude script!");
         return -1;
@@ -1581,6 +1595,7 @@ static int scr_header_load()
 {
     char path[MAX_PATH];
     DB_FILE* stream;
+	int scriptType;
 
     num_script_indexes = 0;
 
@@ -1607,7 +1622,7 @@ static int scr_header_load()
 
     db_fclose(stream);
 
-    for (int scriptType = 0; scriptType < SCRIPT_TYPE_COUNT; scriptType++) {
+    for (scriptType = 0; scriptType < SCRIPT_TYPE_COUNT; scriptType++) {
         ScriptList* scriptList = &(scriptlists[scriptType]);
         scriptList->head = NULL;
         scriptList->tail = NULL;
@@ -1655,7 +1670,8 @@ static int scr_write_ScriptSubNode(Script* scr, DB_FILE* stream)
 // 0x4938A0
 static int scr_write_ScriptNode(ScriptListExtent* a1, DB_FILE* stream)
 {
-    for (int index = 0; index < SCRIPT_LIST_EXTENT_SIZE; index++) {
+	int index;
+    for (index = 0; index < SCRIPT_LIST_EXTENT_SIZE; index++) {
         Script* script = &(a1->scripts[index]);
         if (scr_write_ScriptSubNode(script, stream) != 0) {
             return -1;
@@ -1677,7 +1693,12 @@ static int scr_write_ScriptNode(ScriptListExtent* a1, DB_FILE* stream)
 // 0x493904
 int scr_save(DB_FILE* stream)
 {
-    for (int scriptType = 0; scriptType < SCRIPT_TYPE_COUNT; scriptType++) {
+	int scriptType;
+	ScriptListExtent* scriptExtent;
+    ScriptListExtent* lastScriptExtent;
+	int index;
+
+    for (scriptType = 0; scriptType < SCRIPT_TYPE_COUNT; scriptType++) {
         ScriptList* scriptList = &(scriptlists[scriptType]);
 
         int scriptCount = scriptList->length * SCRIPT_LIST_EXTENT_SIZE;
@@ -1685,17 +1706,18 @@ int scr_save(DB_FILE* stream)
             scriptCount += scriptList->tail->length - SCRIPT_LIST_EXTENT_SIZE;
         }
 
-        ScriptListExtent* scriptExtent = scriptList->head;
-        ScriptListExtent* lastScriptExtent = NULL;
+        scriptExtent = scriptList->head;
+        lastScriptExtent = NULL;
         while (scriptExtent != NULL) {
-            for (int index = 0; index < scriptExtent->length; index++) {
+            for (index = 0; index < scriptExtent->length; index++) {
                 Script* script = &(scriptExtent->scripts[index]);
 
                 lastScriptExtent = scriptList->tail;
                 if ((script->scr_flags & SCRIPT_FLAG_0x08) != 0) {
+					int backwardsIndex;
                     scriptCount--;
 
-                    int backwardsIndex = lastScriptExtent->length - 1;
+                    backwardsIndex = lastScriptExtent->length - 1;
                     if (lastScriptExtent == scriptExtent && backwardsIndex <= index) {
                         break;
                     }
@@ -1773,6 +1795,7 @@ int scr_save(DB_FILE* stream)
 static int scr_read_ScriptSubNode(Script* scr, DB_FILE* stream)
 {
     int prg;
+	int index;
 
     if (db_freadInt(stream, &(scr->scr_id)) == -1) return -1;
     if (db_freadInt(stream, &(scr->scr_next)) == -1) return -1;
@@ -1807,7 +1830,7 @@ static int scr_read_ScriptSubNode(Script* scr, DB_FILE* stream)
     scr->source = NULL;
     scr->target = NULL;
 
-    for (int index = 0; index < SCRIPT_PROC_COUNT; index++) {
+    for (index = 0; index < SCRIPT_PROC_COUNT; index++) {
         scr->procs[index] = 0;
     }
 
@@ -1821,7 +1844,8 @@ static int scr_read_ScriptSubNode(Script* scr, DB_FILE* stream)
 // 0x493D84
 static int scr_read_ScriptNode(ScriptListExtent* scriptExtent, DB_FILE* stream)
 {
-    for (int index = 0; index < SCRIPT_LIST_EXTENT_SIZE; index++) {
+	int index,next;
+    for (index = 0; index < SCRIPT_LIST_EXTENT_SIZE; index++) {
         Script* scr = &(scriptExtent->scripts[index]);
         if (scr_read_ScriptSubNode(scr, stream) != 0) {
             return -1;
@@ -1832,7 +1856,6 @@ static int scr_read_ScriptNode(ScriptListExtent* scriptExtent, DB_FILE* stream)
         return -1;
     }
 
-    int next;
     if (db_freadInt(stream, &(next)) != 0) {
         return -1;
     }
@@ -1843,7 +1866,11 @@ static int scr_read_ScriptNode(ScriptListExtent* scriptExtent, DB_FILE* stream)
 // 0x493DF4
 int scr_load(DB_FILE* stream)
 {
-    for (int index = 0; index < SCRIPT_TYPE_COUNT; index++) {
+	int index;
+	ScriptListExtent* prevExtent;
+	int extentIndex;
+
+    for (index = 0; index < SCRIPT_TYPE_COUNT; index++) {
         ScriptList* scriptList = &(scriptlists[index]);
 
         int scriptsCount = 0;
@@ -1852,13 +1879,15 @@ int scr_load(DB_FILE* stream)
         }
 
         if (scriptsCount != 0) {
+			ScriptListExtent* extent;
+			int scriptIndex;
             scriptList->length = scriptsCount / 16;
 
             if (scriptsCount % 16 != 0) {
                 scriptList->length++;
             }
 
-            ScriptListExtent* extent = (ScriptListExtent*)mem_malloc(sizeof(*extent));
+            extent = (ScriptListExtent*)mem_malloc(sizeof(*extent));
             scriptList->head = extent;
             scriptList->tail = extent;
             if (extent == NULL) {
@@ -1869,7 +1898,7 @@ int scr_load(DB_FILE* stream)
                 return -1;
             }
 
-            for (int scriptIndex = 0; scriptIndex < extent->length; scriptIndex++) {
+            for (scriptIndex = 0; scriptIndex < extent->length; scriptIndex++) {
                 Script* script = &(extent->scripts[scriptIndex]);
                 script->owner = NULL;
                 script->source = NULL;
@@ -1880,8 +1909,10 @@ int scr_load(DB_FILE* stream)
 
             extent->next = NULL;
 
-            ScriptListExtent* prevExtent = extent;
-            for (int extentIndex = 1; extentIndex < scriptList->length; extentIndex++) {
+            prevExtent = extent;
+            for (extentIndex = 1; extentIndex < scriptList->length; extentIndex++) {
+				int scriptIndex;
+
                 ScriptListExtent* extent = (ScriptListExtent*)mem_malloc(sizeof(*extent));
                 if (extent == NULL) {
                     return -1;
@@ -1891,7 +1922,7 @@ int scr_load(DB_FILE* stream)
                     return -1;
                 }
 
-                for (int scriptIndex = 0; scriptIndex < extent->length; scriptIndex++) {
+                for (scriptIndex = 0; scriptIndex < extent->length; scriptIndex++) {
                     Script* script = &(extent->scripts[scriptIndex]);
                     script->owner = NULL;
                     script->source = NULL;
@@ -1920,6 +1951,9 @@ int scr_load(DB_FILE* stream)
 // 0x493FD8
 int scr_ptr(int sid, Script** scriptPtr)
 {
+	ScriptList* scriptList;
+    ScriptListExtent* scriptListExtent;
+
     *scriptPtr = NULL;
 
     if (sid == -1) {
@@ -1931,11 +1965,12 @@ int scr_ptr(int sid, Script** scriptPtr)
         return -1;
     }
 
-    ScriptList* scriptList = &(scriptlists[SID_TYPE(sid)]);
-    ScriptListExtent* scriptListExtent = scriptList->head;
+    scriptList = &(scriptlists[SID_TYPE(sid)]);
+    scriptListExtent = scriptList->head;
 
     while (scriptListExtent != NULL) {
-        for (int index = 0; index < scriptListExtent->length; index++) {
+		int index;
+        for (index = 0; index < scriptListExtent->length; index++) {
             Script* script = &(scriptListExtent->scripts[index]);
             if (script->scr_id == sid) {
                 *scriptPtr = script;
@@ -1968,6 +2003,9 @@ static int scr_new_id(int scriptType)
 // 0x4940D0
 int scr_new(int* sidPtr, int scriptType)
 {
+	int sid,index;
+	Script* scr;
+	
     ScriptList* scriptList = &(scriptlists[scriptType]);
     ScriptListExtent* scriptListExtent = scriptList->tail;
     if (scriptList->head != NULL) {
@@ -1987,6 +2025,7 @@ int scr_new(int* sidPtr, int scriptType)
             scriptListExtent = newExtent;
         }
     } else {
+		int index;
         // Script head
         scriptListExtent = (ScriptListExtent*)mem_malloc(sizeof(ScriptListExtent));
         if (scriptListExtent == NULL) {
@@ -2001,11 +2040,11 @@ int scr_new(int* sidPtr, int scriptType)
         scriptList->length = 1;
     }
 
-    int sid = scr_new_id(scriptType) | (scriptType << 24);
+    sid = scr_new_id(scriptType) | (scriptType << 24);
 
     *sidPtr = sid;
 
-    Script* scr = &(scriptListExtent->scripts[scriptListExtent->length]);
+    scr = &(scriptListExtent->scripts[scriptListExtent->length]);
     scr->scr_id = sid;
     scr->sp.built_tile = -1;
     scr->sp.radius = -1;
@@ -2026,7 +2065,7 @@ int scr_new(int* sidPtr, int scriptType)
     scr->howMuch = 0;
     scr->run_info_flags = 0;
 
-    for (int index = 0; index < SCRIPT_PROC_COUNT; index++) {
+    for (index = 0; index < SCRIPT_PROC_COUNT; index++) {
         scr->procs[index] = SCRIPT_PROC_NO_PROC;
     }
 
@@ -2048,6 +2087,7 @@ int scr_remove_local_vars(Script* script)
             num_map_local_vars -= script->scr_num_local_vars;
 
             if (oldMapLocalVarsCount - script->scr_num_local_vars != script->scr_local_var_offset && script->scr_local_var_offset != -1) {
+				int index;
                 memmove(map_local_vars + script->scr_local_var_offset,
                     map_local_vars + (script->scr_local_var_offset + script->scr_num_local_vars),
                     sizeof(*map_local_vars) * (oldMapLocalVarsCount - script->scr_num_local_vars - script->scr_local_var_offset));
@@ -2057,11 +2097,12 @@ int scr_remove_local_vars(Script* script)
                     debug_printf("\nError in mem_realloc in scr_remove_local_vars!\n");
                 }
 
-                for (int index = 0; index < SCRIPT_TYPE_COUNT; index++) {
+                for (index = 0; index < SCRIPT_TYPE_COUNT; index++) {
                     ScriptList* scriptList = &(scriptlists[index]);
                     ScriptListExtent* extent = scriptList->head;
                     while (extent != NULL) {
-                        for (int index = 0; index < extent->length; index++) {
+						int index;
+                        for (index = 0; index < extent->length; index++) {
                             Script* other = &(extent->scripts[index]);
                             if (other->scr_local_var_offset > script->scr_local_var_offset) {
                                 other->scr_local_var_offset -= script->scr_num_local_vars;
@@ -2080,15 +2121,20 @@ int scr_remove_local_vars(Script* script)
 // 0x494384
 int scr_remove(int sid)
 {
+	ScriptList* scriptList;
+    ScriptListExtent* scriptListExtent;
+	Script* script;
+    int index;
+
     if (sid == -1) {
         return -1;
     }
 
-    ScriptList* scriptList = &(scriptlists[SID_TYPE(sid)]);
+    scriptList = &(scriptlists[SID_TYPE(sid)]);
 
-    ScriptListExtent* scriptListExtent = scriptList->head;
-    int index;
-    while (scriptListExtent != NULL) {
+    scriptListExtent = scriptList->head;
+
+	while (scriptListExtent != NULL) {
         for (index = 0; index < scriptListExtent->length; index++) {
             Script* script = &(scriptListExtent->scripts[index]);
             if (script->scr_id == sid) {
@@ -2107,7 +2153,7 @@ int scr_remove(int sid)
         return -1;
     }
 
-    Script* script = &(scriptListExtent->scripts[index]);
+    script = &(scriptListExtent->scripts[index]);
     if ((script->scr_flags & SCRIPT_FLAG_0x02) != 0) {
         if (script->program != NULL) {
             script->program = NULL;
@@ -2155,11 +2201,12 @@ int scr_remove(int sid)
 
             // Check to see if this extent became empty.
             if (scriptList->tail->length == 0) {
+				ScriptListExtent* prev;
                 scriptList->length -= 1;
 
                 // Find previous extent that is about to become a new tail for
                 // this script list.
-                ScriptListExtent* prev = scriptList->head;
+                prev = scriptList->head;
                 while (prev->next != scriptList->tail) {
                     prev = prev->next;
                 }
@@ -2177,10 +2224,12 @@ int scr_remove(int sid)
 // 0x4945AC
 int scr_remove_all()
 {
+	int scriptType;
+
     queue_clear_type(EVENT_TYPE_SCRIPT, NULL);
     scr_message_free();
 
-    for (int scriptType = 0; scriptType < SCRIPT_TYPE_COUNT; scriptType++) {
+    for (scriptType = 0; scriptType < SCRIPT_TYPE_COUNT; scriptType++) {
         ScriptList* scriptList = &(scriptlists[scriptType]);
 
         ScriptListExtent* scriptListExtent = scriptList->head;
@@ -2221,10 +2270,11 @@ int scr_remove_all()
 // 0x494674
 int scr_remove_all_force()
 {
+	int type;
     queue_clear_type(EVENT_TYPE_SCRIPT, NULL);
     scr_message_free();
 
-    for (int type = 0; type < SCRIPT_TYPE_COUNT; type++) {
+    for (type = 0; type < SCRIPT_TYPE_COUNT; type++) {
         ScriptList* scriptList = &(scriptlists[type]);
         ScriptListExtent* extent = scriptList->head;
         while (extent != NULL) {
@@ -2251,6 +2301,8 @@ int scr_remove_all_force()
 // 0x4946F0
 Script* scr_find_first_at(int elevation)
 {
+	Script* script;
+
     scr_find_first_elev = elevation;
     scr_find_first_idx = 0;
     scr_find_first_ptr = scriptlists[SCRIPT_TYPE_SPATIAL].head;
@@ -2259,7 +2311,7 @@ Script* scr_find_first_at(int elevation)
         return NULL;
     }
 
-    Script* script = &(scr_find_first_ptr->scripts[0]);
+    script = &(scr_find_first_ptr->scripts[0]);
     if ((script->scr_flags & SCRIPT_FLAG_0x02) != 0 || builtTileGetElevation(script->sp.built_tile) != elevation) {
         script = scr_find_next_at();
     }
@@ -2270,6 +2322,7 @@ Script* scr_find_first_at(int elevation)
 // 0x494730
 Script* scr_find_next_at()
 {
+	Script* script;
     ScriptListExtent* scriptListExtent = scr_find_first_ptr;
     int scriptIndex = scr_find_first_idx;
 
@@ -2278,6 +2331,7 @@ Script* scr_find_next_at()
     }
 
     for (;;) {
+		Script* script;
         scriptIndex++;
 
         if (scriptIndex == SCRIPT_LIST_EXTENT_SIZE) {
@@ -2291,13 +2345,13 @@ Script* scr_find_next_at()
             break;
         }
 
-        Script* script = &(scriptListExtent->scripts[scriptIndex]);
+        script = &(scriptListExtent->scripts[scriptIndex]);
         if ((script->scr_flags & SCRIPT_FLAG_0x02) == 0 && builtTileGetElevation(script->sp.built_tile) == scr_find_first_elev) {
             break;
         }
     }
 
-    Script* script;
+
     if (scriptListExtent != NULL) {
         script = &(scriptListExtent->scripts[scriptIndex]);
     } else {
@@ -2391,11 +2445,13 @@ bool tile_in_tile_bound(int tile1, int radius, int tile2)
 // 0x494960
 int scr_load_all_scripts()
 {
-    for (int scriptListIndex = 0; scriptListIndex < SCRIPT_TYPE_COUNT; scriptListIndex++) {
+	int scriptListIndex;
+    for (scriptListIndex = 0; scriptListIndex < SCRIPT_TYPE_COUNT; scriptListIndex++) {
         ScriptList* scriptList = &(scriptlists[scriptListIndex]);
         ScriptListExtent* extent = scriptList->head;
         while (extent != NULL) {
-            for (int scriptIndex = 0; scriptIndex < extent->length; scriptIndex++) {
+			int scriptIndex;
+            for (scriptIndex = 0; scriptIndex < extent->length; scriptIndex++) {
                 Script* script = &(extent->scripts[scriptIndex]);
                 exec_script_proc(script->scr_id, SCRIPT_PROC_START);
             }
@@ -2474,22 +2530,27 @@ void scr_exec_map_exit_scripts()
 // 0x494CC8
 int scr_get_dialog_msg_file(int a1, MessageList** messageListPtr)
 {
+	int messageListIndex;
+	MessageList* messageList;
+	char* pch;
+    char path[MAX_PATH];
+
+
     if (a1 == -1) {
         return -1;
     }
 
-    int messageListIndex = a1 - 1;
-    MessageList* messageList = &(script_dialog_msgs[messageListIndex]);
+    messageListIndex = a1 - 1;
+    messageList = &(script_dialog_msgs[messageListIndex]);
     if (messageList->entries_num == 0) {
         char scriptName[16];
         scr_list_str(messageListIndex, scriptName);
 
-        char* pch = strrchr(scriptName, '.');
+        pch = strrchr(scriptName, '.');
         if (pch != NULL) {
             *pch = '\0';
         }
 
-        char path[MAX_PATH];
         sprintf(path, "dialog\\%s.msg", scriptName);
 
         if (!message_load(messageList, path)) {
@@ -2517,11 +2578,16 @@ char* scr_get_msg_str(int messageListId, int messageId)
 // 0x494DC0
 char* scr_get_msg_str_speech(int messageListId, int messageId, int a3)
 {
-    // 0x507974
-    static char err_str[] = "Error";
+    MessageListItem messageListItem;
+    MessageList* messageList;
 
+	// 0x507974
+    static char err_str[] = "Error";
     // 0x507978
     static char blank_str[] = "";
+
+    messageListItem.num = messageId;
+
 
     if (messageListId == 0 && messageId == 0) {
         return blank_str;
@@ -2536,7 +2602,6 @@ char* scr_get_msg_str_speech(int messageListId, int messageId, int a3)
         return getmsg(&proto_main_msg_file, &messageListItem, 650);
     }
 
-    MessageList* messageList;
     if (scr_get_dialog_msg_file(messageListId, &messageList) == -1) {
         debug_printf("\nERROR: message_str: can't find message file: List: %d!", messageListId);
         return NULL;
@@ -2546,8 +2611,6 @@ char* scr_get_msg_str_speech(int messageListId, int messageId, int a3)
         a3 = 0;
     }
 
-    MessageListItem messageListItem;
-    messageListItem.num = messageId;
     if (!message_search(messageList, &messageListItem)) {
         debug_printf("\nError: can't find message: List: %d, Num: %d!", messageListId, messageId);
         return err_str;
@@ -2631,25 +2694,28 @@ int scr_set_local_var(int sid, int variable, int value)
 // 0x494FD4
 bool scr_end_combat()
 {
+	int team;
+    Script* before;
+	Script* after;
+    bool success = false;
+
+
     if (map_script_id == 0 || map_script_id == -1) {
         return false;
     }
 
-    int team = combat_player_knocked_out_by();
+    team = combat_player_knocked_out_by();
     if (team == -1) {
         return false;
     }
 
-    Script* before;
     if (scr_ptr(map_script_id, &before) != -1) {
         before->fixedParam = team;
     }
 
     exec_script_proc(map_script_id, SCRIPT_PROC_COMBAT);
 
-    bool success = false;
 
-    Script* after;
     if (scr_ptr(map_script_id, &after) != -1) {
         if (after->scriptOverrides != 0) {
             success = true;
@@ -2662,24 +2728,28 @@ bool scr_end_combat()
 // 0x495048
 int scr_explode_scenery(Object* a1, int tile, int radius, int elevation)
 {
+	int* scriptIds;
+    ScriptListExtent* extent;
+    int scriptsCount = 0;
+	int index;
+
     int scriptExtentsCount = scriptlists[SCRIPT_TYPE_SPATIAL].length + scriptlists[SCRIPT_TYPE_ITEM].length;
     if (scriptExtentsCount == 0) {
         return 0;
     }
 
-    int* scriptIds = (int*)mem_malloc(sizeof(*scriptIds) * scriptExtentsCount * SCRIPT_LIST_EXTENT_SIZE);
+    scriptIds = (int*)mem_malloc(sizeof(*scriptIds) * scriptExtentsCount * SCRIPT_LIST_EXTENT_SIZE);
     if (scriptIds == NULL) {
         return -1;
     }
 
-    ScriptListExtent* extent;
-    int scriptsCount = 0;
 
     scr_spatials_disable();
 
     extent = scriptlists[SCRIPT_TYPE_ITEM].head;
     while (extent != NULL) {
-        for (int index = 0; index < extent->length; index++) {
+		int index;
+        for (index = 0; index < extent->length; index++) {
             Script* script = &(extent->scripts[index]);
             if (script->procs[SCRIPT_PROC_DAMAGE] <= 0 && script->program == NULL) {
                 exec_script_proc(script->scr_id, SCRIPT_PROC_START);
@@ -2700,7 +2770,8 @@ int scr_explode_scenery(Object* a1, int tile, int radius, int elevation)
 
     extent = scriptlists[SCRIPT_TYPE_SPATIAL].head;
     while (extent != NULL) {
-        for (int index = 0; index < extent->length; index++) {
+		int index;
+        for (index = 0; index < extent->length; index++) {
             Script* script = &(extent->scripts[index]);
             if (script->procs[SCRIPT_PROC_DAMAGE] <= 0 && script->program == NULL) {
                 exec_script_proc(script->scr_id, SCRIPT_PROC_START);
@@ -2716,7 +2787,7 @@ int scr_explode_scenery(Object* a1, int tile, int radius, int elevation)
         extent = extent->next;
     }
 
-    for (int index = 0; index < scriptsCount; index++) {
+    for (index = 0; index < scriptsCount; index++) {
         exec_script_proc(scriptIds[index], SCRIPT_PROC_DAMAGE);
     }
 

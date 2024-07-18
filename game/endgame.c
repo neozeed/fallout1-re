@@ -317,6 +317,11 @@ void endgame_movie()
 // 0x438B04
 static int endgame_init()
 {
+	bool oldCursorIsHidden;
+	int windowEndgameEndingX,windowEndgameEndingY;
+	int index;
+    char* language;
+
     gsound_background_stop();
 
     endgame_map_enabled = map_disable_bk_processes();
@@ -324,7 +329,7 @@ static int endgame_init()
     cycle_disable();
     gmouse_set_cursor(MOUSE_CURSOR_NONE);
 
-    bool oldCursorIsHidden = mouse_hidden();
+    oldCursorIsHidden = mouse_hidden();
     endgame_mouse_state = oldCursorIsHidden == 0;
 
     if (oldCursorIsHidden) {
@@ -336,8 +341,8 @@ static int endgame_init()
 
     palette_fade_to(black_palette);
 
-    int windowEndgameEndingX = 0;
-    int windowEndgameEndingY = 0;
+    windowEndgameEndingX = 0;
+    windowEndgameEndingY = 0;
     endgame_window = win_add(windowEndgameEndingX,
         windowEndgameEndingY,
         ENDGAME_ENDING_WINDOW_WIDTH,
@@ -363,7 +368,6 @@ static int endgame_init()
         return 0;
     }
 
-    char* language;
     if (!config_get_string(&game_config, GAME_CONFIG_SYSTEM_KEY, GAME_CONFIG_LANGUAGE_KEY, &language)) {
         endgame_do_subtitles = false;
         return 0;
@@ -377,7 +381,7 @@ static int endgame_init()
         return 0;
     }
 
-    for (int index = 0; index < ENDGAME_ENDING_MAX_SUBTITLES; index++) {
+    for (index = 0; index < ENDGAME_ENDING_MAX_SUBTITLES; index++) {
         endgame_subtitle_text[index] = NULL;
     }
 
@@ -428,28 +432,37 @@ static void endgame_exit()
 // 0x438D14
 static void endgame_pan_desert(int direction, const char* narratorFileName)
 {
+    int start;
+    int end;
     int fid = art_id(OBJ_TYPE_INTERFACE, 327, 0, 0, 0);
 
     CacheEntry* backgroundHandle;
     Art* background = art_ptr_lock(fid, &backgroundHandle);
     if (background != NULL) {
+        int v8;
+        int v32;
+        unsigned int v9;
+        unsigned int v9_;
+        unsigned char palette[768];
+		bool subtitlesLoaded;
+		unsigned int since;
+
         int width = art_frame_width(background, 0, 0);
         int height = art_frame_length(background, 0, 0);
         unsigned char* backgroundData = art_frame_data(background, 0, 0);
         buf_fill(endgame_window_buffer, ENDGAME_ENDING_WINDOW_WIDTH, ENDGAME_ENDING_WINDOW_HEIGHT, ENDGAME_ENDING_WINDOW_WIDTH, colorTable[0]);
         endgame_load_palette(6, 327);
 
-        unsigned char palette[768];
         memcpy(palette, cmap, 768);
 
         palette_set_to(black_palette);
         endgame_load_voiceover(narratorFileName);
 
         // TODO: Unclear math.
-        int v8 = width - 640;
-        int v32 = v8 / 4;
-        unsigned int v9 = 16 * v8 / v8;
-        unsigned int v9_ = 16 * v8;
+        v8 = width - 640;
+        v32 = v8 / 4;
+        v9 = 16 * v8 / v8;
+        v9_ = 16 * v8;
 
         if (endgame_voiceover_loaded) {
             unsigned int v10 = 1000 * gsound_speech_length_get();
@@ -458,8 +471,6 @@ static void endgame_pan_desert(int direction, const char* narratorFileName)
             }
         }
 
-        int start;
-        int end;
         if (direction == -1) {
             start = width - 640;
             end = 0;
@@ -470,14 +481,17 @@ static void endgame_pan_desert(int direction, const char* narratorFileName)
 
         disable_bk();
 
-        bool subtitlesLoaded = false;
+        subtitlesLoaded = false;
 
-        unsigned int since = 0;
+        since = 0;
         while (start != end) {
             int v12 = 640 - v32;
 
             // TODO: Complex math, setup scene in debugger.
             if (elapsed_time(since) >= v9) {
+                bool v14;
+                double v31;
+
                 buf_to_buf(backgroundData + start, ENDGAME_ENDING_WINDOW_WIDTH, ENDGAME_ENDING_WINDOW_HEIGHT, width, endgame_window_buffer, ENDGAME_ENDING_WINDOW_WIDTH);
 
                 if (subtitlesLoaded) {
@@ -488,8 +502,6 @@ static void endgame_pan_desert(int direction, const char* narratorFileName)
 
                 since = get_time();
 
-                bool v14;
-                double v31;
                 if (start > v32) {
                     if (v12 > start) {
                         v14 = false;
@@ -505,7 +517,8 @@ static void endgame_pan_desert(int direction, const char* narratorFileName)
 
                 if (v14) {
                     unsigned char darkenedPalette[768];
-                    for (int index = 0; index < 768; index++) {
+					int index;
+                    for (index = 0; index < 768; index++) {
                         darkenedPalette[index] = (unsigned char)trunc(palette[index] * v31);
                     }
                     palette_set_to(darkenedPalette);
@@ -550,13 +563,18 @@ static void endgame_pan_desert(int direction, const char* narratorFileName)
 static void endgame_display_image(int fid, const char* narratorFileName)
 {
     CacheEntry* backgroundHandle;
+	unsigned char* backgroundData;
     Art* background = art_ptr_lock(fid, &backgroundHandle);
     if (background == NULL) {
         return;
     }
 
-    unsigned char* backgroundData = art_frame_data(background, 0, 0);
+    backgroundData = art_frame_data(background, 0, 0);
     if (backgroundData != NULL) {
+        unsigned int delay;
+		int keyCode;
+        unsigned int referenceTime;
+
         buf_to_buf(backgroundData, ENDGAME_ENDING_WINDOW_WIDTH, ENDGAME_ENDING_WINDOW_HEIGHT, ENDGAME_ENDING_WINDOW_WIDTH, endgame_window_buffer, ENDGAME_ENDING_WINDOW_WIDTH);
         win_draw(endgame_window);
 
@@ -564,7 +582,6 @@ static void endgame_display_image(int fid, const char* narratorFileName)
 
         endgame_load_voiceover(narratorFileName);
 
-        unsigned int delay;
         if (endgame_subtitle_loaded || endgame_voiceover_loaded) {
             delay = UINT_MAX;
         } else {
@@ -578,10 +595,9 @@ static void endgame_display_image(int fid, const char* narratorFileName)
         // NOTE: Uninline.
         endgame_play_voiceover();
 
-        unsigned int referenceTime = get_time();
+		referenceTime = get_time();
         disable_bk();
 
-        int keyCode;
         while (true) {
             keyCode = get_input();
             if (keyCode != -1) {
@@ -646,6 +662,10 @@ static void endgame_load_voiceover(const char* fileBaseName)
     }
 
     if (endgame_do_subtitles) {
+        double durationPerCharacter;
+		int index;
+		unsigned int timing;
+
         // Build subtitles file path.
         sprintf(path, "%s%s.txt", endgame_subtitle_path, fileBaseName);
 
@@ -653,15 +673,14 @@ static void endgame_load_voiceover(const char* fileBaseName)
             return;
         }
 
-        double durationPerCharacter;
         if (endgame_voiceover_loaded) {
             durationPerCharacter = (double)gsound_speech_length_get() / (double)endgame_subtitle_characters;
         } else {
             durationPerCharacter = 0.08;
         }
 
-        unsigned int timing = 0;
-        for (int index = 0; index < endgame_subtitle_count; index++) {
+        timing = 0;
+        for (index = 0; index < endgame_subtitle_count; index++) {
             double charactersCount = strlen(endgame_subtitle_text[index]);
             // NOTE: There is floating point math at 0x4402E6 used to add
             // timing.
@@ -701,12 +720,13 @@ static void endgame_stop_voiceover()
 static void endgame_load_palette(int type, int id)
 {
     char fileName[13];
+	char* pch;
     if (art_get_base_name(type, id, fileName) != 0) {
         return;
     }
 
     // Remove extension from file name.
-    char* pch = strrchr(fileName, '.');
+    pch = strrchr(fileName, '.');
     if (pch != NULL) {
         *pch = '\0';
     }
@@ -729,16 +749,18 @@ static void endgame_voiceover_callback()
 // 0x439550
 static int endgame_load_subtitles(const char* filePath)
 {
+	DB_FILE* stream;
+    char string[256];
+
     endgame_clear_subtitles();
 
-    DB_FILE* stream = db_fopen(filePath, "rt");
+    stream = db_fopen(filePath, "rt");
     if (stream == NULL) {
         return -1;
     }
 
     // FIXME: There is at least one subtitle for Arroyo ending (nar_ar1) that
     // does not fit into this buffer.
-    char string[256];
     while (db_fgets(string, sizeof(string), stream)) {
         char* pch;
 
@@ -770,6 +792,13 @@ static int endgame_load_subtitles(const char* filePath)
 // 0x439640
 static void endgame_show_subtitles()
 {
+	char* text;
+    short beginnings[WORD_WRAP_MAX_COUNT];
+    short count;
+	int height;
+	int y;
+	int index;
+
     if (endgame_subtitle_count <= endgame_current_subtitle) {
         if (endgame_subtitle_loaded) {
             endgame_subtitle_done = true;
@@ -782,21 +811,22 @@ static void endgame_show_subtitles()
         return;
     }
 
-    char* text = endgame_subtitle_text[endgame_current_subtitle];
+    text = endgame_subtitle_text[endgame_current_subtitle];
     if (text == NULL) {
         return;
     }
 
-    short beginnings[WORD_WRAP_MAX_COUNT];
-    short count;
     if (word_wrap(text, 540, beginnings, &count) != 0) {
         return;
     }
 
-    int height = text_height();
-    int y = 480 - height * count;
+    height = text_height();
+    y = 480 - height * count;
 
-    for (int index = 0; index < count - 1; index++) {
+    for (index = 0; index < count - 1; index++) {
+		int x;
+		int width;
+		char c;
         char* beginning = text + beginnings[index];
         char* ending = text + beginnings[index + 1];
 
@@ -804,11 +834,11 @@ static void endgame_show_subtitles()
             ending--;
         }
 
-        char c = *ending;
+        c = *ending;
         *ending = '\0';
 
-        int width = text_width(beginning);
-        int x = (640 - width) / 2;
+        width = text_width(beginning);
+        x = (640 - width) / 2;
         buf_fill(endgame_window_buffer + 640 * y + x, width, height, 640, colorTable[0]);
         text_to_buf(endgame_window_buffer + 640 * y + x, beginning, width, 640, colorTable[32767]);
 
@@ -821,7 +851,9 @@ static void endgame_show_subtitles()
 // 0x439820
 static void endgame_clear_subtitles()
 {
-    for (int index = 0; index < endgame_subtitle_count; index++) {
+	int index;
+
+    for (index = 0; index < endgame_subtitle_count; index++) {
         if (endgame_subtitle_text[index] != NULL) {
             mem_free(endgame_subtitle_text[index]);
             endgame_subtitle_text[index] = NULL;

@@ -49,6 +49,9 @@ static void default_free(void* p)
 // 0x4D9BA8
 int assoc_init(assoc_array* a, int n, size_t datasize, assoc_func_list* assoc_funcs)
 {
+	int rc;
+
+
     a->max = n;
     a->datasize = datasize;
     a->size = 0;
@@ -62,7 +65,7 @@ int assoc_init(assoc_array* a, int n, size_t datasize, assoc_func_list* assoc_fu
         a->load_save_funcs.saveFuncDB = NULL;
     }
 
-    int rc = 0;
+    rc = 0;
 
     if (n != 0) {
         a->list = (assoc_pair*)internal_malloc(sizeof(*a->list) * n);
@@ -83,6 +86,8 @@ int assoc_init(assoc_array* a, int n, size_t datasize, assoc_func_list* assoc_fu
 // 0x4D9C0C
 int assoc_resize(assoc_array* a, int n)
 {
+	assoc_pair* entries;
+
     if (a->init_flag != DICTIONARY_MARKER) {
         return -1;
     }
@@ -91,7 +96,7 @@ int assoc_resize(assoc_array* a, int n)
         return -1;
     }
 
-    assoc_pair* entries = (assoc_pair*)internal_realloc(a->list, sizeof(*a->list) * n);
+    entries = (assoc_pair*)internal_realloc(a->list, sizeof(*a->list) * n);
     if (entries == NULL) {
         return -1;
     }
@@ -105,11 +110,13 @@ int assoc_resize(assoc_array* a, int n)
 // 0x4D9C48
 int assoc_free(assoc_array* a)
 {
+	int index;
+
     if (a->init_flag != DICTIONARY_MARKER) {
         return -1;
     }
 
-    for (int index = 0; index < a->size; index++) {
+    for (index = 0; index < a->size; index++) {
         assoc_pair* entry = &(a->list[index]);
         if (entry->name != NULL) {
             internal_free(entry->name);
@@ -137,6 +144,11 @@ int assoc_free(assoc_array* a)
 // 0x4D9CC4
 static int assoc_find(assoc_array* a, const char* name, int* position)
 {
+    int r;
+    int l;
+    int mid;
+    int cmp;
+
     if (a->init_flag != DICTIONARY_MARKER) {
         return -1;
     }
@@ -146,10 +158,10 @@ static int assoc_find(assoc_array* a, const char* name, int* position)
         return -1;
     }
 
-    int r = a->size - 1;
-    int l = 0;
-    int mid = 0;
-    int cmp = 0;
+    r = a->size - 1;
+    l = 0;
+    mid = 0;
+    cmp = 0;
     while (r >= l) {
         mid = (l + r) / 2;
 
@@ -185,11 +197,12 @@ static int assoc_find(assoc_array* a, const char* name, int* position)
 // 0x4D9D5C
 int assoc_search(assoc_array* a, const char* name)
 {
-    if (a->init_flag != DICTIONARY_MARKER) {
+    int index;
+
+	if (a->init_flag != DICTIONARY_MARKER) {
         return -1;
     }
 
-    int index;
     if (assoc_find(a, name, &index) != 0) {
         return -1;
     }
@@ -206,11 +219,17 @@ int assoc_search(assoc_array* a, const char* name)
 // 0x4D9D88
 int assoc_insert(assoc_array* a, const char* name, const void* data)
 {
+	char* keyCopy;
+	void* valueCopy;
+	assoc_pair* entry;
+	int index;
+
+    int newElementIndex;
+
     if (a->init_flag != DICTIONARY_MARKER) {
         return -1;
     }
 
-    int newElementIndex;
     if (assoc_find(a, name, &newElementIndex) == 0) {
         // Element for this key is already exists.
         return -1;
@@ -224,7 +243,7 @@ int assoc_insert(assoc_array* a, const char* name, const void* data)
     }
 
     // Make a copy of the key.
-    char* keyCopy = (char*)internal_malloc(strlen(name) + 1);
+    keyCopy = (char*)internal_malloc(strlen(name) + 1);
     if (keyCopy == NULL) {
         return -1;
     }
@@ -232,7 +251,7 @@ int assoc_insert(assoc_array* a, const char* name, const void* data)
     strcpy(keyCopy, name);
 
     // Make a copy of the value.
-    void* valueCopy = NULL;
+    valueCopy = NULL;
     if (data != NULL && a->datasize != 0) {
         valueCopy = internal_malloc(a->datasize);
         if (valueCopy == NULL) {
@@ -247,13 +266,13 @@ int assoc_insert(assoc_array* a, const char* name, const void* data)
 
     // Starting at the end of entries array loop backwards and move entries down
     // one by one until we reach insertion point.
-    for (int index = a->size; index > newElementIndex; index--) {
+    for (index = a->size; index > newElementIndex; index--) {
         assoc_pair* src = &(a->list[index - 1]);
         assoc_pair* dest = &(a->list[index]);
         memcpy(dest, src, sizeof(*a->list));
     }
 
-    assoc_pair* entry = &(a->list[newElementIndex]);
+    entry = &(a->list[newElementIndex]);
     entry->name = keyCopy;
     entry->data = valueCopy;
 
@@ -270,16 +289,19 @@ int assoc_insert(assoc_array* a, const char* name, const void* data)
 // 0x4D9EE8
 int assoc_delete(assoc_array* a, const char* name)
 {
+    int indexToRemove;
+	assoc_pair* entry;
+	int index;
+
     if (a->init_flag != DICTIONARY_MARKER) {
         return -1;
     }
 
-    int indexToRemove;
     if (assoc_find(a, name, &indexToRemove) == -1) {
         return -1;
     }
 
-    assoc_pair* entry = &(a->list[indexToRemove]);
+    entry = &(a->list[indexToRemove]);
 
     // Free key and value (which are copies).
     internal_free(entry->name);
@@ -291,7 +313,7 @@ int assoc_delete(assoc_array* a, const char* name)
 
     // Starting from the index of the entry we've just removed, loop thru the
     // remaining of the array and move entries up one by one.
-    for (int index = indexToRemove; index < a->size; index++) {
+    for (index = indexToRemove; index < a->size; index++) {
         assoc_pair* src = &(a->list[index + 1]);
         assoc_pair* dest = &(a->list[index]);
         memcpy(dest, src, sizeof(*a->list));
@@ -305,6 +327,7 @@ int assoc_delete(assoc_array* a, const char* name)
 // 0x4D9F84
 int assoc_copy(assoc_array* dst, assoc_array* src)
 {
+	int index;
     if (src->init_flag != DICTIONARY_MARKER) {
         return -1;
     }
@@ -314,7 +337,7 @@ int assoc_copy(assoc_array* dst, assoc_array* src)
         return 0;
     }
 
-    for (int index = 0; index < src->size; index++) {
+    for (index = 0; index < src->size; index++) {
         assoc_pair* entry = &(src->list[index]);
         if (assoc_insert(dst, entry->name, entry->data) == -1) {
             return -1;
@@ -393,11 +416,13 @@ static int assoc_read_assoc_array(FILE* fp, assoc_array* a)
 // 0x4DA158
 int assoc_load(FILE* fp, assoc_array* a, int flags)
 {
+	int index;
+
     if (a->init_flag != DICTIONARY_MARKER) {
         return -1;
     }
 
-    for (int index = 0; index < a->size; index++) {
+    for (index = 0; index < a->size; index++) {
         assoc_pair* entry = &(a->list[index]);
         if (entry->name != NULL) {
             internal_free(entry->name);
@@ -427,7 +452,7 @@ int assoc_load(FILE* fp, assoc_array* a, int flags)
         return -1;
     }
 
-    for (int index = 0; index < a->size; index++) {
+    for (index = 0; index < a->size; index++) {
         assoc_pair* entry = &(a->list[index]);
         entry->name = NULL;
         entry->data = NULL;
@@ -437,7 +462,7 @@ int assoc_load(FILE* fp, assoc_array* a, int flags)
         return 0;
     }
 
-    for (int index = 0; index < a->size; index++) {
+    for (index = 0; index < a->size; index++) {
         assoc_pair* entry = &(a->list[index]);
         int keyLength = fgetc(fp);
         if (keyLength == -1) {
@@ -506,6 +531,8 @@ static int assoc_write_assoc_array(FILE* fp, assoc_array* a)
 // 0x4DA3A4
 int assoc_save(FILE* fp, assoc_array* a, int flags)
 {
+	int index;
+
     if (a->init_flag != DICTIONARY_MARKER) {
         return -1;
     }
@@ -514,7 +541,7 @@ int assoc_save(FILE* fp, assoc_array* a, int flags)
         return -1;
     }
 
-    for (int index = 0; index < a->size; index++) {
+    for (index = 0; index < a->size; index++) {
         assoc_pair* entry = &(a->list[index]);
         int keyLength = strlen(entry->name);
         if (fputc(keyLength, fp) == -1) {

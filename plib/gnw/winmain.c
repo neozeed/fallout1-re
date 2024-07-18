@@ -105,7 +105,7 @@ BOOL DetectRequirements()
 
     info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOA);
 
-#pragma warning(suppress : 4996 28159)
+//#pragma warning(suppress : 4996 28159)
     if (!GetVersionExA(&info)) {
         return TRUE;
     }

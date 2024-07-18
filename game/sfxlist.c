@@ -140,14 +140,17 @@ int sfxl_name_to_tag(char* name, int* tagPtr)
 int sfxl_name(int tag, char** pathPtr)
 {
     int index;
+	char *name;
+	char *path;
+
     int err = sfxl_index(tag, &index);
     if (err != SFXL_OK) {
         return err;
     }
 
-    char* name = sfxl_list[index].name;
+    name = sfxl_list[index].name;
 
-    char* path = (char*)mem_malloc(strlen(sfxl_effect_path) + strlen(name) + 1);
+    path = (char*)mem_malloc(strlen(sfxl_effect_path) + strlen(name) + 1);
     if (path == NULL) {
         return SFXL_ERR;
     }
@@ -164,12 +167,13 @@ int sfxl_name(int tag, char** pathPtr)
 int sfxl_size_full(int tag, int* sizePtr)
 {
     int index;
+	SoundEffectsListEntry* entry;
     int rc = sfxl_index(tag, &index);
     if (rc != SFXL_OK) {
         return rc;
     }
 
-    SoundEffectsListEntry* entry = &(sfxl_list[index]);
+    entry = &(sfxl_list[index]);
     *sizePtr = entry->dataSize;
 
     return SFXL_OK;
@@ -179,12 +183,13 @@ int sfxl_size_full(int tag, int* sizePtr)
 int sfxl_size_cached(int tag, int* sizePtr)
 {
     int index;
+	SoundEffectsListEntry* entry;
     int err = sfxl_index(tag, &index);
     if (err != SFXL_OK) {
         return err;
     }
 
-    SoundEffectsListEntry* entry = &(sfxl_list[index]);
+    entry = &(sfxl_list[index]);
     *sizePtr = entry->fileSize;
 
     return SFXL_OK;
@@ -193,6 +198,8 @@ int sfxl_size_cached(int tag, int* sizePtr)
 // 0x497C48
 static int sfxl_index(int tag, int* indexPtr)
 {
+	int index;
+
     if (tag <= 0) {
         return SFXL_ERR_TAG_INVALID;
     }
@@ -201,7 +208,7 @@ static int sfxl_index(int tag, int* indexPtr)
         return SFXL_ERR_TAG_INVALID;
     }
 
-    int index = (tag / 2) - 1;
+    index = (tag / 2) - 1;
     if (index >= sfxl_files_total) {
         return SFXL_ERR_TAG_INVALID;
     }
@@ -232,6 +239,8 @@ static int sfxl_index_to_tag(int index, int* tagPtr)
 // 0x497CA4
 static void sfxl_destroy()
 {
+	int index;
+
     if (sfxl_files_total < 0) {
         return;
     }
@@ -240,7 +249,7 @@ static void sfxl_destroy()
         return;
     }
 
-    for (int index = 0; index < sfxl_files_total; index++) {
+    for (index = 0; index < sfxl_files_total; index++) {
         SoundEffectsListEntry* entry = &(sfxl_list[index]);
         if (entry->name != NULL) {
             mem_free(entry->name);
@@ -257,6 +266,11 @@ static void sfxl_destroy()
 static int sfxl_get_names()
 {
     const char* extension;
+	char* pattern;
+	char** fileNameList;
+	int err;
+
+
     switch (sfxl_compression) {
     case 0:
         extension = "*.SND";
@@ -268,7 +282,7 @@ static int sfxl_get_names()
         return SFXL_ERR;
     }
 
-    char* pattern = (char*)mem_malloc(strlen(sfxl_effect_path) + strlen(extension) + 1);
+    pattern = (char*)mem_malloc(strlen(sfxl_effect_path) + strlen(extension) + 1);
     if (pattern == NULL) {
         return SFXL_ERR;
     }
@@ -276,7 +290,6 @@ static int sfxl_get_names()
     strcpy(pattern, sfxl_effect_path);
     strcat(pattern, extension);
 
-    char** fileNameList;
     sfxl_files_total = db_get_file_list(pattern, &fileNameList, NULL, 0);
     mem_free(pattern);
 
@@ -297,7 +310,7 @@ static int sfxl_get_names()
 
     memset(sfxl_list, 0, sizeof(*sfxl_list) * sfxl_files_total);
 
-    int err = sfxl_copy_names(fileNameList);
+    err = sfxl_copy_names(fileNameList);
 
     db_free_file_list(&fileNameList, NULL);
 
@@ -312,7 +325,9 @@ static int sfxl_get_names()
 // 0x497E68
 static int sfxl_copy_names(char** fileNameList)
 {
-    for (int index = 0; index < sfxl_files_total; index++) {
+	int index;
+
+    for (index = 0; index < sfxl_files_total; index++) {
         SoundEffectsListEntry* entry = &(sfxl_list[index]);
         entry->name = mem_strdup(*fileNameList++);
         if (entry->name == NULL) {
@@ -328,6 +343,8 @@ static int sfxl_copy_names(char** fileNameList)
 static int sfxl_get_sizes()
 {
     dir_entry de;
+	char* fileName;
+	int index;
 
     char* path = (char*)mem_malloc(sfxl_effect_path_len + 13);
     if (path == NULL) {
@@ -336,9 +353,9 @@ static int sfxl_get_sizes()
 
     strcpy(path, sfxl_effect_path);
 
-    char* fileName = path + sfxl_effect_path_len;
+    fileName = path + sfxl_effect_path_len;
 
-    for (int index = 0; index < sfxl_files_total; index++) {
+    for (index = 0; index < sfxl_files_total; index++) {
         SoundEffectsListEntry* entry = &(sfxl_list[index]);
         strcpy(fileName, entry->name);
 
@@ -360,16 +377,17 @@ static int sfxl_get_sizes()
             break;
         case 1:
             if (1) {
+				int channels;
+                int sampleRate;
+                int sampleCount;
                 DB_FILE* stream = db_fopen(path, "rb");
+				AudioDecoder* ad;
                 if (stream == NULL) {
                     mem_free(path);
                     return 1;
                 }
 
-                int channels;
-                int sampleRate;
-                int sampleCount;
-                AudioDecoder* ad = Create_AudioDecoder(sfxl_ad_reader, stream, &channels, &sampleRate, &sampleCount);
+                ad = Create_AudioDecoder(sfxl_ad_reader, stream, &channels, &sampleRate, &sampleCount);
                 entry->dataSize = 2 * sampleCount;
                 AudioDecoder_Close(ad);
                 db_fclose(stream);

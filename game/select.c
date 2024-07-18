@@ -26,6 +26,8 @@
 #include "plib/gnw/memory.h"
 #include "plib/gnw/text.h"
 
+#include <stdbool.h>
+
 #define CS_WINDOW_WIDTH 640
 #define CS_WINDOW_HEIGHT 480
 
@@ -195,11 +197,16 @@ static unsigned char* previous_button_down;
 // 0x495260
 int select_character()
 {
+	int rc;
+    bool done;
+	int keyCode;
+
+	bool cursorWasHidden;
     if (!select_init()) {
         return 0;
     }
 
-    bool cursorWasHidden = mouse_hidden();
+    cursorWasHidden = mouse_hidden();
     if (cursorWasHidden) {
         mouse_show();
     }
@@ -207,14 +214,14 @@ int select_character()
     loadColorTable("color.pal");
     palette_fade_to(cmap);
 
-    int rc = 0;
-    bool done = false;
+    rc = 0;
+    done = false;
     while (!done) {
         if (game_user_wants_to_quit != 0) {
             break;
         }
 
-        int keyCode = get_input();
+        keyCode = get_input();
 
         switch (keyCode) {
         case KEY_MINUS:
@@ -301,13 +308,16 @@ bool select_init()
 {
     int backgroundFid;
     unsigned char* backgroundFrmData;
+	int characterSelectorWindowX = 0;
+    int characterSelectorWindowY = 0;
+	CacheEntry* backgroundFrmHandle;
+    int fid;
+
 
     if (select_window_id != -1) {
         return false;
     }
 
-    int characterSelectorWindowX = 0;
-    int characterSelectorWindowY = 0;
     select_window_id = win_add(characterSelectorWindowX, characterSelectorWindowY, CS_WINDOW_WIDTH, CS_WINDOW_HEIGHT, colorTable[0], 0);
     if (select_window_id == -1) {
         return select_fatal_error(false);
@@ -318,7 +328,6 @@ bool select_init()
         return select_fatal_error(false);
     }
 
-    CacheEntry* backgroundFrmHandle;
     backgroundFid = art_id(OBJ_TYPE_INTERFACE, 174, 0, 0, 0);
     backgroundFrmData = art_ptr_lock_data(backgroundFid, 0, 0, &backgroundFrmHandle);
     if (backgroundFrmData == NULL) {
@@ -344,8 +353,6 @@ bool select_init()
         CS_WINDOW_BACKGROUND_WIDTH);
 
     art_ptr_unlock(backgroundFrmHandle);
-
-    int fid;
 
     // Setup "Previous" button.
     fid = art_id(OBJ_TYPE_INTERFACE, 122, 0, 0, 0);
@@ -671,6 +678,8 @@ static void select_exit()
 static bool select_update_display()
 {
     char path[FILENAME_MAX];
+    bool success = false;
+
     sprintf(path, "%s.gcd", premade_characters[premade_index].fileName);
     if (proto_dude_init(path) == -1) {
         debug_printf("\n ** Error in dude init! **\n");
@@ -684,7 +693,6 @@ static bool select_update_display()
         select_window_buffer + CS_WINDOW_WIDTH * CS_WINDOW_BACKGROUND_Y + CS_WINDOW_BACKGROUND_X,
         CS_WINDOW_WIDTH);
 
-    bool success = false;
     if (select_display_portrait()) {
         if (select_display_stats()) {
             success = select_display_bio();
@@ -751,15 +759,21 @@ static bool select_display_stats()
     char text[260];
     int length;
     int value;
+	int vh;
+    int x,y;
     MessageListItem messageListItem;
+    int skills[DEFAULT_TAGGED_SKILLS];
+    int traits[PC_TRAIT_MAX];
+	int index;
+
 
     int oldFont = text_curr();
     text_font(101);
 
     text_char_width(0x20);
 
-    int vh = text_height();
-    int y = 40;
+    vh = text_height();
+    y = 40;
 
     // NAME
     str = object_name(obj_dude);
@@ -958,10 +972,9 @@ static bool select_display_stats()
     y += vh; // blank line
 
     // SKILLS
-    int skills[DEFAULT_TAGGED_SKILLS];
     skill_get_tags(skills, DEFAULT_TAGGED_SKILLS);
 
-    for (int index = 0; index < DEFAULT_TAGGED_SKILLS; index++) {
+    for (index = 0; index < DEFAULT_TAGGED_SKILLS; index++) {
         y += vh;
 
         str = skill_name(skills[index]);
@@ -978,10 +991,9 @@ static bool select_display_stats()
     }
 
     // TRAITS
-    int traits[PC_TRAIT_MAX];
     trait_get(&(traits[0]), &(traits[1]));
 
-    for (int index = 0; index < PC_TRAIT_MAX; index++) {
+    for (index = 0; index < PC_TRAIT_MAX; index++) {
         y += vh;
 
         str = trait_name(traits[index]);
@@ -999,13 +1011,15 @@ static bool select_display_stats()
 // 0x496C60
 static bool select_display_bio()
 {
+    char path[FILENAME_MAX];
+	DB_FILE* stream;
+
     int oldFont = text_curr();
     text_font(101);
 
-    char path[FILENAME_MAX];
     sprintf(path, "%s.bio", premade_characters[premade_index].fileName);
 
-    DB_FILE* stream = db_fopen(path, "rt");
+    stream = db_fopen(path, "rt");
     if (stream != NULL) {
         int y = 40;
         int lineHeight = text_height();

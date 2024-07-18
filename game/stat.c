@@ -21,6 +21,9 @@
 #include "plib/gnw/input.h"
 #include "plib/gnw/memory.h"
 
+//limits.h
+#define INT_MAX       2147483647    /* maximum (signed) int value */
+
 // Provides metadata about stats.
 typedef struct StatDescription {
     char* name;
@@ -396,8 +399,9 @@ void stat_recalc_derived(Object* critter)
     int luck = stat_level(critter, STAT_LUCK);
 
     Proto* proto;
+	CritterProtoData* data;
     proto_ptr(critter->pid, &proto);
-    CritterProtoData* data = &(proto->critter.data);
+    data = &(proto->critter.data);
 
     data->baseStats[STAT_MAXIMUM_HIT_POINTS] = stat_get_base(critter, STAT_STRENGTH) + stat_get_base(critter, STAT_ENDURANCE) * 2 + 15;
     data->baseStats[STAT_MAXIMUM_ACTION_POINTS] = agility / 2 + 5;

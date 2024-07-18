@@ -72,14 +72,38 @@ int win_list_select(const char* title, char** fileList, int fileListLength, Sele
 // 0x4C6AEC
 int win_list_select_at(const char* title, char** items, int itemsLength, SelectFunc* callback, int x, int y, int a7, int a8)
 {
+    int listViewWidth;
+    int windowWidth;
+    int titleWidth;
+    int win;
+    int windowHeight;
+    int listViewCapacity;
+	int heightMultiplier;
+    Window* window;
+    Rect* windowRect;
+    unsigned char* windowBuffer;
+    int listViewX ,listViewY;
+    unsigned char* listViewBuffer;
+    int listViewMaxY = listViewCapacity;
+	int scrollOffset;
+    int scrollbarX ,scrollbarY;
+    int scrollbarKnobSize;
+    int scrollbarHeight;
+    unsigned char* scrollbarBuffer;
+	int selectedItemIndex;
+	int index;
+	int previousSelectedItemIndex;
+    int absoluteSelectedItemIndex;
+	char** itemsTO;
+
     if (!GNW_win_init_flag) {
         return -1;
     }
 
-    int listViewWidth = win_width_needed(items, itemsLength);
-    int windowWidth = listViewWidth + 16;
+    listViewWidth = win_width_needed(items, itemsLength);
+    windowWidth = listViewWidth + 16;
 
-    int titleWidth = text_width(title);
+    titleWidth = text_width(title);
     if (titleWidth > windowWidth) {
         windowWidth = titleWidth;
         listViewWidth = titleWidth - 16;
@@ -87,10 +111,8 @@ int win_list_select_at(const char* title, char** items, int itemsLength, SelectF
 
     windowWidth += 20;
 
-    int win;
-    int windowHeight;
-    int listViewCapacity = 10;
-    for (int heightMultiplier = 13; heightMultiplier > 8; heightMultiplier--) {
+    listViewCapacity = 10;
+    for (heightMultiplier = 13; heightMultiplier > 8; heightMultiplier--) {
         windowHeight = heightMultiplier * text_height() + 22;
         win = win_add(x, y, windowWidth, windowHeight, 256, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
         if (win != -1) {
@@ -103,9 +125,9 @@ int win_list_select_at(const char* title, char** items, int itemsLength, SelectF
         return -1;
     }
 
-    Window* window = GNW_find(win);
-    Rect* windowRect = &(window->rect);
-    unsigned char* windowBuffer = window->buffer;
+    window = GNW_find(win);
+    windowRect = &(window->rect);
+    windowBuffer = window->buffer;
 
     draw_box(windowBuffer,
         windowWidth,
@@ -144,10 +166,10 @@ int win_list_select_at(const char* title, char** items, int itemsLength, SelectF
         colorTable[GNW_wcolor[2]],
         colorTable[GNW_wcolor[1]]);
 
-    int listViewX = 8;
-    int listViewY = text_height() + 16;
-    unsigned char* listViewBuffer = windowBuffer + windowWidth * listViewY + listViewX;
-    int listViewMaxY = listViewCapacity * text_height() + listViewY;
+    listViewX = 8;
+    listViewY = text_height() + 16;
+    listViewBuffer = windowBuffer + windowWidth * listViewY + listViewX;
+    listViewMaxY = listViewCapacity * text_height() + listViewY;
 
     buf_fill(listViewBuffer + windowWidth * (-2) + (-3),
         listViewWidth + listViewX - 2,
@@ -155,26 +177,26 @@ int win_list_select_at(const char* title, char** items, int itemsLength, SelectF
         windowWidth,
         colorTable[GNW_wcolor[0]]);
 
-    int scrollOffset = a8;
+    scrollOffset = a8;
     if (a8 < 0 || a8 >= itemsLength) {
         scrollOffset = 0;
     }
 
     // Relative to `scrollOffset`.
-    int selectedItemIndex;
     if (itemsLength - scrollOffset < listViewCapacity) {
+		int oldScrollOffset;
         int newScrollOffset = itemsLength - listViewCapacity;
         if (newScrollOffset < 0) {
             newScrollOffset = 0;
         }
-        int oldScrollOffset = scrollOffset;
+        oldScrollOffset = scrollOffset;
         scrollOffset = newScrollOffset;
         selectedItemIndex = oldScrollOffset - newScrollOffset;
     } else {
         selectedItemIndex = 0;
     }
 
-    char** itemsTO = items + a8;
+    itemsTO = items + a8;
     win_text(win,
         items + a8,
         itemsLength < listViewCapacity ? itemsLength : listViewCapacity,
@@ -227,11 +249,11 @@ int win_list_select_at(const char* title, char** items, int itemsLength, SelectF
         "Done",
         0);
 
-    int scrollbarX = windowWidth - 21;
-    int scrollbarY = listViewY + text_height() + 7;
-    int scrollbarKnobSize = 14;
-    int scrollbarHeight = listViewMaxY - scrollbarY;
-    unsigned char* scrollbarBuffer = windowBuffer + windowWidth * scrollbarY + scrollbarX;
+    scrollbarX = windowWidth - 21;
+    scrollbarY = listViewY + text_height() + 7;
+    scrollbarKnobSize = 14;
+    scrollbarHeight = listViewMaxY - scrollbarY;
+    scrollbarBuffer = windowBuffer + windowWidth * scrollbarY + scrollbarX;
 
     buf_fill(scrollbarBuffer,
         scrollbarKnobSize + 1,
@@ -272,7 +294,7 @@ int win_list_select_at(const char* title, char** items, int itemsLength, SelectF
 
     lighten_buf(scrollbarBuffer, scrollbarKnobSize, scrollbarKnobSize, windowWidth);
 
-    for (int index = 0; index < listViewCapacity; index++) {
+    for (index = 0; index < listViewCapacity; index++) {
         win_register_button(win,
             listViewX,
             listViewY + index * text_height(),
@@ -304,10 +326,10 @@ int win_list_select_at(const char* title, char** items, int itemsLength, SelectF
 
     win_draw(win);
 
-    int absoluteSelectedItemIndex = -1;
+    absoluteSelectedItemIndex = -1;
 
     // Relative to `scrollOffset`.
-    int previousSelectedItemIndex = -1;
+    previousSelectedItemIndex = -1;
     while (1) {
         int keyCode = get_input();
         int mouseX;
@@ -474,6 +496,8 @@ int win_list_select_at(const char* title, char** items, int itemsLength, SelectF
             itemRect.lrx = itemRect.ulx + listViewWidth;
 
             if (previousSelectedItemIndex != -1) {
+                int color;
+
                 itemRect.uly = windowRect->uly + listViewY + previousSelectedItemIndex * text_height();
                 itemRect.lry = itemRect.uly + text_height();
 
@@ -483,7 +507,6 @@ int win_list_select_at(const char* title, char** items, int itemsLength, SelectF
                     windowWidth,
                     colorTable[GNW_wcolor[0]]);
 
-                int color;
                 if ((a7 & 0xFF00) != 0) {
                     int colorIndex = (a7 & 0xFF) - 1;
                     color = (a7 & ~0xFFFF) | colorTable[GNW_wcolor[colorIndex]];
@@ -522,30 +545,33 @@ int win_list_select_at(const char* title, char** items, int itemsLength, SelectF
 // 0x4C7858
 int win_get_str(char* dest, int length, const char* title, int x, int y)
 {
+	int titleWidth,windowWidth,windowHeight,win;
+	unsigned char* windowBuffer;
+
     if (!GNW_win_init_flag) {
         return -1;
     }
 
-    int titleWidth = text_width(title) + 12;
+    titleWidth = text_width(title) + 12;
     if (titleWidth < text_max() * length) {
         titleWidth = text_max() * length;
     }
 
-    int windowWidth = titleWidth + 16;
+    windowWidth = titleWidth + 16;
     if (windowWidth < 160) {
         windowWidth = 160;
     }
 
-    int windowHeight = 5 * text_height() + 16;
+    windowHeight = 5 * text_height() + 16;
 
-    int win = win_add(x, y, windowWidth, windowHeight, 256, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
+    win = win_add(x, y, windowWidth, windowHeight, 256, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
     if (win == -1) {
         return -1;
     }
 
     win_border(win);
 
-    unsigned char* windowBuffer = win_get_buf(win);
+    windowBuffer = win_get_buf(win);
 
     buf_fill(windowBuffer + windowWidth * (text_height() + 14) + 14,
         windowWidth - 28,
@@ -601,30 +627,34 @@ int win_get_str(char* dest, int length, const char* title, int x, int y)
 // 0x4C7E78
 int win_msg(const char* string, int x, int y, int flags)
 {
+	int windowHeight, windowWidth, win;
+	int color;
+	Window* window;
+    unsigned char* windowBuffer;
+
     if (!GNW_win_init_flag) {
         return -1;
     }
 
-    int windowHeight = 3 * text_height() + 16;
+    windowHeight = 3 * text_height() + 16;
 
-    int windowWidth = text_width(string) + 16;
+    windowWidth = text_width(string) + 16;
     if (windowWidth < 80) {
         windowWidth = 80;
     }
 
     windowWidth += 16;
 
-    int win = win_add(x, y, windowWidth, windowHeight, 256, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
+    win = win_add(x, y, windowWidth, windowHeight, 256, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
     if (win == -1) {
         return -1;
     }
 
     win_border(win);
 
-    Window* window = GNW_find(win);
-    unsigned char* windowBuffer = window->buffer;
+    window = GNW_find(win);
+    windowBuffer = window->buffer;
 
-    int color;
     if ((flags & 0xFF00) != 0) {
         int index = (flags & 0xFF) - 1;
         color = colorTable[GNW_wcolor[index]];
@@ -658,12 +688,14 @@ int win_msg(const char* string, int x, int y, int flags)
 // 0x4C7FA4
 int win_pull_down(char** items, int itemsLength, int x, int y, int a5)
 {
+	Rect rect;
+	int win;
+
     if (!GNW_win_init_flag) {
         return -1;
     }
 
-    Rect rect;
-    int win = create_pull_down(items, itemsLength, x, y, a5, colorTable[GNW_wcolor[0]], &rect);
+    win = create_pull_down(items, itemsLength, x, y, a5, colorTable[GNW_wcolor[0]], &rect);
     if (win == -1) {
         return -1;
     }
@@ -676,11 +708,13 @@ static int create_pull_down(char** stringList, int stringListLength, int x, int 
 {
     int windowHeight = stringListLength * text_height() + 16;
     int windowWidth = win_width_needed(stringList, stringListLength) + 4;
+	int win;
+
     if (windowHeight < 2 || windowWidth < 2) {
         return -1;
     }
 
-    int win = win_add(x, y, windowWidth, windowHeight, a6, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
+    win = win_add(x, y, windowWidth, windowHeight, a6, WINDOW_FLAG_0x10 | WINDOW_FLAG_0x04);
     if (win == -1) {
         return -1;
     }
@@ -705,7 +739,10 @@ static int process_pull_down(int win, Rect* rect, char** items, int itemsLength,
 int win_debug(char* string)
 {
     // 0x6B0750
+	int lineHeight;
     static int curry;
+    char temp[2];
+    char* pch;
 
     // 0x6B0754
     static int currx;
@@ -714,9 +751,13 @@ int win_debug(char* string)
         return -1;
     }
 
-    int lineHeight = text_height();
+    lineHeight = text_height();
 
     if (wd == -1) {
+		Window* window;
+		unsigned char* windowBuffer;
+		int btn;
+
         wd = win_add(80, 80, 300, 192, 256, WINDOW_FLAG_0x04);
         if (wd == -1) {
             return -1;
@@ -724,8 +765,8 @@ int win_debug(char* string)
 
         win_border(wd);
 
-        Window* window = GNW_find(wd);
-        unsigned char* windowBuffer = window->buffer;
+        window = GNW_find(wd);
+        windowBuffer = window->buffer;
 
         win_fill(wd, 8, 8, 284, lineHeight, 0x100 | 1);
 
@@ -759,7 +800,7 @@ int win_debug(char* string)
         currx = 9;
         curry = 26;
 
-        int btn = win_register_text_button(wd,
+        btn = win_register_text_button(wd,
             (300 - text_width("Close")) / 2,
             192 - 8 - lineHeight - 6,
             -1,
@@ -785,10 +826,9 @@ int win_debug(char* string)
             BUTTON_FLAG_0x10);
     }
 
-    char temp[2];
     temp[1] = '\0';
 
-    char* pch = string;
+    pch = string;
     while (*pch != '\0') {
         int characterWidth = text_char_width(*pch);
         if (*pch == '\n' || currx + characterWidth > 291) {
@@ -833,6 +873,8 @@ static void win_debug_delete(int btn, int keyCode)
 // 0x4C8A54
 int win_register_menu_bar(int win, int x, int y, int width, int height, int borderColor, int backgroundColor)
 {
+	int bottom,right;
+	MenuBar* menuBar;
     Window* window = GNW_find(win);
 
     if (!GNW_win_init_flag) {
@@ -847,17 +889,17 @@ int win_register_menu_bar(int win, int x, int y, int width, int height, int bord
         return -1;
     }
 
-    int right = x + width;
+    right = x + width;
     if (right > window->width) {
         return -1;
     }
 
-    int bottom = y + height;
+    bottom = y + height;
     if (bottom > window->height) {
         return -1;
     }
 
-    MenuBar* menuBar = window->menuBar = (MenuBar*)mem_malloc(sizeof(MenuBar));
+    menuBar = window->menuBar = (MenuBar*)mem_malloc(sizeof(MenuBar));
     if (menuBar == NULL) {
         return -1;
     }
@@ -880,7 +922,11 @@ int win_register_menu_bar(int win, int x, int y, int width, int height, int bord
 // 0x4C8B48
 int win_register_menu_pulldown(int win, int x, char* title, int keyCode, int itemsLength, char** items, int a7, int a8)
 {
+	int titleX ,titleY;
+    int btn;
+	MenuBar* menuBar;
     Window* window = GNW_find(win);
+	MenuPulldown* pulldown;
 
     if (!GNW_win_init_flag) {
         return -1;
@@ -890,7 +936,7 @@ int win_register_menu_pulldown(int win, int x, char* title, int keyCode, int ite
         return -1;
     }
 
-    MenuBar* menuBar = window->menuBar;
+    menuBar = window->menuBar;
     if (menuBar == NULL) {
         return -1;
     }
@@ -899,9 +945,9 @@ int win_register_menu_pulldown(int win, int x, char* title, int keyCode, int ite
         return -1;
     }
 
-    int titleX = menuBar->rect.ulx + x;
-    int titleY = (menuBar->rect.uly + menuBar->rect.lry - text_height()) / 2;
-    int btn = win_register_button(win,
+    titleX = menuBar->rect.ulx + x;
+    titleY = (menuBar->rect.uly + menuBar->rect.lry - text_height()) / 2;
+    btn = win_register_button(win,
         titleX,
         titleY,
         text_width(title),
@@ -920,7 +966,7 @@ int win_register_menu_pulldown(int win, int x, char* title, int keyCode, int ite
 
     win_print(win, title, 0, titleX, titleY, window->menuBar->borderColor | 0x2000000);
 
-    MenuPulldown* pulldown = &(window->menuBar->pulldowns[window->menuBar->pulldownsLength]);
+    pulldown = &(window->menuBar->pulldowns[window->menuBar->pulldownsLength]);
     pulldown->rect.ulx = titleX;
     pulldown->rect.uly = titleY;
     pulldown->rect.lrx = text_width(title) + titleX - 1;
@@ -968,6 +1014,9 @@ void win_delete_menu_bar(int win)
 int GNW_process_menu(MenuBar* menuBar, int pulldownIndex)
 {
     // 0x53A26C
+    int keyCode;
+    Rect rect;
+
     static MenuBar* curr_menu = NULL;
 
     if (curr_menu != NULL) {
@@ -976,8 +1025,6 @@ int GNW_process_menu(MenuBar* menuBar, int pulldownIndex)
 
     curr_menu = menuBar;
 
-    int keyCode;
-    Rect rect;
     do {
         MenuPulldown* pulldown = &(menuBar->pulldowns[pulldownIndex]);
         int win = create_pull_down(pulldown->items,
@@ -1012,11 +1059,13 @@ int GNW_process_menu(MenuBar* menuBar, int pulldownIndex)
 // 0x4C8DD0
 static int find_first_letter(int ch, char** stringList, int stringListLength)
 {
+	int index;
+
     if (ch >= 'A' && ch <= 'Z') {
         ch += ' ';
     }
 
-    for (int index = 0; index < stringListLength; index++) {
+    for (index = 0; index < stringListLength; index++) {
         char* string = stringList[index];
         if (string[0] == ch || string[0] == ch - ' ') {
             return index;
@@ -1029,9 +1078,10 @@ static int find_first_letter(int ch, char** stringList, int stringListLength)
 // 0x4C8E10
 int win_width_needed(char** fileNameList, int fileNameListLength)
 {
+	int index;
     int maxWidth = 0;
 
-    for (int index = 0; index < fileNameListLength; index++) {
+    for (index = 0; index < fileNameListLength; index++) {
         int width = text_width(fileNameList[index]);
         if (width > maxWidth) {
             maxWidth = width;
@@ -1046,17 +1096,20 @@ int win_input_str(int win, char* dest, int maxLength, int x, int y, int textColo
 {
     Window* window = GNW_find(win);
     unsigned char* buffer = window->buffer + window->width * y + x;
+    int lineHeight;
+    int stringWidth;
+    Rect dirtyRect;
+	bool isFirstKey;
 
     int cursorPos = strlen(dest);
     dest[cursorPos] = '_';
     dest[cursorPos + 1] = '\0';
 
-    int lineHeight = text_height();
-    int stringWidth = text_width(dest);
+    lineHeight = text_height();
+    stringWidth = text_width(dest);
     buf_fill(buffer, stringWidth, lineHeight, window->width, backgroundColor);
     text_to_buf(buffer, dest, stringWidth, window->width, textColor);
 
-    Rect dirtyRect;
     dirtyRect.ulx = window->rect.ulx + x;
     dirtyRect.uly = window->rect.uly + y;
     dirtyRect.lrx = dirtyRect.ulx + stringWidth;
@@ -1066,7 +1119,7 @@ int win_input_str(int win, char* dest, int maxLength, int x, int y, int textColo
     // NOTE: This loop is slightly different compared to other input handling
     // loops. Cursor position is managed inside an incrementing loop. Cursor is
     // decremented in the loop body when key is not handled.
-    bool isFirstKey = true;
+    isFirstKey = true;
     for (; cursorPos <= maxLength; cursorPos++) {
         int keyCode = get_input();
         if (keyCode != -1) {
@@ -1119,11 +1172,12 @@ int win_input_str(int win, char* dest, int maxLength, int x, int y, int textColo
                     cursorPos = maxLength - 1;
                 } else {
                     if (keyCode > 0 && keyCode < 256) {
+						int stringWidth;
                         dest[cursorPos] = keyCode;
                         dest[cursorPos + 1] = '_';
                         dest[cursorPos + 2] = '\0';
 
-                        int stringWidth = text_width(dest);
+                        stringWidth = text_width(dest);
                         buf_fill(buffer, stringWidth, lineHeight, window->width, backgroundColor);
                         text_to_buf(buffer, dest, stringWidth, window->width, textColor);
 
@@ -1154,16 +1208,18 @@ int win_input_str(int win, char* dest, int maxLength, int x, int y, int textColo
 // 0x4C941C
 static int calc_max_field_chars_wcursor(int a1, int a2)
 {
+	int len1,len2;
+
     char* str = (char*)mem_malloc(17);
     if (str == NULL) {
         return -1;
     }
 
     sprintf(str, "%d", a1);
-    int len1 = strlen(str);
+    len1 = strlen(str);
 
     sprintf(str, "%d", a2);
-    int len2 = strlen(str);
+    len2 = strlen(str);
 
     mem_free(str);
 

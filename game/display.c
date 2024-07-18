@@ -82,6 +82,11 @@ static int disp_start;
 int display_init()
 {
     if (!disp_init) {
+        CacheEntry* backgroundFrmHandle;
+        int backgroundFid;
+        Art* backgroundFrm;
+		unsigned char* backgroundFrmData;
+
         int oldFont = text_curr();
         text_font(DISPLAY_MONITOR_FONT);
 
@@ -96,15 +101,14 @@ int display_init()
             return -1;
         }
 
-        CacheEntry* backgroundFrmHandle;
-        int backgroundFid = art_id(OBJ_TYPE_INTERFACE, 16, 0, 0, 0);
-        Art* backgroundFrm = art_ptr_lock(backgroundFid, &backgroundFrmHandle);
+        backgroundFid = art_id(OBJ_TYPE_INTERFACE, 16, 0, 0, 0);
+        backgroundFrm = art_ptr_lock(backgroundFid, &backgroundFrmHandle);
         if (backgroundFrm == NULL) {
             mem_free(disp_buf);
             return -1;
         }
 
-        unsigned char* backgroundFrmData = art_frame_data(backgroundFrm, 0, 0);
+        backgroundFrmData = art_frame_data(backgroundFrm, 0, 0);
         intface_full_wid = art_frame_width(backgroundFrm, 0, 0);
         buf_to_buf(backgroundFrmData + intface_full_wid * DISPLAY_MONITOR_Y + DISPLAY_MONITOR_X,
             DISPLAY_MONITOR_WIDTH,
@@ -188,6 +192,14 @@ void display_exit()
 // 0x42BE3C
 void display_print(char* str)
 {
+	int oldFont;
+	char knob;
+    char knobString[2];
+	int knobWidth;
+	char* v1;
+    char* temp;
+    int length;
+
     // 0x56E2E8
     static unsigned int lastTime;
 
@@ -195,15 +207,14 @@ void display_print(char* str)
         return;
     }
 
-    int oldFont = text_curr();
+    oldFont = text_curr();
     text_font(DISPLAY_MONITOR_FONT);
 
-    char knob = '\x95';
+    knob = '\x95';
 
-    char knobString[2];
     knobString[0] = knob;
     knobString[1] = '\0';
-    int knobWidth = text_width(knobString);
+    knobWidth = text_width(knobString);
 
     if (!isInCombat()) {
         unsigned int now = get_bk_time();
@@ -214,8 +225,9 @@ void display_print(char* str)
     }
 
     // TODO: Refactor these two loops.
-    char* v1 = NULL;
+    v1 = NULL;
     while (true) {
+		char* space;
         while (text_width(str) < DISPLAY_MONITOR_WIDTH - max_disp_ptr - knobWidth) {
             char* temp = disp_str[disp_start];
             int length;
@@ -243,7 +255,7 @@ void display_print(char* str)
             v1 = NULL;
         }
 
-        char* space = strrchr(str, ' ');
+        space = strrchr(str, ' ');
         if (space == NULL) {
             break;
         }
@@ -256,8 +268,8 @@ void display_print(char* str)
         *space = '\0';
     }
 
-    char* temp = disp_str[disp_start];
-    int length;
+    temp = disp_str[disp_start];
+
     if (knob != '\0') {
         temp++;
         disp_str[disp_start][0] = knob;
@@ -295,11 +307,15 @@ void display_clear()
 // 0x42C040
 void display_redraw()
 {
+	unsigned char* buf;
+	int index;
+	int oldFont;
+
     if (!disp_init) {
         return;
     }
 
-    unsigned char* buf = win_get_buf(interfaceWindow);
+    buf = win_get_buf(interfaceWindow);
     if (buf == NULL) {
         return;
     }
@@ -312,10 +328,10 @@ void display_redraw()
         buf,
         intface_full_wid);
 
-    int oldFont = text_curr();
+    oldFont = text_curr();
     text_font(DISPLAY_MONITOR_FONT);
 
-    for (int index = 0; index < max_disp_ptr; index++) {
+    for (index = 0; index < max_disp_ptr; index++) {
         int stringIndex = (disp_curr + max_ptr + index - max_disp_ptr) % max_ptr;
         text_to_buf(buf + index * intface_full_wid * text_height(), disp_str[stringIndex], DISPLAY_MONITOR_WIDTH, intface_full_wid, colorTable[992]);
 

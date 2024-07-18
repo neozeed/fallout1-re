@@ -167,32 +167,39 @@ int item_save(DB_FILE* stream)
 // 0x469C88
 int item_add_mult(Object* owner, Object* itemToAdd, int quantity)
 {
+	int parentType;
+
     if (quantity < 1) {
         return -1;
     }
 
-    int parentType = FID_TYPE(owner->fid);
+    parentType = FID_TYPE(owner->fid);
     if (parentType == OBJ_TYPE_ITEM) {
+		int currentSize;
+		int maxSize;
+		Object* containerOwner;
         int itemType = item_get_type(owner);
         if (itemType == ITEM_TYPE_CONTAINER) {
             // NOTE: Uninline.
             int sizeToAdd = item_size(itemToAdd);
             sizeToAdd *= quantity;
 
-            int currentSize = item_c_curr_size(owner);
-            int maxSize = item_c_max_size(owner);
+            currentSize = item_c_curr_size(owner);
+            maxSize = item_c_max_size(owner);
             if (currentSize + sizeToAdd >= maxSize) {
                 return -6;
             }
 
-            Object* containerOwner = obj_top_environment(owner);
+            containerOwner = obj_top_environment(owner);
             if (containerOwner != NULL) {
                 if (FID_TYPE(containerOwner->fid) == OBJ_TYPE_CRITTER) {
+					int currentWeight;
+                    int maxWeight;
                     int weightToAdd = item_weight(itemToAdd);
                     weightToAdd *= quantity;
 
-                    int currentWeight = item_total_weight(containerOwner);
-                    int maxWeight = stat_level(containerOwner, STAT_CARRY_WEIGHT);
+                    currentWeight = item_total_weight(containerOwner);
+                    maxWeight = stat_level(containerOwner, STAT_CARRY_WEIGHT);
                     if (currentWeight + weightToAdd > maxWeight) {
                         return -6;
                     }
@@ -208,15 +215,18 @@ int item_add_mult(Object* owner, Object* itemToAdd, int quantity)
             return -1;
         }
     } else if (parentType == OBJ_TYPE_CRITTER) {
+		int weightToAdd;
+		int currentWeight;
+        int maxWeight;
         if (critter_body_type(owner) != BODY_TYPE_BIPED) {
             return -5;
         }
 
-        int weightToAdd = item_weight(itemToAdd);
+        weightToAdd = item_weight(itemToAdd);
         weightToAdd *= quantity;
 
-        int currentWeight = item_total_weight(owner);
-        int maxWeight = stat_level(owner, STAT_CARRY_WEIGHT);
+        currentWeight = item_total_weight(owner);
+        maxWeight = stat_level(owner, STAT_CARRY_WEIGHT);
         if (currentWeight + weightToAdd > maxWeight) {
             return -6;
         }
@@ -228,13 +238,14 @@ int item_add_mult(Object* owner, Object* itemToAdd, int quantity)
 // 0x469DE4
 int item_add_force(Object* owner, Object* itemToAdd, int quantity)
 {
+    int index;
+	Inventory* inventory;
     if (quantity < 1) {
         return -1;
     }
 
-    Inventory* inventory = &(owner->data.inventory);
+    inventory = &(owner->data.inventory);
 
-    int index;
     for (index = 0; index < inventory->length; index++) {
         if (item_identical(inventory->items[index].item, itemToAdd) != 0) {
             break;
@@ -305,6 +316,7 @@ int item_add_force(Object* owner, Object* itemToAdd, int quantity)
 // 0x469FB8
 int item_remove_mult(Object* owner, Object* itemToRemove, int quantity)
 {
+	InventoryItem* inventoryItem;
     Inventory* inventory = &(owner->data.inventory);
     Object* item1 = inven_left_hand(owner);
     Object* item2 = inven_right_hand(owner);
@@ -327,7 +339,7 @@ int item_remove_mult(Object* owner, Object* itemToRemove, int quantity)
         return -1;
     }
 
-    InventoryItem* inventoryItem = &(inventory->items[index]);
+    inventoryItem = &(inventory->items[index]);
     if (inventoryItem->quantity < quantity) {
         return -1;
     }
@@ -369,10 +381,11 @@ int item_remove_mult(Object* owner, Object* itemToRemove, int quantity)
 // 0x46A118
 static void item_compact(int inventoryItemIndex, Inventory* inventory)
 {
-    for (int index = inventoryItemIndex + 1; index < inventory->length; index++) {
+	int index;
+    for (index = inventoryItemIndex + 1; index < inventory->length; index++) {
         InventoryItem* prev = &(inventory->items[index - 1]);
         InventoryItem* curr = &(inventory->items[index]);
-        static_assert(sizeof(*prev) == sizeof(*curr), "wrong size");
+        //static_assert(sizeof(*prev) == sizeof(*curr), "wrong size");
         memcpy(prev, curr, sizeof(*prev));
     }
     inventory->length--;
@@ -381,11 +394,12 @@ static void item_compact(int inventoryItemIndex, Inventory* inventory)
 // 0x46A148
 static int item_move_func(Object* a1, Object* a2, Object* a3, int quantity, bool a5)
 {
+    int rc;
+
     if (item_remove_mult(a1, a3, quantity) == -1) {
         return -1;
     }
 
-    int rc;
     if (a5) {
         rc = item_add_force(a2, a3, quantity);
     } else {
@@ -438,12 +452,13 @@ void item_move_all(Object* a1, Object* a2)
 // 0x46A220
 int item_drop_all(Object* critter, int tile)
 {
+	int index;
     bool hasEquippedItems = false;
 
     int frmId = critter->fid & 0xFFF;
 
     Inventory* inventory = &(critter->data.inventory);
-    for (int index = 0; index < inventory->length; index++) {
+    for (index = 0; index < inventory->length; index++) {
         InventoryItem* inventoryItem = &(inventory->items[index]);
         Object* item = inventoryItem->item;
         if (item->pid == PROTO_ID_MONEY) {
@@ -460,6 +475,7 @@ int item_drop_all(Object* critter, int tile)
 
             item->data.item.misc.charges = inventoryItem->quantity;
         } else {
+			int index;
             if ((item->flags & OBJECT_EQUIPPED) != 0) {
                 hasEquippedItems = true;
 
@@ -474,7 +490,7 @@ int item_drop_all(Object* critter, int tile)
                 }
             }
 
-            for (int index = 0; index < inventoryItem->quantity; index++) {
+            for (index = 0; index < inventoryItem->quantity; index++) {
                 if (item_remove_mult(critter, item, 1) != 0) {
                     return -1;
                 }
@@ -504,6 +520,11 @@ int item_drop_all(Object* critter, int tile)
 // 0x46A34C
 static bool item_identical(Object* a1, Object* a2)
 {
+    Proto* proto;
+	Inventory* inventory1, *inventory2;
+    int v1;
+    int i;
+
     if (a1->pid != a2->pid) {
         return false;
     }
@@ -520,19 +541,17 @@ static bool item_identical(Object* a1, Object* a2)
         return false;
     }
 
-    Proto* proto;
     proto_ptr(a1->pid, &proto);
     if (proto->item.type == ITEM_TYPE_CONTAINER) {
         return false;
     }
 
-    Inventory* inventory1 = &(a1->data.inventory);
-    Inventory* inventory2 = &(a2->data.inventory);
+    inventory1 = &(a1->data.inventory);
+    inventory2 = &(a2->data.inventory);
     if (inventory1->length != 0 || inventory2->length != 0) {
         return false;
     }
 
-    int v1;
     if (proto->item.type == ITEM_TYPE_AMMO || a1->pid == PROTO_ID_MONEY) {
         v1 = a2->data.item.ammo.quantity;
         a2->data.item.ammo.quantity = a1->data.item.ammo.quantity;
@@ -540,7 +559,6 @@ static bool item_identical(Object* a1, Object* a2)
 
     // NOTE: Probably inlined memcmp, but I'm not sure why it only checks 32
     // bytes.
-    int i;
     for (i = 0; i < 8; i++) {
         if (a1->field_2C_array[i] != a2->field_2C_array[i]) {
             break;
@@ -649,16 +667,18 @@ int item_weight(Object* item)
 // 0x46A544
 int item_cost(Object* obj)
 {
+    Proto* proto;
+	int cost;
+
     // TODO: This function needs review. A lot of functionality is inlined.
     // Find these functions and use them.
     if (obj == NULL) {
         return 0;
     }
 
-    Proto* proto;
     proto_ptr(obj->pid, &proto);
 
-    int cost = proto->item.cost;
+    cost = proto->item.cost;
 
     switch (proto->item.type) {
     case ITEM_TYPE_CONTAINER:
@@ -682,11 +702,13 @@ int item_cost(Object* obj)
         break;
     case ITEM_TYPE_AMMO:
         if (1) {
+			int ammoQuantity;
+			int ammoCapacity;
             // NOTE: Uninline.
-            int ammoQuantity = item_w_curr_ammo(obj);
+            ammoQuantity = item_w_curr_ammo(obj);
             cost *= ammoQuantity;
             // NOTE: Uninline.
-            int ammoCapacity = item_w_max_ammo(obj);
+            ammoCapacity = item_w_max_ammo(obj);
             cost /= ammoCapacity;
         }
         break;
@@ -698,14 +720,17 @@ int item_cost(Object* obj)
 // 0x46A634
 int item_total_cost(Object* obj)
 {
+    int cost = 0;
+	Inventory* inventory;
+	int index;
+
     if (obj == NULL) {
         return 0;
     }
 
-    int cost = 0;
 
-    Inventory* inventory = &(obj->data.inventory);
-    for (int index = 0; index < inventory->length; index++) {
+    inventory = &(obj->data.inventory);
+    for (index = 0; index < inventory->length; index++) {
         InventoryItem* inventoryItem = &(inventory->items[index]);
         if (item_get_type(inventoryItem->item) == ITEM_TYPE_AMMO) {
             Proto* proto;
@@ -729,17 +754,18 @@ int item_total_cost(Object* obj)
     }
 
     if (FID_TYPE(obj->fid) == OBJ_TYPE_CRITTER) {
+		Object* item1, * armor;
         Object* item2 = inven_right_hand(obj);
         if (item2 != NULL && (item2->flags & OBJECT_IN_RIGHT_HAND) == 0) {
             cost += item_cost(item2);
         }
 
-        Object* item1 = inven_left_hand(obj);
+        item1 = inven_left_hand(obj);
         if (item1 != NULL && (item1->flags & OBJECT_IN_LEFT_HAND) == 0) {
             cost += item_cost(item1);
         }
 
-        Object* armor = inven_worn(obj);
+        armor = inven_worn(obj);
         if (armor != NULL && (armor->flags & OBJECT_WORN) == 0) {
             cost += item_cost(armor);
         }
@@ -751,20 +777,24 @@ int item_total_cost(Object* obj)
 // 0x46A728
 int item_total_weight(Object* obj)
 {
+    int weight = 0;
+	Inventory* inventory;
+	int index;
+
     if (obj == NULL) {
         return 0;
     }
 
-    int weight = 0;
 
-    Inventory* inventory = &(obj->data.inventory);
-    for (int index = 0; index < inventory->length; index++) {
+    inventory = &(obj->data.inventory);
+    for (index = 0; index < inventory->length; index++) {
         InventoryItem* inventoryItem = &(inventory->items[index]);
         Object* item = inventoryItem->item;
         weight += item_weight(item) * inventoryItem->quantity;
     }
 
     if (FID_TYPE(obj->fid) == OBJ_TYPE_CRITTER) {
+		Object* item1, * armor;
         Object* item2 = inven_right_hand(obj);
         if (item2 != NULL) {
             if ((item2->flags & OBJECT_IN_RIGHT_HAND) == 0) {
@@ -772,14 +802,14 @@ int item_total_weight(Object* obj)
             }
         }
 
-        Object* item1 = inven_left_hand(obj);
+        item1 = inven_left_hand(obj);
         if (item1 != NULL) {
             if ((item1->flags & OBJECT_IN_LEFT_HAND) == 0) {
                 weight += item_weight(item1);
             }
         }
 
-        Object* armor = inven_worn(obj);
+        armor = inven_worn(obj);
         if (armor != NULL) {
             if ((armor->flags & OBJECT_WORN) == 0) {
                 weight += item_weight(armor);
@@ -793,6 +823,9 @@ int item_total_weight(Object* obj)
 // 0x46A7C4
 bool item_grey(Object* weapon)
 {
+	int flags;
+	bool isTwoHanded;
+
     if (weapon == NULL) {
         return false;
     }
@@ -801,13 +834,13 @@ bool item_grey(Object* weapon)
         return false;
     }
 
-    int flags = obj_dude->data.critter.combat.results;
+    flags = obj_dude->data.critter.combat.results;
     if ((flags & DAM_CRIP_ARM_LEFT) != 0 && (flags & DAM_CRIP_ARM_RIGHT) != 0) {
         return true;
     }
 
     // NOTE: Uninline.
-    bool isTwoHanded = item_w_is_2handed(weapon);
+    isTwoHanded = item_w_is_2handed(weapon);
     if (isTwoHanded) {
         if ((flags & DAM_CRIP_ARM_LEFT) != 0 || (flags & DAM_CRIP_ARM_RIGHT) != 0) {
             return true;
@@ -859,10 +892,11 @@ int item_mp_cost(Object* critter, int hit_mode, bool aiming)
 // 0x46A904
 int item_count(Object* obj, Object* a2)
 {
+	int index;
     int quantity = 0;
 
     Inventory* inventory = &(obj->data.inventory);
-    for (int index = 0; index < inventory->length; index++) {
+    for (index = 0; index < inventory->length; index++) {
         InventoryItem* inventoryItem = &(inventory->items[index]);
         Object* item = inventoryItem->item;
         if (item == a2) {
@@ -883,6 +917,9 @@ int item_count(Object* obj, Object* a2)
 // 0x46A96C
 int item_queued(Object* obj)
 {
+	Inventory* inventory;
+	int index;
+
     if (obj == NULL) {
         return false;
     }
@@ -891,8 +928,8 @@ int item_queued(Object* obj)
         return true;
     }
 
-    Inventory* inventory = &(obj->data.inventory);
-    for (int index = 0; index < inventory->length; index++) {
+    inventory = &(obj->data.inventory);
+    for (index = 0; index < inventory->length; index++) {
         InventoryItem* inventoryItem = &(inventory->items[index]);
         if ((inventoryItem->item->flags & OBJECT_USED) != 0) {
             return true;
@@ -911,6 +948,9 @@ int item_queued(Object* obj)
 // 0x46A9F0
 Object* item_replace(Object* a1, Object* a2, int a3)
 {
+	Inventory* inventory;
+	int index;
+
     if (a1 == NULL) {
         return NULL;
     }
@@ -919,8 +959,8 @@ Object* item_replace(Object* a1, Object* a2, int a3)
         return NULL;
     }
 
-    Inventory* inventory = &(a1->data.inventory);
-    for (int index = 0; index < inventory->length; index++) {
+    inventory = &(a1->data.inventory);
+    for (index = 0; index < inventory->length; index++) {
         InventoryItem* inventoryItem = &(inventory->items[index]);
         if (item_identical(inventoryItem->item, a2)) {
             Object* item = inventoryItem->item;
@@ -951,14 +991,15 @@ Object* item_replace(Object* a1, Object* a2, int a3)
 // 0x46AAE4
 int item_w_subtype(Object* weapon, int hitMode)
 {
+    Proto* proto;
+	int index;
+
     if (weapon == NULL) {
         return ATTACK_TYPE_UNARMED;
     }
 
-    Proto* proto;
     proto_ptr(weapon->pid, &proto);
 
-    int index;
     if (hitMode == HIT_MODE_LEFT_WEAPON_PRIMARY || hitMode == HIT_MODE_RIGHT_WEAPON_PRIMARY) {
         index = proto->item.extendedFlags & 0xF;
     } else {
@@ -971,21 +1012,23 @@ int item_w_subtype(Object* weapon, int hitMode)
 // 0x46AB30
 int item_w_skill(Object* weapon, int hitMode)
 {
+    Proto* proto;
+    int index;
+	int skill;
+
     if (weapon == NULL) {
         return SKILL_UNARMED;
     }
 
-    Proto* proto;
     proto_ptr(weapon->pid, &proto);
 
-    int index;
     if (hitMode == HIT_MODE_LEFT_WEAPON_PRIMARY || hitMode == HIT_MODE_RIGHT_WEAPON_PRIMARY) {
         index = proto->item.extendedFlags & 0xF;
     } else {
         index = (proto->item.extendedFlags & 0xF0) >> 4;
     }
 
-    int skill = attack_skill[index];
+    skill = attack_skill[index];
 
     if (skill == SKILL_SMALL_GUNS) {
         int damageType = item_w_damage_type(weapon);
@@ -1049,13 +1092,14 @@ int item_w_damage(Object* critter, int hit_mode)
     int max_damage = 0;
     int bonus_damage = 0;
     int subtype;
+	Object* weapon;
 
     if (critter == NULL) {
         return 0;
     }
 
     // NOTE: Uninline.
-    Object* weapon = item_hit_with(critter, hit_mode);
+    weapon = item_hit_with(critter, hit_mode);
 
     if (weapon != NULL) {
         // NOTE: Uninline.
@@ -1198,17 +1242,19 @@ int item_w_caliber(Object* ammoOrWeapon)
 // 0x46AED8
 void item_w_set_curr_ammo(Object* ammoOrWeapon, int quantity)
 {
+	int capacity;
+	Proto* proto;
+
     if (ammoOrWeapon == NULL) {
         return;
     }
 
     // NOTE: Uninline.
-    int capacity = item_w_max_ammo(ammoOrWeapon);
+    capacity = item_w_max_ammo(ammoOrWeapon);
     if (quantity > capacity) {
         quantity = capacity;
     }
 
-    Proto* proto;
     proto_ptr(ammoOrWeapon->pid, &proto);
 
     if (proto->item.type == ITEM_TYPE_AMMO) {
@@ -1221,6 +1267,7 @@ void item_w_set_curr_ammo(Object* ammoOrWeapon, int quantity)
 // 0x46AF2C
 int item_w_try_reload(Object* critter, Object* weapon)
 {
+	int inventoryItemIndex;
     // NOTE: Uninline.
     int quantity = item_w_curr_ammo(weapon);
     int capacity = item_w_max_ammo(weapon);
@@ -1228,7 +1275,7 @@ int item_w_try_reload(Object* critter, Object* weapon)
         return -1;
     }
 
-    int inventoryItemIndex = -1;
+    inventoryItemIndex = -1;
     while (1) {
         Object* ammo = inven_find_type(critter, ITEM_TYPE_AMMO, &inventoryItemIndex);
         if (ammo == NULL) {
@@ -1257,14 +1304,15 @@ int item_w_try_reload(Object* critter, Object* weapon)
 // 0x46AFB8
 bool item_w_can_reload(Object* weapon, Object* ammo)
 {
+    Proto* weaponProto;
+	Proto* ammoProto;
+
     if (ammo == NULL) {
         return false;
     }
 
-    Proto* weaponProto;
     proto_ptr(weapon->pid, &weaponProto);
 
-    Proto* ammoProto;
     proto_ptr(ammo->pid, &ammoProto);
 
     if (weaponProto->item.type != ITEM_TYPE_WEAPON) {
@@ -1293,20 +1341,22 @@ bool item_w_can_reload(Object* weapon, Object* ammo)
 // 0x46B020
 int item_w_reload(Object* weapon, Object* ammo)
 {
+	int ammoQuantity,ammoCapacity,v10,v11;
+
     if (!item_w_can_reload(weapon, ammo)) {
         return -1;
     }
 
     // NOTE: Uninline.
-    int ammoQuantity = item_w_curr_ammo(weapon);
+    ammoQuantity = item_w_curr_ammo(weapon);
 
     // NOTE: Uninline.
-    int ammoCapacity = item_w_max_ammo(weapon);
+    ammoCapacity = item_w_max_ammo(weapon);
 
     // NOTE: Uninline.
-    int v10 = item_w_curr_ammo(ammo);
+    v10 = item_w_curr_ammo(ammo);
 
-    int v11 = v10;
+    v11 = v10;
     if (ammoQuantity < ammoCapacity) {
         int v12;
         if (ammoQuantity + v10 > ammoCapacity) {
@@ -1429,11 +1479,12 @@ int item_w_mp_cost(Object* critter, int hit_mode, bool aiming)
 // 0x46B2FC
 int item_w_min_st(Object* weapon)
 {
+    Proto* proto;
+
     if (weapon == NULL) {
         return -1;
     }
 
-    Proto* proto;
     proto_ptr(weapon->pid, &proto);
 
     return proto->item.data.weapon.minStrength;
@@ -1442,11 +1493,12 @@ int item_w_min_st(Object* weapon)
 // 0x46B324
 int item_w_crit_fail(Object* weapon)
 {
-    if (weapon == NULL) {
+    Proto* proto;
+
+	if (weapon == NULL) {
         return -1;
     }
 
-    Proto* proto;
     proto_ptr(weapon->pid, &proto);
 
     return proto->item.data.weapon.criticalFailureType;
@@ -1455,11 +1507,12 @@ int item_w_crit_fail(Object* weapon)
 // 0x46B34C
 int item_w_perk(Object* weapon)
 {
+    Proto* proto;
+
     if (weapon == NULL) {
         return -1;
     }
 
-    Proto* proto;
     proto_ptr(weapon->pid, &proto);
 
     return proto->item.data.weapon.perk;
@@ -1468,11 +1521,12 @@ int item_w_perk(Object* weapon)
 // 0x46B374
 int item_w_rounds(Object* weapon)
 {
+    Proto* proto;
+
     if (weapon == NULL) {
         return -1;
     }
 
-    Proto* proto;
     proto_ptr(weapon->pid, &proto);
 
     return proto->item.data.weapon.rounds;
@@ -1481,11 +1535,12 @@ int item_w_rounds(Object* weapon)
 // 0x46B39C
 int item_w_anim_code(Object* weapon)
 {
+    Proto* proto;
+
     if (weapon == NULL) {
         return -1;
     }
 
-    Proto* proto;
     proto_ptr(weapon->pid, &proto);
 
     return proto->item.data.weapon.animationCode;
@@ -1494,11 +1549,12 @@ int item_w_anim_code(Object* weapon)
 // 0x46B3C4
 int item_w_proj_pid(Object* weapon)
 {
+    Proto* proto;
+
     if (weapon == NULL) {
         return -1;
     }
 
-    Proto* proto;
     proto_ptr(weapon->pid, &proto);
 
     return proto->item.data.weapon.projectilePid;
@@ -1521,11 +1577,12 @@ int item_w_ammo_pid(Object* weapon)
 // 0x46B40C
 char item_w_sound_id(Object* weapon)
 {
-    if (weapon == NULL) {
+    Proto* proto;
+
+	if (weapon == NULL) {
         return '\0';
     }
 
-    Proto* proto;
     proto_ptr(weapon->pid, &proto);
 
     return proto->item.data.weapon.soundCode & 0xFF;
@@ -1595,17 +1652,19 @@ int item_w_can_unload(Object* weapon)
 // 0x46B56C
 Object* item_w_unload(Object* weapon)
 {
+	int ammoTypePid,ammoQuantity,ammoCapacity,remainingQuantity;
+    Object* ammo;
+
     if (!item_w_can_unload(weapon)) {
         return NULL;
     }
 
     // NOTE: Uninline.
-    int ammoTypePid = item_w_ammo_pid(weapon);
+    ammoTypePid = item_w_ammo_pid(weapon);
     if (ammoTypePid == -1) {
         return NULL;
     }
 
-    Object* ammo;
     if (obj_pid_new(&ammo, ammoTypePid) != 0) {
         return NULL;
     }
@@ -1613,12 +1672,11 @@ Object* item_w_unload(Object* weapon)
     obj_disconnect(ammo, NULL);
 
     // NOTE: Uninline.
-    int ammoQuantity = item_w_curr_ammo(weapon);
+    ammoQuantity = item_w_curr_ammo(weapon);
 
     // NOTE: Uninline.
-    int ammoCapacity = item_w_max_ammo(ammo);
+    ammoCapacity = item_w_max_ammo(ammo);
 
-    int remainingQuantity;
     if (ammoQuantity <= ammoCapacity) {
         item_w_set_curr_ammo(ammo, ammoQuantity);
         remainingQuantity = 0;
@@ -1776,11 +1834,12 @@ int item_m_set_charges(Object* miscItem, int charges)
 // 0x46B7DC
 int item_m_cell(Object* miscItem)
 {
+    Proto* proto;
+
     if (miscItem == NULL) {
         return 0;
     }
 
-    Proto* proto;
     proto_ptr(miscItem->pid, &proto);
 
     return proto->item.data.misc.powerType;
@@ -1789,11 +1848,12 @@ int item_m_cell(Object* miscItem)
 // 0x46B7FC
 int item_m_cell_pid(Object* miscItem)
 {
+    Proto* proto;
+
     if (miscItem == NULL) {
         return -1;
     }
 
-    Proto* proto;
     proto_ptr(miscItem->pid, &proto);
 
     return proto->item.data.misc.powerTypePid;
@@ -1802,11 +1862,12 @@ int item_m_cell_pid(Object* miscItem)
 // 0x46B824
 bool item_m_uses_charges(Object* miscItem)
 {
+    Proto* proto;
+
     if (miscItem == NULL) {
         return false;
     }
 
-    Proto* proto;
     proto_ptr(miscItem->pid, &proto);
 
     return proto->item.data.misc.charges != 0;
@@ -2026,13 +2087,14 @@ int item_m_turn_off_from_queue(Object* obj, void* data)
 // 0x46BD00
 static int item_m_stealth_effect_on(Object* object)
 {
+    Rect rect;
+
     if ((object->flags & OBJECT_TRANS_GLASS) != 0) {
         return -1;
     }
 
     object->flags |= OBJECT_TRANS_GLASS;
 
-    Rect rect;
     obj_bound(object, &rect);
     tile_refresh_rect(&rect, object->elevation);
 
@@ -2042,12 +2104,14 @@ static int item_m_stealth_effect_on(Object* object)
 // 0x46BD38
 static int item_m_stealth_effect_off(Object* critter, Object* item)
 {
+    Rect rect;
+	Object* item2;
     Object* item1 = inven_left_hand(critter);
     if (item1 != NULL && item1 != item && item1->pid == PROTO_ID_STEALTH_BOY_II) {
         return -1;
     }
 
-    Object* item2 = inven_right_hand(critter);
+    item2 = inven_right_hand(critter);
     if (item2 != NULL && item2 != item && item2->pid == PROTO_ID_STEALTH_BOY_II) {
         return -1;
     }
@@ -2058,7 +2122,6 @@ static int item_m_stealth_effect_off(Object* critter, Object* item)
 
     critter->flags &= ~OBJECT_TRANS_GLASS;
 
-    Rect rect;
     obj_bound(critter, &rect);
     tile_refresh_rect(&rect, critter->elevation);
 
@@ -2081,14 +2144,17 @@ int item_c_max_size(Object* container)
 // 0x46BDC0
 int item_c_curr_size(Object* container)
 {
+	int totalSize = 0;
+	int index;
+	Inventory* inventory;
+
     if (container == NULL) {
         return 0;
     }
 
-    int totalSize = 0;
 
-    Inventory* inventory = &(container->data.inventory);
-    for (int index = 0; index < inventory->length; index++) {
+    inventory = &(container->data.inventory);
+    for (index = 0; index < inventory->length; index++) {
         InventoryItem* inventoryItem = &(inventory->items[index]);
 
         int size = item_size(inventoryItem->item);
@@ -2101,7 +2167,9 @@ int item_c_curr_size(Object* container)
 // 0x46BE20
 static int insert_drug_effect(Object* critter, Object* item, int a3, int* stats, int* mods)
 {
+	DrugEffectEvent* drugEffectEvent;
     int index;
+	int delay;
     for (index = 0; index < 3; index++) {
         if (mods[index] != 0) {
             break;
@@ -2112,7 +2180,7 @@ static int insert_drug_effect(Object* critter, Object* item, int a3, int* stats,
         return -1;
     }
 
-    DrugEffectEvent* drugEffectEvent = (DrugEffectEvent*)mem_malloc(sizeof(*drugEffectEvent));
+    drugEffectEvent = (DrugEffectEvent*)mem_malloc(sizeof(*drugEffectEvent));
     if (drugEffectEvent == NULL) {
         return -1;
     }
@@ -2124,7 +2192,7 @@ static int insert_drug_effect(Object* critter, Object* item, int a3, int* stats,
         drugEffectEvent->modifiers[index] = mods[index];
     }
 
-    int delay = 600 * a3;
+    delay = 600 * a3;
     if (critter == obj_dude) {
         if (trait_level(TRAIT_CHEM_RESISTANT)) {
             delay /= 2;
@@ -2150,8 +2218,11 @@ static void perform_drug_effect(Object* critter, int* stats, int* mods, bool isI
     const char* text;
     char v24[92]; // TODO: Size is probably wrong.
     char str[92]; // TODO: Size is probably wrong.
+    int before;
+
 
     bool statsChanged = false;
+	int index;
 
     int v5 = 0;
     bool v32 = false;
@@ -2160,7 +2231,7 @@ static void perform_drug_effect(Object* critter, int* stats, int* mods, bool isI
         v32 = true;
     }
 
-    for (int index = v5; index < 3; index++) {
+    for (index = v5; index < 3; index++) {
         int stat = stats[index];
         if (stat == -1) {
             continue;
@@ -2172,7 +2243,6 @@ static void perform_drug_effect(Object* critter, int* stats, int* mods, bool isI
 
         v10 = stat_get_bonus(critter, stat);
 
-        int before;
         if (critter == obj_dude) {
             before = stat_level(obj_dude, stat);
         }
@@ -2197,11 +2267,12 @@ static void perform_drug_effect(Object* critter, int* stats, int* mods, bool isI
         stat_set_bonus(critter, stat, v11);
 
         if (critter == obj_dude) {
+			int after;
             if (stat == STAT_CURRENT_HIT_POINTS) {
                 intface_update_hit_points(true);
             }
 
-            int after = stat_level(critter, stat);
+            after = stat_level(critter, stat);
             if (after != before) {
                 // 1 - You gained %d %s.
                 // 2 - You lost %d %s.
@@ -2590,9 +2661,10 @@ bool item_d_check_addict(int pid)
 int item_caps_total(Object* obj)
 {
     int amount = 0;
+	int i;
 
     Inventory* inventory = &(obj->data.inventory);
-    for (int i = 0; i < inventory->length; i++) {
+    for (i = 0; i < inventory->length; i++) {
         InventoryItem* inventoryItem = &(inventory->items[i]);
         Object* item = inventoryItem->item;
 
@@ -2612,15 +2684,19 @@ int item_caps_total(Object* obj)
 // 0x46C868
 int item_caps_adjust(Object* obj, int amount)
 {
+    Object* item;
+	int index;
     int caps = item_caps_total(obj);
+
     if (amount < 0 && caps < -amount) {
         return -1;
     }
 
     if (amount <= 0 || caps != 0) {
+		int index;
         Inventory* inventory = &(obj->data.inventory);
 
-        for (int index = 0; index < inventory->length && amount != 0; index++) {
+        for (index = 0; index < inventory->length && amount != 0; index++) {
             InventoryItem* inventoryItem = &(inventory->items[index]);
             Object* item = inventoryItem->item;
             if (item->pid == PROTO_ID_MONEY) {
@@ -2640,7 +2716,7 @@ int item_caps_adjust(Object* obj, int amount)
             }
         }
 
-        for (int index = 0; index < inventory->length && amount != 0; index++) {
+        for (index = 0; index < inventory->length && amount != 0; index++) {
             InventoryItem* inventoryItem = &(inventory->items[index]);
             Object* item = inventoryItem->item;
             if (item_get_type(item) == ITEM_TYPE_CONTAINER) {
@@ -2668,7 +2744,6 @@ int item_caps_adjust(Object* obj, int amount)
         return 0;
     }
 
-    Object* item;
     if (obj_pid_new(&item, PROTO_ID_MONEY) == 0) {
         obj_disconnect(item, NULL);
         if (item_add_force(obj, item, amount) != 0) {

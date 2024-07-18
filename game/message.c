@@ -35,12 +35,14 @@ static char bad_copy[MESSAGE_LIST_ITEM_FIELD_MAX_SIZE];
 // 0x4764E0
 int init_message()
 {
+    char word[BADWORD_LENGTH_MAX];
+	int index = 0;
+
     DB_FILE* stream = db_fopen("data\\badwords.txt", "rt");
     if (stream == NULL) {
         return -1;
     }
 
-    char word[BADWORD_LENGTH_MAX];
 
     bad_total = 0;
     while (db_fgets(word, BADWORD_LENGTH_MAX - 1, stream)) {
@@ -62,13 +64,14 @@ int init_message()
 
     db_fseek(stream, 0, SEEK_SET);
 
-    int index = 0;
-    for (; index < bad_total; index++) {
+    
+    for (index=0; index < bad_total; index++) {
+		int len;
         if (!db_fgets(word, BADWORD_LENGTH_MAX - 1, stream)) {
             break;
         }
 
-        int len = strlen(word);
+        len = strlen(word);
         if (word[len - 1] == '\n') {
             len--;
             word[len] = '\0';
@@ -103,7 +106,8 @@ int init_message()
 // 0x476660
 void exit_message()
 {
-    for (int index = 0; index < bad_total; index++) {
+	int index;
+    for (index = 0; index < bad_total; index++) {
         mem_free(bad_word[index]);
     }
 
@@ -495,6 +499,11 @@ char* getmsg(MessageList* msg, MessageListItem* entry, int num)
 // 0x476E98
 bool message_filter(MessageList* messageList)
 {
+    int languageFilter = 0;
+    int replacementsCount;
+    int replacementsIndex;
+	int index;
+
     // TODO: Check.
     // 0x50B960
     static const char* replacements = "!@#$%&*@#*!&$%#&%#*%!$&%@*$@&";
@@ -511,34 +520,36 @@ bool message_filter(MessageList* messageList)
         return true;
     }
 
-    int languageFilter = 0;
     config_get_value(&game_config, GAME_CONFIG_PREFERENCES_KEY, GAME_CONFIG_LANGUAGE_FILTER_KEY, &languageFilter);
     if (languageFilter != 1) {
         return true;
     }
 
-    int replacementsCount = strlen(replacements);
-    int replacementsIndex = roll_random(1, replacementsCount) - 1;
+    replacementsCount = strlen(replacements);
+    replacementsIndex = roll_random(1, replacementsCount) - 1;
 
-    for (int index = 0; index < messageList->entries_num; index++) {
+    for (index = 0; index < messageList->entries_num; index++) {
+		int badwordIndex;
         MessageListItem* item = &(messageList->entries[index]);
         strcpy(bad_copy, item->text);
         strupr(bad_copy);
 
-        for (int badwordIndex = 0; badwordIndex < bad_total; badwordIndex++) {
+        for (badwordIndex = 0; badwordIndex < bad_total; badwordIndex++) {
+			char* p;
             // I don't quite understand the loop below. It has no stop
             // condition besides no matching substring. It also overwrites
             // already masked words on every iteration.
-            for (char* p = bad_copy;; p++) {
+            for (p = bad_copy;; p++) {
                 const char* substr = strstr(p, bad_word[badwordIndex]);
                 if (substr == NULL) {
                     break;
                 }
 
                 if (substr == bad_copy || (!isalpha(substr[-1]) && !isalpha(substr[bad_len[badwordIndex]]))) {
+					int j;
                     char* ptr = item->text + (substr - bad_copy);
 
-                    for (int j = 0; j < bad_len[badwordIndex]; j++) {
+                    for (j = 0; j < bad_len[badwordIndex]; j++) {
                         *ptr++ = replacements[replacementsIndex++];
                         if (replacementsIndex == replacementsCount) {
                             replacementsIndex = 0;

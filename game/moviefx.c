@@ -97,7 +97,17 @@ void moviefx_exit()
 // 0x479B8C
 int moviefx_start(const char* filePath)
 {
-    if (!moviefx_initialized) {
+    Config config;
+    char path[FILENAME_MAX];
+	int rc;
+	char* pch;
+    int* movieEffectFrameList;
+    bool frameListRead;
+    int movieEffectsLength;
+
+
+
+	if (!moviefx_initialized) {
         return -1;
     }
 
@@ -111,30 +121,26 @@ int moviefx_start(const char* filePath)
         return -1;
     }
 
-    Config config;
     if (!config_init(&config)) {
         return -1;
     }
 
-    int rc = -1;
+    rc = -1;
 
-    char path[FILENAME_MAX];
     strcpy(path, filePath);
 
-    char* pch = strrchr(path, '.');
+    pch = strrchr(path, '.');
     if (pch != NULL) {
         *pch = '\0';
     }
 
     strcpy(path + strlen(path), ".cfg");
 
-    int* movieEffectFrameList;
 
     if (!config_load(&config, path, true)) {
         goto out;
     }
 
-    int movieEffectsLength;
     if (!config_get_value(&config, "info", "total_effects", &movieEffectsLength)) {
         goto out;
     }
@@ -144,7 +150,6 @@ int moviefx_start(const char* filePath)
         goto out;
     }
 
-    bool frameListRead;
     if (movieEffectsLength >= 2) {
         frameListRead = config_get_values(&config, "info", "effect_frames", movieEffectFrameList, movieEffectsLength);
     } else {
@@ -152,17 +157,24 @@ int moviefx_start(const char* filePath)
     }
 
     if (frameListRead) {
+		int index;
         int movieEffectsCreated = 0;
-        for (int index = 0; index < movieEffectsLength; index++) {
+        for (index = 0; index < movieEffectsLength; index++) {
             char section[20];
+			int fadeType;
+            char* fadeTypeString;
+            int fadeColor[3];
+            int steps;
+			MovieEffect* movieEffect;
+
             itoa(movieEffectFrameList[index], section, 10);
 
-            char* fadeTypeString;
+
             if (!config_get_string(&config, section, "fade_type", &fadeTypeString)) {
                 continue;
             }
 
-            int fadeType = MOVIE_EFFECT_TYPE_NONE;
+            fadeType = MOVIE_EFFECT_TYPE_NONE;
             if (stricmp(fadeTypeString, "in") == 0) {
                 fadeType = MOVIE_EFFECT_TYPE_FADE_IN;
             } else if (stricmp(fadeTypeString, "out") == 0) {
@@ -173,17 +185,15 @@ int moviefx_start(const char* filePath)
                 continue;
             }
 
-            int fadeColor[3];
             if (!config_get_values(&config, section, "fade_color", fadeColor, 3)) {
                 continue;
             }
 
-            int steps;
             if (!config_get_value(&config, section, "fade_steps", &steps)) {
                 continue;
             }
 
-            MovieEffect* movieEffect = (MovieEffect*)mem_malloc(sizeof(*movieEffect));
+            movieEffect = (MovieEffect*)mem_malloc(sizeof(*movieEffect));
             if (movieEffect == NULL) {
                 continue;
             }
@@ -255,13 +265,15 @@ static void moviefx_callback_func(int frame)
         int step = frame - movieEffect->startFrame + 1;
 
         if (movieEffect->fadeType == MOVIE_EFFECT_TYPE_FADE_IN) {
-            for (int index = 0; index < 256; index++) {
+			int index;
+            for (index = 0; index < 256; index++) {
                 palette[index * 3] = movieEffect->r - (step * (movieEffect->r - source_palette[index * 3]) / movieEffect->steps);
                 palette[index * 3 + 1] = movieEffect->g - (step * (movieEffect->g - source_palette[index * 3 + 1]) / movieEffect->steps);
                 palette[index * 3 + 2] = movieEffect->b - (step * (movieEffect->b - source_palette[index * 3 + 2]) / movieEffect->steps);
             }
         } else {
-            for (int index = 0; index < 256; index++) {
+			int index;
+            for (index = 0; index < 256; index++) {
                 palette[index * 3] = source_palette[index * 3] - (step * (source_palette[index * 3] - movieEffect->r) / movieEffect->steps);
                 palette[index * 3 + 1] = source_palette[index * 3 + 1] - (step * (source_palette[index * 3 + 1] - movieEffect->g) / movieEffect->steps);
                 palette[index * 3 + 2] = source_palette[index * 3 + 2] - (step * (source_palette[index * 3 + 2] - movieEffect->b) / movieEffect->steps);

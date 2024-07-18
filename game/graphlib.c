@@ -108,10 +108,22 @@ void bit1exbit8(int ulx, int uly, int lrx, int lry, int offset_x, int offset_y, 
 // 0x446B80
 int CompLZS(unsigned char* a1, unsigned char* a2, int a3)
 {
+	int count;
+    int v30;
+	int index;
+    unsigned char v29[32];
+    int v3;
+    int v4;
+    int v10;
+    int v36;
+    unsigned char v41;
+    int rc;
+
     dad = NULL;
     rson = NULL;
     lson = NULL;
     text_buf = NULL;
+
 
     // NOTE: Original code is slightly different, it uses deep nesting or a
     // bunch of gotos.
@@ -144,11 +156,12 @@ int CompLZS(unsigned char* a1, unsigned char* a2, int a3)
 
     memset(text_buf, ' ', 4078);
 
-    int count = 0;
-    int v30 = 0;
-    for (int index = 4078; index < 4096; index++) {
+    count = 0;
+    v30 = 0;
+    for (index = 4078; index < 4096; index++) {
+		int v8;
         text_buf[index] = *a1++;
-        int v8 = v30++;
+        v8 = v30++;
         if (v8 > a3) {
             break;
         }
@@ -157,35 +170,38 @@ int CompLZS(unsigned char* a1, unsigned char* a2, int a3)
 
     textsize = count;
 
-    for (int index = 4077; index > 4059; index--) {
+    for (index = 4077; index > 4059; index--) {
         InsertNode(index);
     }
 
     InsertNode(4078);
 
-    unsigned char v29[32];
     v29[1] = 0;
 
-    int v3 = 4078;
-    int v4 = 0;
-    int v10 = 0;
-    int v36 = 1;
-    unsigned char v41 = 1;
-    int rc = 0;
+    v3 = 4078;
+    v4 = 0;
+    v10 = 0;
+    v36 = 1;
+    v41 = 1;
+    rc = 0;
     while (count != 0) {
+		int v11;
+		int v16;
+        int v38;
         if (count < match_length) {
             match_length = count;
         }
 
-        int v11 = v36 + 1;
+        v11 = v36 + 1;
         if (match_length > 2) {
             v29[v36 + 1] = match_position;
             v29[v36 + 2] = ((match_length - 3) | ((match_position >> 4) & 0xF0));
             v36 = v11 + 1;
         } else {
+			int v13;
             match_length = 1;
             v29[1] |= v41;
-            int v13 = v36++;
+            v13 = v36++;
             v29[v13 + 1] = text_buf[v3];
         }
 
@@ -219,9 +235,9 @@ int CompLZS(unsigned char* a1, unsigned char* a2, int a3)
             v41 = 1;
         }
 
-        int v16;
-        int v38 = match_length;
+        v38 = match_length;
         for (v16 = 0; v16 < v38; v16++) {
+			unsigned char* v19;
             unsigned char v34 = *a1++;
             int v17 = v30++;
             if (v17 >= a3) {
@@ -230,7 +246,7 @@ int CompLZS(unsigned char* a1, unsigned char* a2, int a3)
 
             DeleteNode(v10);
 
-            unsigned char* v19 = text_buf + v10;
+            v19 = text_buf + v10;
             text_buf[v10] = v34;
 
             if (v10 < 17) {
@@ -253,7 +269,8 @@ int CompLZS(unsigned char* a1, unsigned char* a2, int a3)
     }
 
     if (rc != -1) {
-        for (int v23 = 0; v23 < v36; v23++) {
+		int v23;
+        for (v23 = 0; v23 < v36; v23++) {
             v4++;
             v10++;
             *a2++ = v29[v23 + 1];
@@ -281,11 +298,13 @@ int CompLZS(unsigned char* a1, unsigned char* a2, int a3)
 // 0x446F20
 static void InitTree()
 {
-    for (int index = 4097; index < 4353; index++) {
+	int index;
+
+    for (index = 4097; index < 4353; index++) {
         rson[index] = 4096;
     }
 
-    for (int index = 0; index < 4096; index++) {
+    for (index = 0; index < 4096; index++) {
         dad[index] = 4096;
     }
 }
@@ -293,15 +312,21 @@ static void InitTree()
 // 0x446F6C
 static void InsertNode(int a1)
 {
+	unsigned char* v2;
+	int v21,v5;
+
     lson[a1] = 4096;
     rson[a1] = 4096;
     match_length = 0;
 
-    unsigned char* v2 = text_buf + a1;
+    v2 = text_buf + a1;
 
-    int v21 = 4097 + text_buf[a1];
-    int v5 = 1;
+    v21 = 4097 + text_buf[a1];
+    v5 = 1;
     for (;;) {
+		int v9;
+		int v11;
+        unsigned char* v10;
         int v6 = v21;
         if (v5 < 0) {
             if (lson[v6] == 4096) {
@@ -319,9 +344,8 @@ static void InsertNode(int a1)
             v21 = rson[v6];
         }
 
-        int v9;
-        unsigned char* v10 = v2 + 1;
-        int v11 = v21 + 1;
+        v10 = v2 + 1;
+        v11 = v21 + 1;
         for (v9 = 1; v9 < 18; v9++) {
             v5 = *v10 - text_buf[v11];
             if (v5 != 0) {
@@ -399,17 +423,18 @@ static void DeleteNode(int a1)
 // 0x44725C
 int DecodeLZS(unsigned char* src, unsigned char* dest, int length)
 {
+	int v8,v21,index;
     text_buf = (unsigned char*)mem_malloc(sizeof(*text_buf) * 4122);
     if (text_buf == NULL) {
         debug_printf("\nGRAPHLIB: Error allocating decompression buffer!\n");
         return -1;
     }
 
-    int v8 = 4078;
+    v8 = 4078;
     memset(text_buf, ' ', v8);
 
-    int v21 = 0;
-    int index = 0;
+    v21 = 0;
+    index = 0;
     while (index < length) {
         v21 >>= 1;
         if ((v21 & 0x100) == 0) {
@@ -420,12 +445,13 @@ int DecodeLZS(unsigned char* src, unsigned char* dest, int length)
         if ((v21 & 0x01) == 0) {
             int v10 = *src++;
             int v11 = *src++;
+			int v16;
 
             v10 |= (v11 & 0xF0) << 4;
             v11 &= 0x0F;
             v11 += 2;
 
-            for (int v16 = 0; v16 <= v11; v16++) {
+            for (v16 = 0; v16 <= v11; v16++) {
                 int v17 = (v10 + v16) & 0xFFF;
 
                 unsigned char ch = text_buf[v17];
@@ -458,17 +484,21 @@ int DecodeLZS(unsigned char* src, unsigned char* dest, int length)
 // 0x4473A8
 void InitGreyTable(int a1, int a2)
 {
+	int v1,v2,v3,v4;
+	int paletteIndex;
+	int index;
+
     if (a1 >= 0 && a2 <= 255) {
-        for (int index = a1; index <= a2; index++) {
+        for (index = a1; index <= a2; index++) {
             // NOTE: The only way to explain so much calls to [Color2RGB] with
             // the same repeated pattern is by the use of min/max macros.
 
-            int v1 = max((Color2RGB(index) & 0x7C00) >> 10, max((Color2RGB(index) & 0x3E0) >> 5, Color2RGB(index) & 0x1F));
-            int v2 = min((Color2RGB(index) & 0x7C00) >> 10, min((Color2RGB(index) & 0x3E0) >> 5, Color2RGB(index) & 0x1F));
-            int v3 = v1 + v2;
-            int v4 = (int)((double)v3 * 240.0 / 510.0);
+            v1 = max((Color2RGB(index) & 0x7C00) >> 10, max((Color2RGB(index) & 0x3E0) >> 5, Color2RGB(index) & 0x1F));
+            v2 = min((Color2RGB(index) & 0x7C00) >> 10, min((Color2RGB(index) & 0x3E0) >> 5, Color2RGB(index) & 0x1F));
+            v3 = v1 + v2;
+            v4 = (int)((double)v3 * 240.0 / 510.0);
 
-            int paletteIndex = ((v4 & 0xFF) << 10) | ((v4 & 0xFF) << 5) | (v4 & 0xFF);
+            paletteIndex = ((v4 & 0xFF) << 10) | ((v4 & 0xFF) << 5) | (v4 & 0xFF);
             GreyTable[index] = colorTable[paletteIndex];
         }
     }
@@ -479,9 +509,10 @@ void grey_buf(unsigned char* buffer, int width, int height, int pitch)
 {
     unsigned char* ptr = buffer;
     int skip = pitch - width;
-
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
+	int y;
+    for (y = 0; y < height; y++) {
+		int x;
+        for (x = 0; x < width; x++) {
             unsigned char c = *ptr;
             *ptr++ = GreyTable[c];
         }

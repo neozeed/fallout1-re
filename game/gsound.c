@@ -167,6 +167,12 @@ static char background_fname_requested[MAX_PATH];
 // 0x4475A0
 int gsound_init()
 {
+    bool initialize;
+    int cacheSize;
+	bool sounds;
+	bool music;
+	bool speech;
+
     if (gsound_initialized) {
         if (gsound_debug) {
             debug_printf("Trying to initialize gsound twice.\n");
@@ -174,7 +180,6 @@ int gsound_init()
         return -1;
     }
 
-    bool initialize;
     configGetBool(&game_config, GAME_CONFIG_SOUND_KEY, GAME_CONFIG_INITIALIZE_KEY, &initialize);
     if (!initialize) {
         return 0;
@@ -224,7 +229,6 @@ int gsound_init()
     initAudiof(gsound_compressed_query);
     initAudio(gsound_compressed_query);
 
-    int cacheSize;
     config_get_value(&game_config, GAME_CONFIG_SOUND_KEY, GAME_CONFIG_CACHE_SIZE_KEY, &cacheSize);
     if (cacheSize >= 0x40000) {
         debug_printf("\n!!! Config file needs adustment.  Please remove the ");
@@ -250,7 +254,7 @@ int gsound_init()
     gsound_initialized = true;
 
     // SOUNDS
-    bool sounds = 0;
+    sounds = 0;
     configGetBool(&game_config, GAME_CONFIG_SOUND_KEY, GAME_CONFIG_SOUNDS_KEY, &sounds);
 
     if (gsound_debug) {
@@ -271,7 +275,7 @@ int gsound_init()
     }
 
     // MUSIC
-    bool music = 0;
+    music = 0;
     configGetBool(&game_config, GAME_CONFIG_SOUND_KEY, GAME_CONFIG_MUSIC_KEY, &music);
 
     if (gsound_debug) {
@@ -292,7 +296,7 @@ int gsound_init()
     }
 
     // SPEEECH
-    bool speech = 0;
+    speech = 0;
     configGetBool(&game_config, GAME_CONFIG_SOUND_KEY, GAME_CONFIG_SPEECH_KEY, &speech);
 
     if (gsound_debug) {
@@ -631,6 +635,7 @@ int gsound_background_length_get()
 int gsound_background_play(const char* fileName, int a2, int a3, int a4)
 {
     int rc;
+    char path[MAX_PATH + 1];
 
     background_storage_requested = a3;
     background_loop_requested = a4;
@@ -685,7 +690,6 @@ int gsound_background_play(const char* fileName, int a2, int a3, int a4)
         return -1;
     }
 
-    char path[MAX_PATH + 1];
     if (a3 == 13) {
         rc = gsound_background_find_dont_copy(path, fileName);
     } else if (a3 == 14) {
@@ -1156,6 +1160,9 @@ int gsound_play_sfx_file_volume(const char* a1, int a2)
 // 0x448A0C
 Sound* gsound_load_sound(const char* name, Object* object)
 {
+    char path[MAX_PATH];
+	Sound* sound;
+
     if (!gsound_initialized) {
         return NULL;
     }
@@ -1176,7 +1183,7 @@ Sound* gsound_load_sound(const char* name, Object* object)
         return NULL;
     }
 
-    Sound* sound = gsound_get_sound_ready_for_effect();
+    sound = gsound_get_sound_ready_for_effect();
     if (sound == NULL) {
         if (gsound_debug) {
             debug_printf("failed.\n");
@@ -1187,7 +1194,6 @@ Sound* gsound_load_sound(const char* name, Object* object)
 
     ++gsound_active_effect_counter;
 
-    char path[MAX_PATH];
     sprintf(path, "%s%s%s", sound_sfx_path, name, ".ACM");
 
     if (soundLoad(sound, path) == 0) {
@@ -1607,6 +1613,8 @@ void gsound_lrg_butt_release(int btn, int keyCode)
 // 0x4492D4
 int gsound_play_sfx_file(const char* name)
 {
+	Sound* sound;
+
     if (!gsound_initialized) {
         return -1;
     }
@@ -1615,7 +1623,7 @@ int gsound_play_sfx_file(const char* name)
         return -1;
     }
 
-    Sound* sound = gsound_load_sound(name, NULL);
+    sound = gsound_load_sound(name, NULL);
     if (sound == NULL) {
         return -1;
     }
@@ -1634,11 +1642,13 @@ static void gsound_bkg_proc()
 // 0x449334
 static int gsound_open(const char* fname, int flags, ...)
 {
+	DB_FILE* stream;
+
     if ((flags & 2) != 0) {
         return -1;
     }
 
-    DB_FILE* stream = db_fopen(fname, "rb");
+    stream = db_fopen(fname, "rb");
     if (stream == NULL) {
         return -1;
     }
@@ -1753,6 +1763,7 @@ static void gsound_internal_effect_callback(void* userData, int a2)
 // 0x449408
 static int gsound_background_allocate(Sound** soundPtr, int a2, int a3)
 {
+	Sound* sound;
     int v5 = 10;
     int v6 = 0;
     if (a2 == 13) {
@@ -1767,7 +1778,7 @@ static int gsound_background_allocate(Sound** soundPtr, int a2, int a3)
         v5 = 42;
     }
 
-    Sound* sound = soundAllocate(v6, v5);
+    sound = soundAllocate(v6, v5);
     if (sound == NULL) {
         return -1;
     }
@@ -1780,6 +1791,13 @@ static int gsound_background_allocate(Sound** soundPtr, int a2, int a3)
 // 0x44945C
 static int gsound_background_find_with_copy(char* dest, const char* src)
 {
+    char outPath[MAX_PATH];
+    char inPath[MAX_PATH];
+	FILE* inStream;
+	FILE* outStream;
+	void* buffer;
+	bool err;
+
     size_t len = strlen(src) + strlen(".ACM");
     if (strlen(sound_music_path1) + len > MAX_PATH || strlen(sound_music_path2) + len > MAX_PATH) {
         if (gsound_debug) {
@@ -1793,7 +1811,6 @@ static int gsound_background_find_with_copy(char* dest, const char* src)
         debug_printf(" finding background sound ");
     }
 
-    char outPath[MAX_PATH];
     sprintf(outPath, "%s%s%s", sound_music_path1, src, ".ACM");
     if (gsound_file_exists_f(outPath)) {
         strncpy(dest, outPath, MAX_PATH);
@@ -1807,10 +1824,9 @@ static int gsound_background_find_with_copy(char* dest, const char* src)
 
     gsound_background_remove_last_copy();
 
-    char inPath[MAX_PATH];
     sprintf(inPath, "%s%s%s", sound_music_path2, src, ".ACM");
 
-    FILE* inStream = fopen(inPath, "rb");
+    inStream = fopen(inPath, "rb");
     if (inStream == NULL) {
         if (gsound_debug) {
             debug_printf("Unable to find music file %s to copy down.\n", src);
@@ -1819,7 +1835,7 @@ static int gsound_background_find_with_copy(char* dest, const char* src)
         return -1;
     }
 
-    FILE* outStream = fopen(outPath, "wb");
+    outStream = fopen(outPath, "wb");
     if (outStream == NULL) {
         if (gsound_debug) {
             debug_printf("Unable to open music file %s for copying to.", src);
@@ -1830,7 +1846,7 @@ static int gsound_background_find_with_copy(char* dest, const char* src)
         return -1;
     }
 
-    void* buffer = mem_malloc(0x2000);
+    buffer = mem_malloc(0x2000);
     if (buffer == NULL) {
         if (gsound_debug) {
             debug_printf("Out of memory in gsound_background_find_with_copy.\n", src);
@@ -1842,7 +1858,7 @@ static int gsound_background_find_with_copy(char* dest, const char* src)
         return -1;
     }
 
-    bool err = false;
+    err = false;
     while (!feof(inStream)) {
         size_t bytesRead = fread(buffer, 1, 0x2000, inStream);
         if (bytesRead == 0) {

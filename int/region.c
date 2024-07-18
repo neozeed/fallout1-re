@@ -6,7 +6,7 @@
 #include "int/memdbg.h"
 #include "plib/gnw/debug.h"
 
-static_assert(sizeof(Region) == 140, "wrong size");
+//static_assert(sizeof(Region) == 140, "wrong size");
 
 // 0x490F60
 void regionSetBound(Region* region)
@@ -18,8 +18,9 @@ void regionSetBound(Region* region)
     int numPoints = 0;
     int totalX = 0;
     int totalY = 0;
+	int index;
 
-    for (int index = 0; index < region->pointsLength; index++) {
+    for (index = 0; index < region->pointsLength; index++) {
         Point* point = &(region->points[index]);
         if (minX >= point->x) minX = point->x;
         if (minY >= point->y) minY = point->y;
@@ -44,6 +45,10 @@ void regionSetBound(Region* region)
 // 0x491024
 bool pointInRegion(Region* region, int x, int y)
 {
+    int v1,v3,v4;
+	int index;
+	Point* prev;
+
     if (region == NULL) {
         return false;
     }
@@ -52,9 +57,7 @@ bool pointInRegion(Region* region, int x, int y)
         return false;
     }
 
-    int v1;
-
-    Point* prev = &(region->points[0]);
+    prev = &(region->points[0]);
     if (x >= prev->x) {
         if (y >= prev->y) {
             v1 = 2;
@@ -69,8 +72,8 @@ bool pointInRegion(Region* region, int x, int y)
         }
     }
 
-    int v4 = 0;
-    for (int index = 0; index < region->pointsLength; index++) {
+    v4 = 0;
+    for (index = 0; index < region->pointsLength; index++) {
         int v2;
 
         Point* point = &(region->points[index + 1]);
@@ -88,7 +91,7 @@ bool pointInRegion(Region* region, int x, int y)
             }
         }
 
-        int v3 = v2 - v1;
+        v3 = v2 - v1;
         switch (v3) {
         case -3:
             v3 = 1;
@@ -160,6 +163,10 @@ Region* allocateRegion(int initialCapacity)
 // 0x491274
 void regionAddPoint(Region* region, int x, int y)
 {
+	Point* point;
+	int pointIndex;
+	Point* end;
+
     if (region == NULL) {
         debug_printf("regionAddPoint(): null region ptr\n");
         return;
@@ -176,14 +183,14 @@ void regionAddPoint(Region* region, int x, int y)
         region->points = (Point*)mymalloc(sizeof(*region->points) * 2, __FILE__, __LINE__); // "..\int\REGION.C", 185
     }
 
-    int pointIndex = region->pointsLength;
+    pointIndex = region->pointsLength;
     region->pointsLength++;
 
-    Point* point = &(region->points[pointIndex]);
+    point = &(region->points[pointIndex]);
     point->x = x;
     point->y = y;
 
-    Point* end = &(region->points[pointIndex + 1]);
+    end = &(region->points[pointIndex + 1]);
     end->x = region->points->x;
     end->y = region->points->y;
 }

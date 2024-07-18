@@ -514,6 +514,9 @@ static Object* ai_find_nearest_team(Object* critter, Object* other, int flags)
 // 0x424F58
 static int ai_find_attackers(Object* critter, Object** a2, Object** a3, Object** a4)
 {
+    int foundTargetCount;
+    int team,index;
+
     if (a2 != NULL) {
         *a2 = NULL;
     }
@@ -533,10 +536,10 @@ static int ai_find_attackers(Object* critter, Object** a2, Object** a3, Object**
     // NOTE: Uninline.
     ai_sort_list(curr_crit_list, curr_crit_num, critter);
 
-    int foundTargetCount = 0;
-    int team = critter->data.critter.combat.team;
+    foundTargetCount = 0;
+    team = critter->data.critter.combat.team;
 
-    for (int index = 0; foundTargetCount < 3 && index < curr_crit_num; index++) {
+    for (index = 0; foundTargetCount < 3 && index < curr_crit_num; index++) {
         Object* candidate = curr_crit_list[index];
         if (candidate != critter) {
             if (a2 != NULL && *a2 == NULL) {
@@ -1479,12 +1482,11 @@ static int ai_print_msg(Object* critter, int type)
 // 0x42610C
 Object* combat_ai_random_target(Attack* attack)
 {
+    Object* critter = NULL;
     // Looks like this function does nothing because it's result is not used. I
     // suppose it was planned to use range as a condition below, but it was
     // later moved into 0x426614, but remained here.
     item_w_range(attack->attacker, attack->hitMode);
-
-    Object* critter = NULL;
 
     if (curr_crit_num != 0) {
         // Randomize starting critter.

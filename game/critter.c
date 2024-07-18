@@ -102,6 +102,8 @@ static int old_rad_level;
 // 0x427860
 int critter_init()
 {
+    char path[MAX_PATH];
+
     critter_pc_reset_name();
 
     // NOTE: Uninline.
@@ -112,7 +114,6 @@ int critter_init()
         return -1;
     }
 
-    char path[MAX_PATH];
     sprintf(path, "%sscrname.msg", msg_path);
 
     if (!message_load(&critter_scrmsg_file, path)) {
@@ -141,11 +142,12 @@ void critter_exit()
 // 0x42792C
 int critter_load(DB_FILE* stream)
 {
+    Proto* proto;
+
     if (db_freadInt(stream, &sneak_working) == -1) {
         return -1;
     }
 
-    Proto* proto;
     proto_ptr(obj_dude->pid, &proto);
 
     return critter_read_data(stream, &(proto->critter.data));
@@ -154,11 +156,12 @@ int critter_load(DB_FILE* stream)
 // 0x427968
 int critter_save(DB_FILE* stream)
 {
+    Proto* proto;
+
     if (db_fwriteInt(stream, sneak_working) == -1) {
         return -1;
     }
 
-    Proto* proto;
     proto_ptr(obj_dude->pid, &proto);
 
     return critter_write_data(stream, &(proto->critter.data));
@@ -175,6 +178,8 @@ char* critter_name(Object* critter)
 {
     // TODO: Rename.
     // 0x504D40
+    char* name = NULL;
+
     static char* _name_critter = _aCorpse;
 
     if (critter == obj_dude) {
@@ -190,7 +195,6 @@ char* critter_name(Object* critter)
         }
     }
 
-    char* name = NULL;
     if (critter->field_80 != -1) {
         MessageListItem messageListItem;
         messageListItem.num = 101 + critter->field_80;
@@ -496,14 +500,18 @@ static int clear_rad_damage(Object* obj, void* data)
 // 0x427E90
 static void process_rads(Object* obj, int radiationLevel, bool isHealing)
 {
+	int radiationLevelIndex,modifier;
+	int effect;
+
+
     MessageListItem messageListItem;
 
     if (radiationLevel == RADIATION_LEVEL_NONE) {
         return;
     }
 
-    int radiationLevelIndex = radiationLevel - 1;
-    int modifier = isHealing ? -1 : 1;
+    radiationLevelIndex = radiationLevel - 1;
+    modifier = isHealing ? -1 : 1;
 
     if (obj == obj_dude) {
         // Radiation level message, higher is worse.
@@ -513,16 +521,17 @@ static void process_rads(Object* obj, int radiationLevel, bool isHealing)
         }
     }
 
-    for (int effect = 0; effect < RADIATION_EFFECT_COUNT; effect++) {
+    for (effect = 0; effect < RADIATION_EFFECT_COUNT; effect++) {
         int value = stat_get_bonus(obj, rad_stat[effect]);
         value += modifier * rad_bonus[radiationLevelIndex][effect];
         stat_set_bonus(obj, rad_stat[effect], value);
     }
 
     if ((obj->data.critter.combat.results & DAM_DEAD) == 0) {
+		int effect;
         // Loop thru effects affecting primary stats. If any of the primary stat
         // dropped below minimal value, kill it.
-        for (int effect = 0; effect < RADIATION_EFFECT_PRIMARY_STAT_COUNT; effect++) {
+        for (effect = 0; effect < RADIATION_EFFECT_PRIMARY_STAT_COUNT; effect++) {
             int base = stat_get_base(obj, rad_stat[effect]);
             int bonus = stat_get_bonus(obj, rad_stat[effect]);
             if (base + bonus < PRIMARY_STAT_MIN) {
@@ -702,13 +711,18 @@ int critter_heal_hours(Object* critter, int hours)
 // 0x428220
 void critter_kill(Object* critter, int anim, bool refresh_window)
 {
+	bool shouldChangeFid;
+	int fid;
+    Rect updatedRect;
+    Rect tempRect;
+
     int elevation = critter->elevation;
 
     partyMemberRemove(critter);
 
     // NOTE: Original code uses goto to jump out from nested conditions below.
-    bool shouldChangeFid = false;
-    int fid;
+    shouldChangeFid = false;
+
     if (critter_is_prone(critter)) {
         int current = FID_ANIM_TYPE(critter->fid);
         if (current == ANIM_FALL_BACK || current == ANIM_FALL_FRONT) {
@@ -749,9 +763,6 @@ void critter_kill(Object* critter, int anim, bool refresh_window)
 
         shouldChangeFid = true;
     }
-
-    Rect updatedRect;
-    Rect tempRect;
 
     if (shouldChangeFid) {
         obj_set_frame(critter, 0, &updatedRect);
@@ -860,6 +871,8 @@ bool critter_is_crippled(Object* critter)
 // 0x428514
 bool critter_is_prone(Object* critter)
 {
+	int anim;
+
     if (critter == NULL) {
         return false;
     }
@@ -868,7 +881,7 @@ bool critter_is_prone(Object* critter)
         return false;
     }
 
-    int anim = FID_ANIM_TYPE(critter->fid);
+    anim = FID_ANIM_TYPE(critter->fid);
 
     return (critter->data.critter.combat.results & (DAM_KNOCKED_OUT | DAM_KNOCKED_DOWN)) != 0
         || (anim >= FIRST_KNOCKDOWN_AND_DEATH_ANIM && anim <= LAST_KNOCKDOWN_AND_DEATH_ANIM)
@@ -905,12 +918,13 @@ int critter_load_data(CritterProtoData* critterData, const char* path)
 // 0x4285C4
 int pc_load_data(const char* path)
 {
+    Proto* proto;
     DB_FILE* stream = db_fopen(path, "rb");
+
     if (stream == NULL) {
         return -1;
     }
 
-    Proto* proto;
     proto_ptr(obj_dude->pid, &proto);
 
     if (critter_read_data(stream, &(proto->critter.data)) == -1) {
@@ -980,12 +994,12 @@ int critter_save_data(CritterProtoData* critterData, const char* path)
 // 0x4287D4
 int pc_save_data(const char* path)
 {
+    Proto* proto;
     DB_FILE* stream = db_fopen(path, "wb");
     if (stream == NULL) {
         return -1;
     }
 
-    Proto* proto;
     proto_ptr(obj_dude->pid, &proto);
 
     if (critter_write_data(stream, &(proto->critter.data)) == -1) {
@@ -1127,13 +1141,15 @@ int critter_wake_up(Object* obj, void* data)
 // 0x428B58
 int critter_wake_clear(Object* obj, void* data)
 {
+	int fid;
+
     if ((obj->data.critter.combat.results & DAM_DEAD) != 0) {
         return 0;
     }
 
     obj->data.critter.combat.results &= ~(DAM_KNOCKED_OUT | DAM_KNOCKED_DOWN);
 
-    int fid = art_id(FID_TYPE(obj->fid), obj->fid & 0xFFF, ANIM_STAND, (obj->fid & 0xF000) >> 12, obj->rotation + 1);
+    fid = art_id(FID_TYPE(obj->fid), obj->fid & 0xFFF, ANIM_STAND, (obj->fid & 0xF000) >> 12, obj->rotation + 1);
     obj_change_fid(obj, fid, 0);
 
     return 0;

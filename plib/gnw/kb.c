@@ -322,6 +322,8 @@ void kb_simulate_key(unsigned short scan_code)
         extended_code = 0x80;
     } else {
         int keyState;
+		int physicalKey;
+
         if (scan_code & 0x80) {
             scan_code &= ~0x80;
             keyState = KEY_STATE_UP;
@@ -329,7 +331,7 @@ void kb_simulate_key(unsigned short scan_code)
             keyState = KEY_STATE_DOWN;
         }
 
-        int physicalKey = scan_code | extended_code;
+        physicalKey = scan_code | extended_code;
 
         if (keyState != KEY_STATE_UP && keys[physicalKey] != KEY_STATE_UP) {
             keyState = KEY_STATE_REPEAT;
@@ -434,6 +436,8 @@ static int kb_next_ascii_English_US()
         unsigned char m = (kb_layout != french ? DIK_M : DIK_SEMICOLON);
         unsigned char q = (kb_layout != french ? DIK_Q : DIK_A);
         unsigned char w = (kb_layout != french ? DIK_W : DIK_Z);
+		unsigned char z;
+		unsigned char scanCode;
 
         unsigned char y;
         switch (kb_layout) {
@@ -449,7 +453,6 @@ static int kb_next_ascii_English_US()
             break;
         }
 
-        unsigned char z;
         switch (kb_layout) {
         case english:
         case italian:
@@ -465,7 +468,7 @@ static int kb_next_ascii_English_US()
             break;
         }
 
-        unsigned char scanCode = keyboardEvent->scan_code;
+        scanCode = keyboardEvent->scan_code;
         if (scanCode == a
             || scanCode == DIK_B
             || scanCode == DIK_C
@@ -538,7 +541,10 @@ static int kb_next_ascii_Spanish()
 // 0x4B8224
 static int kb_next_ascii()
 {
+	key_ansi_t* logicalKeyDescription;
     key_data_t* keyboardEvent;
+	int logicalKey;
+
     if (kb_buffer_peek(0, &keyboardEvent) != 0) {
         return -1;
     }
@@ -582,9 +588,9 @@ static int kb_next_ascii()
         break;
     }
 
-    int logicalKey = -1;
+    logicalKey = -1;
 
-    key_ansi_t* logicalKeyDescription = &(ascii_table[keyboardEvent->scan_code]);
+    logicalKeyDescription = &(ascii_table[keyboardEvent->scan_code]);
     if ((keyboardEvent->modifiers & KEYBOARD_EVENT_MODIFIER_ANY_CONTROL) != 0) {
         logicalKey = logicalKeyDescription->ctrl;
     } else if ((keyboardEvent->modifiers & KEYBOARD_EVENT_MODIFIER_RIGHT_ALT) != 0) {

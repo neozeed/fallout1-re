@@ -314,7 +314,8 @@ int exportExportVariable(Program* program, const char* identifier)
 // 0x439FFC
 static void removeProgramReferences(Program* program)
 {
-    for (int index = 0; index < 1013; index++) {
+	int index;
+    for (index = 0; index < 1013; index++) {
         ExternalProcedure* externalProcedure = &(procHashTable[index]);
         if (externalProcedure->program == program) {
             externalProcedure->name[0] = '\0';
@@ -332,7 +333,8 @@ void initExport()
 // 0x43A038
 void exportClose()
 {
-    for (int index = 0; index < 1013; index++) {
+	int index;
+    for (index = 0; index < 1013; index++) {
         ExternalVariable* exportedVariable = &(varHashTable[index]);
 
         if (exportedVariable->name[0] != '\0') {
@@ -390,7 +392,9 @@ int exportExportProcedure(Program* program, const char* identifier, int address,
 // 0x43A324
 void exportClearAllVariables()
 {
-    for (int index = 0; index < 1013; index++) {
+	int index;
+
+    for (index = 0; index < 1013; index++) {
         ExternalVariable* exportedVariable = &(varHashTable[index]);
         if (exportedVariable->name[0] != '\0') {
             if ((exportedVariable->type & VALUE_TYPE_MASK) == VALUE_TYPE_STRING) {

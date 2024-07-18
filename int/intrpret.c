@@ -15,6 +15,8 @@
 #include "plib/gnw/debug.h"
 #include "plib/gnw/input.h"
 
+typedef int intptr_t;
+
 // The maximum number of opcodes.
 #define OPCODE_MAX_COUNT 342
 
@@ -210,15 +212,16 @@ void interpretOutputFunc(InterpretOutputFunc* func)
 // 0x45B464
 int interpretOutput(const char* format, ...)
 {
+    char string[260];
+    va_list args;
+	int rc;
+
     if (outputFunc == NULL) {
         return 0;
     }
 
-    char string[260];
-
-    va_list args;
     va_start(args, format);
-    int rc = vsprintf(string, format, args);
+    rc = vsprintf(string, format, args);
     va_end(args);
 
     debug_printf(string);
@@ -229,13 +232,15 @@ int interpretOutput(const char* format, ...)
 // 0x45B4C0
 static const char* findCurrentProc(Program* program)
 {
+	int index;
+
     int procedureCount = fetchLong(program->procedures, 0);
     unsigned char* ptr = program->procedures + 4;
 
     int procedureOffset = fetchLong(ptr, 16);
     int identifierOffset = fetchLong(ptr, 0);
 
-    for (int index = 0; index < procedureCount; index++) {
+    for (index = 0; index < procedureCount; index++) {
         int nextProcedureOffset = fetchLong(ptr + sizeof(Procedure), 16);
         if (program->instructionPointer >= procedureOffset && program->instructionPointer < nextProcedureOffset) {
             return (const char*)(program->identifiers + identifierOffset);
@@ -252,11 +257,11 @@ static const char* findCurrentProc(Program* program)
 void interpretError(const char* format, ...)
 {
     char string[260];
+    va_list argptr;
 
     fadeSystemPalette(cmap, cmap, 0);
     mouse_show();
 
-    va_list argptr;
     va_start(argptr, format);
     vsprintf(string, format, argptr);
     va_end(argptr);
@@ -437,17 +442,21 @@ static void purgeProgram(Program* program)
 // 0x45B924
 void interpretFreeProgram(Program* program)
 {
+	Program* curr;
+
     // NOTE: Uninline.
     detachProgram(program);
 
-    Program* curr = program->child;
+    curr = program->child;
     while (curr != NULL) {
+		Program* next;
+
         // NOTE: Uninline.
         purgeProgram(curr);
 
         curr->parent = NULL;
 
-        Program* next = curr->child;
+        next = curr->child;
         curr->child = NULL;
 
         curr = next;
@@ -482,6 +491,10 @@ void interpretFreeProgram(Program* program)
 // 0x45BA44
 Program* allocateProgram(const char* path)
 {
+	int fileSize;
+    unsigned char* data;
+	Program* program;
+
     DB_FILE* stream = db_fopen(path, "rb");
     if (stream == NULL) {
         char err[260];
@@ -490,13 +503,13 @@ Program* allocateProgram(const char* path)
         return NULL;
     }
 
-    int fileSize = db_filelength(stream);
-    unsigned char* data = (unsigned char*)mymalloc(fileSize, __FILE__, __LINE__); // ..\int\INTRPRET.C, 398
+    fileSize = db_filelength(stream);
+    data = (unsigned char*)mymalloc(fileSize, __FILE__, __LINE__); // ..\int\INTRPRET.C, 398
 
     db_fread(data, 1, fileSize, stream);
     db_fclose(stream);
 
-    Program* program = (Program*)mymalloc(sizeof(Program), __FILE__, __LINE__); // ..\int\INTRPRET.C, 402
+    program = (Program*)mymalloc(sizeof(Program), __FILE__, __LINE__); // ..\int\INTRPRET.C, 402
     memset(program, 0, sizeof(Program));
 
     program->name = (char*)mymalloc(strlen(path) + 1, __FILE__, __LINE__); // ..\int\INTRPRET.C, 405
@@ -639,10 +652,11 @@ static void op_noop(Program* program)
 // 0x45BDB8
 static void op_const(Program* program)
 {
+	int value;
     int pos = program->instructionPointer;
     program->instructionPointer = pos + 4;
 
-    int value = fetchLong(program->data, pos);
+    value = fetchLong(program->data, pos);
     pushLongStack(program->stack, &(program->stackPointer), value);
     interpretPushShort(program, (program->flags >> 16) & 0xFFFF);
 }
@@ -696,6 +710,7 @@ static void op_set_global(Program* program)
 // 0x45BEF8
 static void op_dump(Program* program)
 {
+	int index;
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -706,7 +721,7 @@ static void op_dump(Program* program)
     }
 
     // NOTE: Original code is slightly different - it goes backwards to -1.
-    for (int index = 0; index < data; index++) {
+    for (index = 0; index < data; index++) {
         opcode = interpretPopShort(program);
         data = interpretPopLong(program);
     }
@@ -717,8 +732,12 @@ static void op_call_at(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+    unsigned char* procedure_ptr;
+    int delay;
+    int flags;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
 
@@ -733,10 +752,10 @@ static void op_call_at(Program* program)
         }
     }
 
-    unsigned char* procedure_ptr = program->procedures + 4 + sizeof(Procedure) * data[0];
+    procedure_ptr = program->procedures + 4 + sizeof(Procedure) * data[0];
 
-    int delay = 1000 * data[1] + 1000 * timerFunc() / timerTick;
-    int flags = fetchLong(procedure_ptr, 4);
+    delay = 1000 * data[1] + 1000 * timerFunc() / timerTick;
+    flags = fetchLong(procedure_ptr, 4);
 
     storeLong(delay, procedure_ptr, 8);
     storeLong(flags | PROCEDURE_FLAG_TIMED, procedure_ptr, 4);
@@ -747,8 +766,11 @@ static void op_call_condition(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	unsigned char* procedure_ptr;
+	int flags;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -761,8 +783,8 @@ static void op_call_condition(Program* program)
         interpretError("Invalid address given to conditional call");
     }
 
-    unsigned char* procedure_ptr = program->procedures + 4 + sizeof(Procedure) * data[0];
-    int flags = fetchLong(procedure_ptr, 4);
+    procedure_ptr = program->procedures + 4 + sizeof(Procedure) * data[0];
+    flags = fetchLong(procedure_ptr, 4);
 
     storeLong(flags | PROCEDURE_FLAG_CONDITIONAL, procedure_ptr, 4);
     storeLong(data[1], procedure_ptr, 12);
@@ -789,6 +811,7 @@ static void op_cancel(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	Procedure* proc;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("invalid type given to cancel");
@@ -798,7 +821,7 @@ static void op_cancel(Program* program)
         interpretError("Invalid procedure offset given to cancel");
     }
 
-    Procedure* proc = (Procedure*)(program->procedures + 4 + data * sizeof(*proc));
+    proc = (Procedure*)(program->procedures + 4 + data * sizeof(*proc));
     proc->field_4 = 0;
     proc->field_8 = 0;
     proc->field_C = 0;
@@ -807,9 +830,10 @@ static void op_cancel(Program* program)
 // 0x45C3B4
 static void op_cancelall(Program* program)
 {
+	int index;
     int procedureCount = fetchLong(program->procedures, 0);
 
-    for (int index = 0; index < procedureCount; index++) {
+    for (index = 0; index < procedureCount; index++) {
         // TODO: Original code uses different approach, check.
         Procedure* proc = (Procedure*)(program->procedures + 4 + index * sizeof(*proc));
 
@@ -855,14 +879,16 @@ static void op_store(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	int var_address;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    int var_address = program->framePointer + 6 * data[0];
+    var_address = program->framePointer + 6 * data[0];
     storeLong(data[1], program->stack, var_address);
     storeWord(opcode[1], program->stack, var_address + 4);
 }
@@ -871,6 +897,7 @@ static void op_store(Program* program)
 static void op_fetch(Program* program)
 {
     char err[256];
+	int variableAddress;
 
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
@@ -880,7 +907,7 @@ static void op_fetch(Program* program)
         interpretError(err);
     }
 
-    int variableAddress = program->framePointer + 6 * data;
+    variableAddress = program->framePointer + 6 * data;
     interpretPushLong(program, fetchLong(program->stack, variableAddress));
     interpretPushShort(program, fetchWord(program->stack, variableAddress + 4));
 }
@@ -894,9 +921,10 @@ static void op_not_equal(Program* program)
     char text[2][80];
     char* str_ptr[2];
     int res;
+	int arg;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1239,8 +1267,9 @@ static void op_less(Program* program)
     char text[2][80];
     char* str_ptr[2];
     int res;
+	int arg;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcodes[arg] = interpretPopShort(program);
         values[arg] = interpretPopLong(program);
     }
@@ -1411,9 +1440,10 @@ static void op_add(Program* program)
     char* str_ptr[2];
     char* t;
     float resf;
+	int arg;
 
     // NOTE: original code does not use loop
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcodes[arg] = interpretPopShort(program);
         values[arg] = interpretPopLong(program);
     }
@@ -1518,8 +1548,9 @@ static void op_sub(Program* program)
     int value[2];
     float* floats = (float*)&value;
     float resf;
+	int arg;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         type[arg] = interpretPopShort(program);
         value[arg] = interpretPopLong(program);
     }
@@ -2173,8 +2204,9 @@ static void op_pop_flags(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -2392,13 +2424,14 @@ static void op_store_global(Program* program)
 {
     opcode_t type[2];
     int value[2];
+	int arg,addr;
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         type[arg] = interpretPopShort(program);
         value[arg] = interpretPopLong(program);
     }
 
-    int addr = program->basePointer + 6 * value[0];
+    addr = program->basePointer + 6 * value[0];
 
     storeLong(value[1], program->stack, addr);
     storeWord(type[1], program->stack, addr + 4);
@@ -2409,14 +2442,15 @@ static void op_swap(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
 
     // NOTE: Original code does not use loops.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         interpretPushLong(program, data[arg]);
         interpretPushShort(program, opcode[arg]);
     }
@@ -2427,6 +2461,7 @@ static void op_fetch_proc_address(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	int procedureIndex,address;
 
     if (opcode != VALUE_TYPE_INT) {
         char err[256];
@@ -2434,9 +2469,9 @@ static void op_fetch_proc_address(Program* program)
         interpretError(err);
     }
 
-    int procedureIndex = data;
+    procedureIndex = data;
 
-    int address = fetchLong(program->procedures + 4 + sizeof(Procedure) * procedureIndex, 16);
+    address = fetchLong(program->procedures + 4 + sizeof(Procedure) * procedureIndex, 16);
     interpretPushLong(program, address);
     interpretPushShort(program, VALUE_TYPE_INT);
 }
@@ -2468,14 +2503,16 @@ static void op_store_external(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	const char* identifier;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    const char* identifier = interpretGetName(program, data[0]);
+    identifier = interpretGetName(program, data[0]);
 
     if (exportStoreVariable(program, identifier, opcode[1], data[1])) {
         char err[256];
@@ -2550,9 +2587,11 @@ static void op_export_var(Program* program)
 // 0x45FB70
 static void op_exit(Program* program)
 {
+	Program* parent;
+
     program->flags |= PROGRAM_FLAG_EXITED;
 
-    Program* parent = program->parent;
+    parent = program->parent;
     if (parent != NULL) {
         if ((parent->flags & PROGRAM_FLAG_0x0100) != 0) {
             parent->flags &= ~PROGRAM_FLAG_0x0100;
@@ -2695,17 +2734,21 @@ static void op_check_arg_count(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	int expectedArgumentCount;
+    int procedureIndex;
+    int actualArgumentCount;
 
     // NOTE: original code does not use loop
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    int expectedArgumentCount = data[0];
-    int procedureIndex = data[1];
+    expectedArgumentCount = data[0];
+    procedureIndex = data[1];
 
-    int actualArgumentCount = fetchLong(program->procedures + 4 + sizeof(Procedure) * procedureIndex, 20);
+    actualArgumentCount = fetchLong(program->procedures + 4 + sizeof(Procedure) * procedureIndex, 20);
     if (actualArgumentCount != expectedArgumentCount) {
         const char* identifier = interpretGetName(program, fetchLong(program->procedures + 4 + sizeof(Procedure) * procedureIndex, 0));
         char err[260];
@@ -2717,6 +2760,13 @@ static void op_check_arg_count(Program* program)
 // 0x460048
 static void op_lookup_string_proc(Program* program)
 {
+	unsigned char* procedurePtr;
+	char* procedureNameToLookup;
+	int procedureCount;
+	int index;
+    char err[260];
+
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -2724,17 +2774,17 @@ static void op_lookup_string_proc(Program* program)
         interpretError("Wrong type given to lookup_string_proc\n");
     }
 
-    const char* procedureNameToLookup = interpretGetString(program, opcode, data);
+    procedureNameToLookup = interpretGetString(program, opcode, data);
 
-    int procedureCount = fetchLong(program->procedures, 0);
+    procedureCount = fetchLong(program->procedures, 0);
 
     // Skip procedure count (4 bytes) and main procedure, which cannot be
     // looked up.
-    unsigned char* procedurePtr = program->procedures + 4 + sizeof(Procedure);
+    procedurePtr = program->procedures + 4 + sizeof(Procedure);
 
     // Start with 1 since we've skipped main procedure, which is always at
     // index 0.
-    for (int index = 1; index < procedureCount; index++) {
+    for (index = 1; index < procedureCount; index++) {
         int offset = fetchLong(procedurePtr, 0);
         const char* procedureName = interpretGetName(program, offset);
         if (stricmp(procedureName, procedureNameToLookup) == 0) {
@@ -2746,7 +2796,6 @@ static void op_lookup_string_proc(Program* program)
         procedurePtr += sizeof(Procedure);
     }
 
-    char err[260];
     sprintf(err, "Couldn't find string procedure %s\n", procedureNameToLookup);
     interpretError(err);
 }
@@ -2898,6 +2947,10 @@ void interpret(Program* program, int a2)
     }
 
     while ((program->flags & PROGRAM_FLAG_CRITICAL_SECTION) != 0 || --a2 != -1) {
+		opcode_t opcode;
+		unsigned int opcodeIndex;
+		OpcodeHandler* handler;
+
         if ((program->flags & (PROGRAM_FLAG_EXITED | PROGRAM_FLAG_0x04 | PROGRAM_FLAG_STOPPED | PROGRAM_FLAG_0x20 | PROGRAM_FLAG_0x40 | PROGRAM_FLAG_0x0100)) != 0) {
             break;
         }
@@ -2922,7 +2975,7 @@ void interpret(Program* program, int a2)
         }
 
         // NOTE: Uninline.
-        opcode_t opcode = getOp(program);
+        opcode = getOp(program);
 
         // TODO: Replace with field_82 and field_80?
         program->flags &= 0xFFFF;
@@ -2933,8 +2986,8 @@ void interpret(Program* program, int a2)
             interpretError(err);
         }
 
-        unsigned int opcodeIndex = opcode & 0x3FF;
-        OpcodeHandler* handler = opTable[opcodeIndex];
+        opcodeIndex = opcode & 0x3FF;
+        handler = opTable[opcodeIndex];
         if (handler == NULL) {
             sprintf(err, "Undefined opcode %x.", opcode);
             interpretError(err);
@@ -3094,9 +3147,10 @@ void executeProc(Program* program, int procedureIndex)
 int interpretFindProcedure(Program* program, const char* name)
 {
     int procedureCount = fetchLong(program->procedures, 0);
+	int index;
 
     unsigned char* ptr = program->procedures + 4;
-    for (int index = 0; index < procedureCount; index++) {
+    for (index = 0; index < procedureCount; index++) {
         int identifierOffset = fetchLong(ptr, offsetof(Procedure, field_0));
         if (stricmp((char*)(program->identifiers + identifierOffset), name) == 0) {
             return index;

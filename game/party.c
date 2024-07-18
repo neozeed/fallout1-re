@@ -520,6 +520,8 @@ static int partyMemberNewObjID()
     Object* object;
 
     do {
+		int index;
+		Inventory* inventory;
         curID++;
 
         object = obj_find_first();
@@ -528,9 +530,9 @@ static int partyMemberNewObjID()
                 break;
             }
 
-            Inventory* inventory = &(object->data.inventory);
+            inventory = &(object->data.inventory);
 
-            int index;
+
             for (index = 0; index < inventory->length; index++) {
                 InventoryItem* inventoryItem = &(inventory->items[index]);
                 Object* item = inventoryItem->item;
@@ -559,8 +561,9 @@ static int partyMemberNewObjID()
 // 0x485BA0
 static int partyMemberNewObjIDRecurseFind(Object* obj, int objectId)
 {
+	int index;
     Inventory* inventory = &(obj->data.inventory);
-    for (int index = 0; index < inventory->length; index++) {
+    for (index = 0; index < inventory->length; index++) {
         InventoryItem* inventoryItem = &(inventory->items[index]);
         if (inventoryItem->item->id == objectId) {
             return 1;
@@ -597,6 +600,9 @@ int partyMemberPrepItemSaveAll()
 // 0x485C40
 static int partyMemberPrepItemSave(Object* object)
 {
+	Inventory* inventory;
+	int index;
+
     if (object->sid != -1) {
         Script* script;
         if (scr_ptr(object->sid, &script) == -1) {
@@ -607,8 +613,8 @@ static int partyMemberPrepItemSave(Object* object)
         script->scr_flags |= (SCRIPT_FLAG_0x08 | SCRIPT_FLAG_0x10);
     }
 
-    Inventory* inventory = &(object->data.inventory);
-    for (int index = 0; index < inventory->length; index++) {
+    inventory = &(object->data.inventory);
+    for (index = 0; index < inventory->length; index++) {
         InventoryItem* inventoryItem = &(inventory->items[index]);
         partyMemberPrepItemSave(inventoryItem->item);
     }

@@ -131,19 +131,22 @@ void GNW_text_exit()
 static int load_font(int n)
 {
     int rc = -1;
+	Font* textFontDescriptor;
+	DB_FILE* stream;
+	int dataSize;
 
     char path[MAX_PATH];
     sprintf(path, "font%d.fon", n);
 
     // NOTE: Original code is slightly different. It uses deep nesting and
     // unwinds everything from the point of failure.
-    Font* textFontDescriptor = &(font[n]);
+    textFontDescriptor = &(font[n]);
     textFontDescriptor->data = NULL;
     textFontDescriptor->info = NULL;
 
-    DB_FILE* stream = db_fopen(path, "rb");
-    int dataSize;
-    if (stream == NULL) {
+    stream = db_fopen(path, "rb");
+
+	if (stream == NULL) {
         goto out;
     }
 
@@ -300,20 +303,25 @@ static bool text_font_exists(int font_num, FontMgrPtr* mgr)
 // 0x4C1A70
 void GNW_text_to_buf(unsigned char* buf, const char* str, int swidth, int fullw, int color)
 {
+	int monospacedCharacterWidth;
+	unsigned char* ptr;
+
+
     if ((color & FONT_SHADOW) != 0) {
         color &= ~FONT_SHADOW;
         text_to_buf(buf + fullw + 1, str, swidth, fullw, colorTable[0]);
     }
 
-    int monospacedCharacterWidth;
     if ((color & FONT_MONO) != 0) {
         monospacedCharacterWidth = text_max();
     }
 
-    unsigned char* ptr = buf;
+    ptr = buf;
     while (*str != '\0') {
         char ch = *str++;
         if (ch < curr_font->num) {
+			unsigned char* glyphData;
+			int y;
             FontInfo* glyph = &(curr_font->info[ch & 0xFF]);
 
             unsigned char* end;
@@ -328,10 +336,11 @@ void GNW_text_to_buf(unsigned char* buf, const char* str, int swidth, int fullw,
                 break;
             }
 
-            unsigned char* glyphData = curr_font->data + glyph->offset;
-            for (int y = 0; y < curr_font->height; y++) {
+            glyphData = curr_font->data + glyph->offset;
+            for (y = 0; y < curr_font->height; y++) {
                 int bits = 0x80;
-                for (int x = 0; x < glyph->width; x++) {
+				int x;
+                for (x = 0; x < glyph->width; x++) {
                     if (bits == 0) {
                         bits = 0x80;
                         glyphData++;
@@ -353,10 +362,11 @@ void GNW_text_to_buf(unsigned char* buf, const char* str, int swidth, int fullw,
     }
 
     if ((color & FONT_UNDERLINE) != 0) {
+		int pix;
         // TODO: Probably additional -1 present, check.
         int length = ptr - buf;
         unsigned char* underlinePtr = buf + fullw * (curr_font->height - 1);
-        for (int pix = 0; pix < length; pix++) {
+        for (pix = 0; pix < length; pix++) {
             *underlinePtr++ = color & 0xFF;
         }
     }

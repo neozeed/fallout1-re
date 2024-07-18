@@ -48,11 +48,11 @@ void draw_line(unsigned char* buf, int pitch, int x1, int y1, int x2, int y2, in
         if (y1 == y2) {
             memset(p1, color, p2 - p1);
         } else {
+            int v23 ,v22;
+            int midX;
             dx = x2 - x1;
 
-            int v23;
-            int v22;
-            int midX = x1 + (x2 - x1) / 2;
+            midX = x1 + (x2 - x1) / 2;
             if (y1 <= y2) {
                 dy = y2 - y1;
                 v23 = pitch;
@@ -155,20 +155,24 @@ void cscale(unsigned char* src, int srcWidth, int srcHeight, int srcPitch, unsig
 
     int v1 = 0;
     int v2 = heightRatio;
-    for (int srcY = 0; srcY < srcHeight; srcY += 1) {
+	int srcY;
+    for (srcY = 0; srcY < srcHeight; srcY += 1) {
         int v3 = widthRatio;
         int v4 = (heightRatio * srcY) >> 16;
         int v5 = v2 >> 16;
         int v6 = 0;
 
         unsigned char* c = src + v1;
-        for (int srcX = 0; srcX < srcWidth; srcX += 1) {
+		int srcX;
+        for (srcX = 0; srcX < srcWidth; srcX += 1) {
             int v7 = v3 >> 16;
             int v8 = v6 >> 16;
 
             unsigned char* v9 = dest + destPitch * v4 + v8;
-            for (int destY = v4; destY < v5; destY += 1) {
-                for (int destX = v8; destX < v7; destX += 1) {
+			int destY;
+            for (destY = v4; destY < v5; destY += 1) {
+				int destX;
+                for (destX = v8; destX < v7; destX += 1) {
                     *v9++ = *c;
                 }
                 v9 += destPitch;
@@ -191,21 +195,25 @@ void trans_cscale(unsigned char* src, int srcWidth, int srcHeight, int srcPitch,
 
     int v1 = 0;
     int v2 = heightRatio;
-    for (int srcY = 0; srcY < srcHeight; srcY += 1) {
+	int srcY;
+    for (srcY = 0; srcY < srcHeight; srcY += 1) {
         int v3 = widthRatio;
         int v4 = (heightRatio * srcY) >> 16;
         int v5 = v2 >> 16;
         int v6 = 0;
 
         unsigned char* c = src + v1;
-        for (int srcX = 0; srcX < srcWidth; srcX += 1) {
+		int srcX;
+        for (srcX = 0; srcX < srcWidth; srcX += 1) {
             int v7 = v3 >> 16;
             int v8 = v6 >> 16;
 
             if (*c != 0) {
                 unsigned char* v9 = dest + destPitch * v4 + v8;
-                for (int destY = v4; destY < v5; destY += 1) {
-                    for (int destX = v8; destX < v7; destX += 1) {
+				int destY;
+                for (destY = v4; destY < v5; destY += 1) {
+					int destX;
+                    for (destX = v8; destX < v7; destX += 1) {
                         *v9++ = *c;
                     }
                     v9 += destPitch;
@@ -275,9 +283,11 @@ void buf_texture(unsigned char* buf, int width, int height, int pitch, void* a5,
 void lighten_buf(unsigned char* buf, int width, int height, int pitch)
 {
     int skip = pitch - width;
+	int y;
 
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
+    for (y = 0; y < height; y++) {
+		int x;
+        for (x = 0; x < width; x++) {
             unsigned char p = *buf;
             *buf++ = intensityColorTable[p][147];
         }
@@ -291,8 +301,10 @@ void lighten_buf(unsigned char* buf, int width, int height, int pitch)
 void swap_color_buf(unsigned char* buf, int width, int height, int pitch, int color1, int color2)
 {
     int step = pitch - width;
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
+	int y;
+    for (y = 0; y < height; y++) {
+		int x;
+        for (x = 0; x < width; x++) {
             int v1 = *buf & 0xFF;
             if (v1 == color1) {
                 *buf = color2 & 0xFF;
@@ -311,10 +323,11 @@ void buf_outline(unsigned char* buf, int width, int height, int pitch, int color
     unsigned char* ptr = buf + pitch;
 
     bool cycle;
-    for (int y = 0; y < height - 2; y++) {
+	int x,y;
+    for (y = 0; y < height - 2; y++) {
+		int x;
         cycle = true;
-
-        for (int x = 0; x < width; x++) {
+        for (x = 0; x < width; x++) {
             if (*ptr != 0 && cycle) {
                 *(ptr - 1) = color & 0xFF;
                 cycle = false;
@@ -329,11 +342,12 @@ void buf_outline(unsigned char* buf, int width, int height, int pitch, int color
         ptr += pitch - width;
     }
 
-    for (int x = 0; x < width; x++) {
+    for (x = 0; x < width; x++) {
+		int y;
         ptr = buf + x;
         cycle = true;
 
-        for (int y = 0; y < height; y++) {
+        for (y = 0; y < height; y++) {
             if (*ptr != 0 && cycle) {
                 // TODO: Check in debugger, might be a bug.
                 *(ptr - pitch) = color & 0xFF;

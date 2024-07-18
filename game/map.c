@@ -522,10 +522,11 @@ int map_get_local_var(int var)
 // 0x473EA8
 int map_malloc_local_var(int a1)
 {
+	int* vars;
     int oldMapLocalVarsLength = num_map_local_vars;
     num_map_local_vars += a1;
 
-    int* vars = (int*)mem_realloc(map_local_vars, sizeof(*vars) * num_map_local_vars);
+    vars = (int*)mem_realloc(map_local_vars, sizeof(*vars) * num_map_local_vars);
     if (vars == NULL) {
         debug_printf("\nError: Ran out of memory!");
     }
@@ -672,14 +673,26 @@ int map_get_index_number()
 // 0x474284
 int map_scroll(int dx, int dy)
 {
+	int screenDx,screenDy;
+	int centerScreenX;
+    int centerScreenY;
+	int newCenterTile;
+    Rect r1,r2;
+	int width,pitch,height;
+    unsigned char* src;
+    unsigned char* dest;
+    int step;
+	int x,y;
+
+
     if (elapsed_time(map_last_scroll_time) < 33) {
         return -2;
     }
 
     map_last_scroll_time = get_time();
 
-    int screenDx = dx * 32;
-    int screenDy = dy * 24;
+    screenDx = dx * 32;
+    screenDy = dy * 24;
 
     if (screenDx == 0 && screenDy == 0) {
         return -1;
@@ -687,13 +700,12 @@ int map_scroll(int dx, int dy)
 
     gmouse_3d_off();
 
-    int centerScreenX;
-    int centerScreenY;
+
     tile_coord(tile_center_tile, &centerScreenX, &centerScreenY, map_elevation);
     centerScreenX += screenDx + 16;
     centerScreenY += screenDy + 8;
 
-    int newCenterTile = tile_num(centerScreenX, centerScreenY, map_elevation);
+    newCenterTile = tile_num(centerScreenX, centerScreenY, map_elevation);
     if (newCenterTile == -1) {
         return -1;
     }
@@ -702,15 +714,13 @@ int map_scroll(int dx, int dy)
         return -1;
     }
 
-    Rect r1;
     rectCopy(&r1, &map_display_rect);
 
-    Rect r2;
     rectCopy(&r2, &r1);
 
-    int width = scr_size.lrx - scr_size.ulx + 1;
-    int pitch = width;
-    int height = scr_size.lry - scr_size.uly - 99;
+    width = scr_size.lrx - scr_size.ulx + 1;
+    pitch = width;
+    height = scr_size.lry - scr_size.uly - 99;
 
     if (screenDx != 0) {
         width -= 32;
@@ -726,9 +736,7 @@ int map_scroll(int dx, int dy)
         r2.ulx = r2.lrx - screenDx;
     }
 
-    unsigned char* src;
-    unsigned char* dest;
-    int step;
+
     if (screenDy < 0) {
         r1.lry = r1.uly - screenDy;
         src = display_buf + pitch * (height - 1);
@@ -752,7 +760,7 @@ int map_scroll(int dx, int dy)
         step = pitch;
     }
 
-    for (int y = 0; y < height; y++) {
+    for (y = 0; y < height; y++) {
         memmove(dest, src, width);
         dest += step;
         src += step;
@@ -958,10 +966,11 @@ int map_load_file(DB_FILE* stream)
         map_match_map_number();
 
         if ((map_data.flags & 1) == 0) {
+			char* extension;
             char path[MAX_PATH];
             sprintf(path, "maps\\%s", map_data.name);
 
-            char* extension = strstr(path, ".MAP");
+            extension = strstr(path, ".MAP");
             if (extension == NULL) {
                 extension = strstr(path, ".map");
             }
@@ -978,18 +987,21 @@ int map_load_file(DB_FILE* stream)
         scr_enable();
 
         if (map_data.scriptIndex > 0) {
+			int fid;
+			Object* object;
+            Script* script;
+
             error = "Error creating new map script";
             if (scr_new(&map_script_id, SCRIPT_TYPE_SYSTEM) == -1) break;
 
-            Object* object;
-            int fid = art_id(OBJ_TYPE_MISC, 12, 0, 0, 0);
+                        fid = art_id(OBJ_TYPE_MISC, 12, 0, 0, 0);
             obj_new(&object, fid, -1);
             object->flags |= (OBJECT_LIGHT_THRU | OBJECT_TEMPORARY | OBJECT_HIDDEN);
             obj_move_to_tile(object, 1, 0, NULL);
             object->sid = map_script_id;
             scr_set_ext_param(map_script_id, (map_data.flags & 1) == 0);
 
-            Script* script;
+
             scr_ptr(map_script_id, &script);
             script->scr_script_idx = map_data.scriptIndex - 1;
             script->scr_flags |= SCRIPT_FLAG_0x08;
@@ -1048,12 +1060,15 @@ int map_load_file(DB_FILE* stream)
 // 0x474D14
 int map_load_in_game(char* fileName)
 {
+    char mapName[16]; // TODO: Size is probably wrong.
+	int rc;
+
     debug_printf("\nMAP: Loading SAVED map.");
 
-    char mapName[16]; // TODO: Size is probably wrong.
+
     strmfe(mapName, fileName, "SAV");
 
-    int rc = map_load(mapName);
+    rc = map_load(mapName);
 
     if (game_time() >= map_data.lastVisitTime) {
         if (((game_time() - map_data.lastVisitTime) / GAME_TIME_TICKS_PER_HOUR) >= 24) {
@@ -1072,16 +1087,27 @@ int map_load_in_game(char* fileName)
 // 0x474DB0
 static int map_age_dead_critters()
 {
+	Object* obj;
+    int capacity = 100;
+    int count = 0;
+    Object** objects;
+    Object* blood;
+
+	int hoursSinceLastVisit;
+    int agingType;
+    int rc = 0;
+	int index;
+
     // if (!wmMapDeadBodiesAge()) {
     //     return 0;
     // }
 
-    int hoursSinceLastVisit = (game_time() - map_data.lastVisitTime) / GAME_TIME_TICKS_PER_HOUR;
+    hoursSinceLastVisit = (game_time() - map_data.lastVisitTime) / GAME_TIME_TICKS_PER_HOUR;
     if (hoursSinceLastVisit == 0) {
         return 0;
     }
 
-    Object* obj = obj_find_first();
+    obj = obj_find_first();
     while (obj != NULL) {
         if (PID_TYPE(obj->pid) == OBJ_TYPE_CRITTER
             && obj != obj_dude
@@ -1095,7 +1121,6 @@ static int map_age_dead_critters()
         obj = obj_find_next();
     }
 
-    int agingType;
     if (hoursSinceLastVisit > 6 * 24) {
         agingType = 1;
     } else if (hoursSinceLastVisit > 14 * 24) {
@@ -1104,9 +1129,8 @@ static int map_age_dead_critters()
         return 0;
     }
 
-    int capacity = 100;
-    int count = 0;
-    Object** objects = (Object**)mem_malloc(sizeof(*objects) * capacity);
+
+    objects = (Object**)mem_malloc(sizeof(*objects) * capacity);
 
     obj = obj_find_first();
     while (obj != NULL) {
@@ -1140,11 +1164,12 @@ static int map_age_dead_critters()
         obj = obj_find_next();
     }
 
-    int rc = 0;
-    for (int index = 0; index < count; index++) {
+    for (index = 0; index < count; index++) {
+		Proto* proto;
         Object* obj = objects[index];
         if (PID_TYPE(obj->pid) == OBJ_TYPE_CRITTER) {
             int blood_pid;
+			int frame;
             if (obj->pid != 16777265 && obj->pid != 213 && obj->pid != 214) {
                 blood_pid = 0x5000004;
                 item_drop_all(obj, obj->tile);
@@ -1152,7 +1177,6 @@ static int map_age_dead_critters()
                 blood_pid = 213;
             }
 
-            Object* blood;
             if (obj_pid_new(&blood, blood_pid) == -1) {
                 rc = -1;
                 break;
@@ -1160,10 +1184,9 @@ static int map_age_dead_critters()
 
             obj_move_to_tile(blood, obj->tile, obj->elevation, NULL);
 
-            Proto* proto;
             proto_ptr(obj->pid, &proto);
 
-            int frame = roll_random(0, 3);
+            frame = roll_random(0, 3);
             if ((proto->critter.flags & 0x800)) {
                 frame += 6;
             } else {
@@ -1274,7 +1297,8 @@ int map_check_state()
 // 0x475394
 void map_fix_critter_combat_data()
 {
-    for (Object* object = obj_find_first(); object != NULL; object = obj_find_next()) {
+	Object* object;
+    for (object = obj_find_first(); object != NULL; object = obj_find_next()) {
         if (object->pid == -1) {
             continue;
         }
@@ -1292,10 +1316,11 @@ void map_fix_critter_combat_data()
 // 0x475460
 int map_save()
 {
+    int rc = -1;
+    char* masterPatchesPath;
     char temp[80];
     temp[0] = '\0';
 
-    char* masterPatchesPath;
     if (config_get_string(&game_config, GAME_CONFIG_SYSTEM_KEY, GAME_CONFIG_MASTER_PATCHES_KEY, &masterPatchesPath)) {
         strcat(temp, masterPatchesPath);
         mkdir(temp);
@@ -1304,7 +1329,6 @@ int map_save()
         mkdir(temp);
     }
 
-    int rc = -1;
     if (map_data.name[0] != '\0') {
         char* mapFileName = map_file_path(map_data.name);
         DB_FILE* stream = db_fopen(mapFileName, "wb");
@@ -1330,13 +1354,16 @@ int map_save()
 // 0x475590
 int map_save_file(DB_FILE* stream)
 {
+    char err[80];
+	int elevation;
+	
     if (stream == NULL) {
         return -1;
     }
 
     scr_disable();
 
-    for (int elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+    for (elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
         int tile;
         for (tile = 0; tile < SQUARE_GRID_SIZE; tile++) {
             int fid;
@@ -1387,13 +1414,12 @@ int map_save_file(DB_FILE* stream)
         db_fwriteIntCount(stream, map_local_vars, map_data.localVariablesCount);
     }
 
-    for (int elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+    for (elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
         if ((map_data.flags & map_data_elev_flags[elevation]) == 0) {
             db_fwriteLongCount(stream, square[elevation]->field_0, SQUARE_GRID_SIZE);
         }
     }
 
-    char err[80];
 
     if (scr_save(stream) == -1) {
         sprintf(err, "Error saving scripts in %s", map_data.name);
@@ -1413,6 +1439,8 @@ int map_save_file(DB_FILE* stream)
 // 0x4758A8
 int map_save_in_game(bool a1)
 {
+    char name[16];
+
     if (map_data.name[0] == '\0') {
         return 0;
     }
@@ -1437,7 +1465,6 @@ int map_save_in_game(bool a1)
     map_data.flags |= MAP_SAVED;
     map_data.lastVisitTime = game_time();
 
-    char name[16];
 
     if (a1 && !YesWriteIndex(map_get_index_number(), map_elevation)) {
         debug_printf("\nNot saving RANDOM encounter map.");
@@ -1706,10 +1733,14 @@ static void square_init()
 // 0x475F78
 static void square_reset()
 {
-    for (int elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+	int elevation;
+    for (elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+		int y;
         int* p = square[elevation]->field_0;
-        for (int y = 0; y < SQUARE_GRID_HEIGHT; y++) {
-            for (int x = 0; x < SQUARE_GRID_WIDTH; x++) {
+        for (y = 0; y < SQUARE_GRID_HEIGHT; y++) {
+			int x;
+            for (x = 0; x < SQUARE_GRID_WIDTH; x++) {
+				int v3,v4;
                 // TODO: Strange math, initially right, but need to figure it out and
                 // check subsequent calls.
                 int fid = *p;
@@ -1717,8 +1748,8 @@ static void square_reset()
                 *p = (((art_id(OBJ_TYPE_TILE, 1, 0, 0, 0) & 0xFFF) | (((fid >> 16) & 0xF000) >> 12)) << 16) | (fid & 0xFFFF);
 
                 fid = *p;
-                int v3 = (fid & 0xF000) >> 12;
-                int v4 = (art_id(OBJ_TYPE_TILE, 1, 0, 0, 0) & 0xFFF) | v3;
+                v3 = (fid & 0xF000) >> 12;
+                v4 = (art_id(OBJ_TYPE_TILE, 1, 0, 0, 0) & 0xFFF) | v3;
 
                 fid &= ~0xFFFF;
 
@@ -1737,17 +1768,19 @@ static int square_load(DB_FILE* stream, int flags)
     int v7;
     int v8;
     int v9;
+	int elevation;
 
     square_reset();
 
-    for (int elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+    for (elevation = 0; elevation < ELEVATION_COUNT; elevation++) {
+		int tile;
         if ((flags & map_data_elev_flags[elevation]) == 0) {
             int* arr = square[elevation]->field_0;
             if (db_freadLongCount(stream, arr, SQUARE_GRID_SIZE) != 0) {
                 return -1;
             }
 
-            for (int tile = 0; tile < SQUARE_GRID_SIZE; tile++) {
+            for (tile = 0; tile < SQUARE_GRID_SIZE; tile++) {
                 v6 = arr[tile];
                 v6 &= ~(0xFFFF);
                 v6 >>= 16;

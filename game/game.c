@@ -522,8 +522,10 @@ int game_handle_input(int eventCode, bool isInCombatMode)
     case KEY_UPPERCASE_C:
     case KEY_LOWERCASE_C:
         if (intface_is_enabled()) {
+			bool isoWasEnabled;
+
             gsound_play_sfx_file("ib1p1xx1");
-            bool isoWasEnabled = map_disable_bk_processes();
+            isoWasEnabled = map_disable_bk_processes();
             editor_design(false);
             if (isoWasEnabled) {
                 map_enable_bk_processes();
@@ -552,11 +554,12 @@ int game_handle_input(int eventCode, bool isInCombatMode)
         // pipboy
         if (intface_is_enabled()) {
             if (isInCombatMode) {
+                MessageListItem messageListItem;
+                char title[128];
+
                 gsound_play_sfx_file("iisxxxx1");
 
                 // Pipboy not available in combat!
-                MessageListItem messageListItem;
-                char title[128];
                 strcpy(title, getmsg(&misc_message_file, &messageListItem, 7));
                 dialog_out(title, NULL, 0, 192, 116, colorTable[32328], NULL, colorTable[32328], 0);
             } else {
@@ -569,13 +572,14 @@ int game_handle_input(int eventCode, bool isInCombatMode)
     case KEY_LOWERCASE_S:
         // skilldex
         if (intface_is_enabled()) {
+			int mode,rc;
             gsound_play_sfx_file("ib1p1xx1");
 
-            int mode = -1;
+            mode = -1;
 
             // NOTE: There is an `inc` for this value to build jump table which
             // is not needed.
-            int rc = skilldex_select();
+            rc = skilldex_select();
 
             // Remap Skilldex result code to action.
             switch (rc) {
@@ -620,11 +624,12 @@ int game_handle_input(int eventCode, bool isInCombatMode)
     case KEY_LOWERCASE_Z:
         if (intface_is_enabled()) {
             if (isInCombatMode) {
+                MessageListItem messageListItem;
+                char title[128];
+
                 gsound_play_sfx_file("iisxxxx1");
 
                 // Pipboy not available in combat!
-                MessageListItem messageListItem;
-                char title[128];
                 strcpy(title, getmsg(&misc_message_file, &messageListItem, 7));
                 dialog_out(title, NULL, 0, 192, 116, colorTable[32328], NULL, colorTable[32328], 0);
             } else {
@@ -734,14 +739,14 @@ int game_handle_input(int eventCode, bool isInCombatMode)
     case KEY_SLASH:
     case KEY_QUESTION:
         if (1) {
-            gsound_play_sfx_file("ib1p1xx1");
-
             int month;
             int day;
             int year;
+            MessageList messageList;
+
+            gsound_play_sfx_file("ib1p1xx1");
             game_time_date(&month, &day, &year);
 
-            MessageList messageList;
             if (message_init(&messageList)) {
                 char path[FILENAME_MAX];
                 sprintf(path, "%s%s", msg_path, "editor.msg");
@@ -789,9 +794,10 @@ int game_handle_input(int eventCode, bool isInCombatMode)
         break;
     case KEY_F6:
         if (1) {
+			int rc;
             gsound_play_sfx_file("ib1p1xx1");
 
-            int rc = SaveGame(LOAD_SAVE_MODE_QUICK);
+            rc = SaveGame(LOAD_SAVE_MODE_QUICK);
             if (rc == -1) {
                 debug_printf("\n ** Error calling SaveGame()! **\n");
             } else if (rc == 1) {
@@ -804,9 +810,11 @@ int game_handle_input(int eventCode, bool isInCombatMode)
         break;
     case KEY_F7:
         if (1) {
+			int rc;
+
             gsound_play_sfx_file("ib1p1xx1");
 
-            int rc = LoadGame(LOAD_SAVE_MODE_QUICK);
+            rc = LoadGame(LOAD_SAVE_MODE_QUICK);
             if (rc == -1) {
                 debug_printf("\n ** Error calling LoadGame()! **\n");
             } else if (rc == 1) {
@@ -819,9 +827,10 @@ int game_handle_input(int eventCode, bool isInCombatMode)
         break;
     case KEY_CTRL_V:
         if (1) {
+            char version[VERSION_MAX];
+
             gsound_play_sfx_file("ib1p1xx1");
 
-            char version[VERSION_MAX];
             getverstr(version);
             display_print(version);
             display_print(version_build_time);
@@ -907,9 +916,12 @@ int game_load_info()
 // 0x43C668
 int game_load_info_vars(const char* path, const char* section, int* variablesListLengthPtr, int** variablesListPtr)
 {
+	DB_FILE* stream;
+    char string[260];
+
     inven_reset_dude();
 
-    DB_FILE* stream = db_fopen(path, "rt");
+    stream = db_fopen(path, "rt");
     if (stream == NULL) {
         return -1;
     }
@@ -920,7 +932,6 @@ int game_load_info_vars(const char* path, const char* section, int* variablesLis
         *variablesListLengthPtr = 0;
     }
 
-    char string[260];
     if (section != NULL) {
         while (db_fgets(string, 258, stream)) {
             if (strncmp(string, section, 16) == 0) {
@@ -930,6 +941,9 @@ int game_load_info_vars(const char* path, const char* section, int* variablesLis
     }
 
     while (db_fgets(string, 258, stream)) {
+		char* semicolon;
+		char* equals;
+
         if (string[0] == '\n') {
             continue;
         }
@@ -938,7 +952,7 @@ int game_load_info_vars(const char* path, const char* section, int* variablesLis
             continue;
         }
 
-        char* semicolon = strchr(string, ';');
+        semicolon = strchr(string, ';');
         if (semicolon != NULL) {
             *semicolon = '\0';
         }
@@ -950,7 +964,7 @@ int game_load_info_vars(const char* path, const char* section, int* variablesLis
             exit(1);
         }
 
-        char* equals = strchr(string, '=');
+        equals = strchr(string, '=');
         if (equals != NULL) {
             sscanf(equals + 1, "%d", *variablesListPtr + *variablesListLengthPtr - 1);
         } else {
@@ -1054,17 +1068,19 @@ static void game_unload_info()
 // 0x43D130
 static void game_help()
 {
+	int helpWindowX,helpWindowY,win;
+	bool colorCycleWasEnabled;
     bool isoWasEnabled = map_disable_bk_processes();
     gmouse_3d_off();
 
     gmouse_set_cursor(MOUSE_CURSOR_NONE);
 
-    bool colorCycleWasEnabled = cycle_is_enabled();
+    colorCycleWasEnabled = cycle_is_enabled();
     cycle_disable();
 
-    int helpWindowX = 0;
-    int helpWindowY = 0;
-    int win = win_add(helpWindowX, helpWindowY, HELP_SCREEN_WIDTH, HELP_SCREEN_HEIGHT, 0, WINDOW_HIDDEN | WINDOW_FLAG_0x04);
+    helpWindowX = 0;
+    helpWindowY = 0;
+    win = win_add(helpWindowX, helpWindowY, HELP_SCREEN_WIDTH, HELP_SCREEN_HEIGHT, 0, WINDOW_HIDDEN | WINDOW_FLAG_0x04);
     if (win != -1) {
         unsigned char* windowBuffer = win_get_buf(win);
         if (windowBuffer != NULL) {
@@ -1109,7 +1125,11 @@ static void game_help()
 // 0x43D274
 int game_quit_with_confirm()
 {
+	bool cursorWasHidden;
     bool isoWasEnabled = map_disable_bk_processes();
+	int oldCursor,rc;
+    MessageListItem messageListItem;
+
 
     bool gameMouseWasVisible;
     if (isoWasEnabled) {
@@ -1122,18 +1142,15 @@ int game_quit_with_confirm()
         gmouse_3d_off();
     }
 
-    bool cursorWasHidden = mouse_hidden();
+    cursorWasHidden = mouse_hidden();
     if (cursorWasHidden) {
         mouse_show();
     }
 
-    int oldCursor = gmouse_get_cursor();
+    oldCursor = gmouse_get_cursor();
     gmouse_set_cursor(MOUSE_CURSOR_ARROW);
 
-    int rc;
-
     // Are you sure you want to quit?
-    MessageListItem messageListItem;
     messageListItem.num = 0;
     if (message_search(&misc_message_file, &messageListItem)) {
         rc = dialog_out(messageListItem.text, 0, 0, 169, 117, colorTable[32328], NULL, colorTable[32328], DIALOG_BOX_YES_NO);
@@ -1240,10 +1257,16 @@ static int game_check_disk_space()
 static void game_splash_screen()
 {
     int splash;
+    DB_FILE* stream;
+	int index;
+	unsigned char* palette;
+	unsigned char* data;
+	int splashWindowX,splashWindowY;
+
     config_get_value(&game_config, GAME_CONFIG_SYSTEM_KEY, GAME_CONFIG_SPLASH_KEY, &splash);
 
-    DB_FILE* stream;
-    for (int index = 0; index < SPLASH_COUNT; index++) {
+
+    for (index = 0; index < SPLASH_COUNT; index++) {
         char filePath[64];
         sprintf(filePath, "art\\splash\\splash%d.rix", splash);
         stream = db_fopen(filePath, "rb");
@@ -1262,13 +1285,13 @@ static void game_splash_screen()
         return;
     }
 
-    unsigned char* palette = (unsigned char*)mem_malloc(768);
+    palette = (unsigned char*)mem_malloc(768);
     if (palette == NULL) {
         db_fclose(stream);
         return;
     }
 
-    unsigned char* data = (unsigned char*)mem_malloc(SPLASH_WIDTH * SPLASH_HEIGHT);
+    data = (unsigned char*)mem_malloc(SPLASH_WIDTH * SPLASH_HEIGHT);
     if (data == NULL) {
         mem_free(palette);
         db_fclose(stream);
@@ -1281,8 +1304,8 @@ static void game_splash_screen()
     db_fread(data, 1, SPLASH_WIDTH * SPLASH_HEIGHT, stream);
     db_fclose(stream);
 
-    int splashWindowX = 0;
-    int splashWindowY = 0;
+    splashWindowX = 0;
+    splashWindowY = 0;
     scr_blit(data, SPLASH_WIDTH, SPLASH_HEIGHT, 0, 0, SPLASH_WIDTH, SPLASH_HEIGHT, splashWindowX, splashWindowY);
     palette_fade_to(palette);
 

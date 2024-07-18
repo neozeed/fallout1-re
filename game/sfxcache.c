@@ -31,7 +31,7 @@ typedef struct SoundEffect {
     unsigned char* data;
 } SoundEffect;
 
-static_assert(sizeof(SoundEffect) == 32, "wrong size");
+//static_assert(sizeof(SoundEffect) == 32, "wrong size");
 
 static int sfxc_effect_size(int tag, int* sizePtr);
 static int sfxc_effect_load(int tag, int* sizePtr, unsigned char* data);
@@ -153,17 +153,23 @@ void sfxc_flush()
 // 0x4972DC
 int sfxc_cached_open(const char* fname, int mode)
 {
+	char* copy;
+	int tag,err;
+    void* data;
+    CacheEntry* cacheHandle;
+	int handle;
+
+
     if (sfxc_files_open >= SOUND_EFFECTS_MAX_COUNT) {
         return -1;
     }
 
-    char* copy = mem_strdup(fname);
+    copy = mem_strdup(fname);
     if (copy == NULL) {
         return -1;
     }
 
-    int tag;
-    int err = sfxl_name_to_tag(copy, &tag);
+    err = sfxl_name_to_tag(copy, &tag);
 
     mem_free(copy);
 
@@ -171,13 +177,10 @@ int sfxc_cached_open(const char* fname, int mode)
         return -1;
     }
 
-    void* data;
-    CacheEntry* cacheHandle;
     if (!cache_lock(sfxc_pcache, tag, &data, &cacheHandle)) {
         return -1;
     }
 
-    int handle;
     if (sfxc_handle_create(&handle, tag, data, cacheHandle) != 0) {
         cache_unlock(sfxc_pcache, cacheHandle);
         return -1;
@@ -189,11 +192,13 @@ int sfxc_cached_open(const char* fname, int mode)
 // 0x4973A0
 int sfxc_cached_close(int handle)
 {
+	SoundEffect* soundEffect;
+
     if (!sfxc_handle_is_legal(handle)) {
         return -1;
     }
 
-    SoundEffect* soundEffect = &(sfxc_handle_list[handle]);
+    soundEffect = &(sfxc_handle_list[handle]);
     if (!cache_unlock(sfxc_pcache, soundEffect->cacheHandle)) {
         return -1;
     }
@@ -207,6 +212,10 @@ int sfxc_cached_close(int handle)
 // 0x4973F4
 int sfxc_cached_read(int handle, void* buf, unsigned int size)
 {
+	SoundEffect* soundEffect;
+    size_t bytesToRead;
+
+
     if (!sfxc_handle_is_legal(handle)) {
         return -1;
     }
@@ -215,12 +224,11 @@ int sfxc_cached_read(int handle, void* buf, unsigned int size)
         return 0;
     }
 
-    SoundEffect* soundEffect = &(sfxc_handle_list[handle]);
+    soundEffect = &(sfxc_handle_list[handle]);
     if (soundEffect->dataSize - soundEffect->position <= 0) {
         return 0;
     }
 
-    size_t bytesToRead;
     // NOTE: Original code uses signed comparison.
     if ((int)size < (soundEffect->dataSize - soundEffect->position)) {
         bytesToRead = size;
@@ -255,13 +263,17 @@ int sfxc_cached_write(int handle, const void* buf, unsigned int size)
 // 0x4974D8
 long sfxc_cached_seek(int handle, long offset, int origin)
 {
+	SoundEffect* soundEffect;
+	int position;
+	long normalizedOffset;
+
     if (!sfxc_handle_is_legal(handle)) {
         return -1;
     }
 
-    SoundEffect* soundEffect = &(sfxc_handle_list[handle]);
+    soundEffect = &(sfxc_handle_list[handle]);
 
-    int position;
+
     switch (origin) {
     case SEEK_SET:
         position = 0;
@@ -276,7 +288,7 @@ long sfxc_cached_seek(int handle, long offset, int origin)
         assert(false && "Should be unreachable");
     }
 
-    long normalizedOffset = abs(offset);
+    normalizedOffset = abs(offset);
 
     if (offset >= 0) {
         long remainingSize = soundEffect->dataSize - soundEffect->position;
@@ -300,22 +312,26 @@ long sfxc_cached_seek(int handle, long offset, int origin)
 // 0x497574
 long sfxc_cached_tell(int handle)
 {
+	SoundEffect* soundEffect;
+
     if (!sfxc_handle_is_legal(handle)) {
         return -1;
     }
 
-    SoundEffect* soundEffect = &(sfxc_handle_list[handle]);
+    soundEffect = &(sfxc_handle_list[handle]);
     return soundEffect->position;
 }
 
 // 0x497598
 long sfxc_cached_file_size(int handle)
 {
+	SoundEffect* soundEffect;
+
     if (!sfxc_handle_is_legal(handle)) {
         return 0;
     }
 
-    SoundEffect* soundEffect = &(sfxc_handle_list[handle]);
+    soundEffect = &(sfxc_handle_list[handle]);
     return soundEffect->dataSize;
 }
 
@@ -335,14 +351,15 @@ static int sfxc_effect_size(int tag, int* sizePtr)
 // 0x4975DC
 static int sfxc_effect_load(int tag, int* sizePtr, unsigned char* data)
 {
+	int size;
+    char* name;
+
     if (!sfxl_tag_is_legal(tag)) {
         return -1;
     }
 
-    int size;
     sfxl_size_cached(tag, &size);
 
-    char* name;
     sfxl_name(tag, &name);
 
     if (db_read_to_buf(name, data)) {
@@ -366,12 +383,14 @@ static void sfxc_effect_free(void* ptr)
 // 0x497654
 static int sfxc_handle_list_create()
 {
+	int index;
+
     sfxc_handle_list = (SoundEffect*)mem_malloc(sizeof(*sfxc_handle_list) * SOUND_EFFECTS_MAX_COUNT);
     if (sfxc_handle_list == NULL) {
         return -1;
     }
 
-    for (int index = 0; index < SOUND_EFFECTS_MAX_COUNT; index++) {
+    for (index = 0; index < SOUND_EFFECTS_MAX_COUNT; index++) {
         SoundEffect* soundEffect = &(sfxc_handle_list[index]);
         soundEffect->used = false;
     }
@@ -384,8 +403,9 @@ static int sfxc_handle_list_create()
 // 0x497698
 static void sfxc_handle_list_destroy()
 {
+	int index;
     if (sfxc_files_open) {
-        for (int index = 0; index < SOUND_EFFECTS_MAX_COUNT; index++) {
+        for (index = 0; index < SOUND_EFFECTS_MAX_COUNT; index++) {
             SoundEffect* soundEffect = &(sfxc_handle_list[index]);
             if (!soundEffect->used) {
                 sfxc_cached_close(index);
@@ -399,12 +419,13 @@ static void sfxc_handle_list_destroy()
 // 0x4976D0
 static int sfxc_handle_create(int* handlePtr, int tag, void* data, CacheEntry* cacheHandle)
 {
+	SoundEffect* soundEffect;
+    int index;
+
     if (sfxc_files_open >= SOUND_EFFECTS_MAX_COUNT) {
         return -1;
     }
 
-    SoundEffect* soundEffect;
-    int index;
     for (index = 0; index < SOUND_EFFECTS_MAX_COUNT; index++) {
         soundEffect = &(sfxc_handle_list[index]);
         if (!soundEffect->used) {
@@ -447,11 +468,13 @@ static void sfxc_handle_destroy(int handle)
 // 0x49779C
 static bool sfxc_handle_is_legal(int handle)
 {
+	SoundEffect* soundEffect;
+
     if (handle >= SOUND_EFFECTS_MAX_COUNT) {
         return false;
     }
 
-    SoundEffect* soundEffect = &sfxc_handle_list[handle];
+    soundEffect = &sfxc_handle_list[handle];
 
     if (!soundEffect->used) {
         return false;
@@ -477,17 +500,21 @@ static bool sfxc_mode_is_legal(int mode)
 // 0x4977F8
 static int sfxc_decode(int handle, void* buf, unsigned int size)
 {
+	int channels;
+    int sampleRate;
+    int sampleCount;
+	size_t bytesRead;
+	SoundEffect* soundEffect;
+	AudioDecoder* ad;
+
     if (!sfxc_handle_is_legal(handle)) {
         return -1;
     }
 
-    SoundEffect* soundEffect = &(sfxc_handle_list[handle]);
+    soundEffect = &(sfxc_handle_list[handle]);
     soundEffect->dataPosition = 0;
 
-    int channels;
-    int sampleRate;
-    int sampleCount;
-    AudioDecoder* ad = Create_AudioDecoder(sfxc_ad_reader, (void*)handle, &channels, &sampleRate, &sampleCount);
+    ad = Create_AudioDecoder(sfxc_ad_reader, (void*)handle, &channels, &sampleRate, &sampleCount);
 
     if (soundEffect->position != 0) {
         void* temp = mem_malloc(soundEffect->position);
@@ -496,7 +523,7 @@ static int sfxc_decode(int handle, void* buf, unsigned int size)
             return -1;
         }
 
-        size_t bytesRead = AudioDecoder_Read(ad, temp, soundEffect->position);
+        bytesRead = AudioDecoder_Read(ad, temp, soundEffect->position);
         mem_free(temp);
 
         if (bytesRead != soundEffect->position) {
@@ -505,7 +532,7 @@ static int sfxc_decode(int handle, void* buf, unsigned int size)
         }
     }
 
-    size_t bytesRead = AudioDecoder_Read(ad, buf, size);
+    bytesRead = AudioDecoder_Read(ad, buf, size);
     AudioDecoder_Close(ad);
 
     if (bytesRead != size) {
@@ -518,14 +545,18 @@ static int sfxc_decode(int handle, void* buf, unsigned int size)
 // 0x4978F0
 static int sfxc_ad_reader(void* stream, void* buf, unsigned int size)
 {
+	int handle;
+	SoundEffect* soundEffect;
+	unsigned int bytesToRead;
+
     if (size == 0) {
         return 0;
     }
 
-    int handle = (int)stream;
-    SoundEffect* soundEffect = &(sfxc_handle_list[handle]);
+    handle = (int)stream;
+    soundEffect = &(sfxc_handle_list[handle]);
 
-    unsigned int bytesToRead = soundEffect->fileSize - soundEffect->dataPosition;
+    bytesToRead = soundEffect->fileSize - soundEffect->dataPosition;
     if (size <= bytesToRead) {
         bytesToRead = size;
     }

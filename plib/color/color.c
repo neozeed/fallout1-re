@@ -203,10 +203,13 @@ int Color2RGB(int a1)
 // 0x4BFEE0
 void fadeSystemPalette(unsigned char* oldPalette, unsigned char* newPalette, int steps)
 {
-    for (int step = 0; step < steps; step++) {
+	int step;
+
+    for (step = 0; step < steps; step++) {
+		int index;
         unsigned char palette[768];
 
-        for (int index = 0; index < 768; index++) {
+        for (index = 0; index < 768; index++) {
             palette[index] = oldPalette[index] - (oldPalette[index] - newPalette[index]) * step / steps;
         }
 
@@ -239,9 +242,10 @@ void setBlackSystemPalette()
 // 0x4BFFA4
 void setSystemPalette(unsigned char* palette)
 {
+	int index;
     unsigned char newPalette[768];
 
-    for (int index = 0; index < 768; index++) {
+    for (index = 0; index < 768; index++) {
         newPalette[index] = currentGammaTable[palette[index]];
         systemCmap[index] = palette[index];
     }
@@ -261,7 +265,9 @@ void setSystemPaletteEntries(unsigned char* palette, int start, int end)
     unsigned char newPalette[768];
 
     int length = end - start + 1;
-    for (int index = 0; index < length; index++) {
+	int index;
+
+    for (index = 0; index < length; index++) {
         newPalette[index * 3] = currentGammaTable[palette[index * 3]];
         newPalette[index * 3 + 1] = currentGammaTable[palette[index * 3 + 1]];
         newPalette[index * 3 + 2] = currentGammaTable[palette[index * 3 + 2]];
@@ -301,10 +307,11 @@ void getSystemPaletteEntry(int entry, unsigned char* r, unsigned char* g, unsign
 static void setIntensityTableColor(int a1)
 {
     int v1, v2, v3, v4, v5, v6, v7, v8, v9;
+	int index;
 
     v5 = 0;
 
-    for (int index = 0; index < 128; index++) {
+    for (index = 0; index < 128; index++) {
         v1 = (Color2RGB(a1) & 0x7C00) >> 10;
         v2 = (Color2RGB(a1) & 0x3E0) >> 5;
         v3 = (Color2RGB(a1) & 0x1F);
@@ -326,7 +333,9 @@ static void setIntensityTableColor(int a1)
 // 0x4C0204
 static void setIntensityTables()
 {
-    for (int index = 0; index < 256; index++) {
+	int index;
+
+    for (index = 0; index < 256; index++) {
         if (mappedColor[index] != 0) {
             setIntensityTableColor(index);
         } else {
@@ -436,18 +445,22 @@ static void setMixTable()
 // 0x4C046C
 bool loadColorTable(const char* path)
 {
+    unsigned int type;
+	int fd;
+	int index;
+
     if (colorNameMangler != NULL) {
         path = colorNameMangler(path);
     }
 
     // NOTE: Uninline.
-    int fd = colorOpen(path, 0x200);
+    fd = colorOpen(path, 0x200);
     if (fd == -1) {
         errorStr = _aColor_cColorTa;
         return false;
     }
 
-    for (int index = 0; index < 256; index++) {
+    for (index = 0; index < 256; index++) {
         unsigned char r;
         unsigned char g;
         unsigned char b;
@@ -478,7 +491,6 @@ bool loadColorTable(const char* path)
     // NOTE: Uninline.
     colorRead(fd, colorTable, 0x8000);
 
-    unsigned int type;
     // NOTE: Uninline.
     colorRead(fd, &type, sizeof(type));
 
@@ -494,9 +506,10 @@ bool loadColorTable(const char* path)
         // NOTE: Uninline.
         colorRead(fd, colorMixMulTable, 0x10000);
     } else {
+
         setIntensityTables();
 
-        for (int index = 0; index < 256; index++) {
+        for (index = 0; index < 256; index++) {
             setMixTableColor(index);
         }
     }
@@ -551,6 +564,15 @@ static void buildBlendTable(unsigned char* ptr, unsigned char ch)
     int i, j;
     int v12, v14, v16;
     unsigned char* beg;
+	int b_1;
+    int v31;
+    int g_1;
+    int r_1;
+
+    int b_2;
+    int g_2;
+    int r_2;
+	int v18;
 
     beg = ptr;
 
@@ -564,21 +586,21 @@ static void buildBlendTable(unsigned char* ptr, unsigned char ch)
 
     ptr += 256;
 
-    int b_1 = b;
-    int v31 = 6;
-    int g_1 = g;
-    int r_1 = r;
+    b_1 = b;
+    v31 = 6;
+    g_1 = g;
+    r_1 = r;
 
-    int b_2 = b_1;
-    int g_2 = g_1;
-    int r_2 = r_1;
+    b_2 = b_1;
+    g_2 = g_1;
+    r_2 = r_1;
 
     for (j = 0; j < 7; j++) {
         for (i = 0; i < 256; i++) {
+            int index = 0;
             v12 = (Color2RGB(i) & 0x7C00) >> 10;
             v14 = (Color2RGB(i) & 0x3E0) >> 5;
             v16 = (Color2RGB(i) & 0x1F);
-            int index = 0;
             index |= (r_2 + v12 * v31) / 7 << 10;
             index |= (g_2 + v14 * v31) / 7 << 5;
             index |= (b_2 + v16 * v31) / 7;
@@ -591,7 +613,7 @@ static void buildBlendTable(unsigned char* ptr, unsigned char ch)
         b_2 += b_1;
     }
 
-    int v18 = 0;
+    v18 = 0;
     for (j = 0; j < 6; j++) {
         int v20 = v18 / 7 + 0xFFFF;
 
@@ -659,9 +681,11 @@ void colorRegisterAlloc(ColorMallocFunc* mallocProc, ColorReallocFunc* reallocPr
 // 0x4C09F4
 void colorGamma(double value)
 {
+	int i;
+
     currentGamma = value;
 
-    for (int i = 0; i < 64; i++) {
+    for (i = 0; i < 64; i++) {
         double value = pow(i, currentGamma);
         currentGammaTable[i] = (unsigned char)min(max(value, 0.0), 63.0);
     }
@@ -698,12 +722,14 @@ static void maxfill(unsigned long* buffer, int side)
 // 0x4C13AC
 bool colorPushColorPalette()
 {
+	ColorPaletteStackEntry* entry;
+
     if (tos >= COLOR_PALETTE_STACK_CAPACITY) {
         errorStr = _aColor_cColorpa;
         return false;
     }
 
-    ColorPaletteStackEntry* entry = (ColorPaletteStackEntry*)malloc(sizeof(*entry));
+    entry = (ColorPaletteStackEntry*)malloc(sizeof(*entry));
     colorPaletteStack[tos] = entry;
 
     memcpy(entry->mappedColors, mappedColor, sizeof(mappedColor));
@@ -718,6 +744,9 @@ bool colorPushColorPalette()
 // 0x4C1464
 bool colorPopColorPalette()
 {
+	int index;
+	ColorPaletteStackEntry* entry;
+
     if (tos == 0) {
         errorStr = aColor_cColor_0;
         return false;
@@ -725,7 +754,7 @@ bool colorPopColorPalette()
 
     tos--;
 
-    ColorPaletteStackEntry* entry = colorPaletteStack[tos];
+    entry = colorPaletteStack[tos];
 
     memcpy(mappedColor, entry->mappedColors, sizeof(mappedColor));
     memcpy(cmap, entry->cmap, sizeof(cmap));
@@ -736,7 +765,7 @@ bool colorPopColorPalette()
 
     setIntensityTables();
 
-    for (int index = 0; index < 256; index++) {
+    for (index = 0; index < 256; index++) {
         setMixTableColor(index);
     }
 
@@ -768,11 +797,13 @@ bool initColors()
 // 0x4C159C
 void colorsClose()
 {
-    for (int index = 0; index < 256; index++) {
+	int index;
+
+    for (index = 0; index < 256; index++) {
         freeColorBlendTable(index);
     }
 
-    for (int index = 0; index < tos; index++) {
+    for (index = 0; index < tos; index++) {
         free(colorPaletteStack[index]);
     }
 

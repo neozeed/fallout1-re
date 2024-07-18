@@ -150,6 +150,11 @@ static int sayStartingPosition;
 // 0x456CC0
 static void op_fillwin3x3(Program* program)
 {
+    char* fileName;
+    char* mangledFileName;
+    int imageWidth,imageHeight;
+    unsigned char* imageData;
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -157,12 +162,10 @@ static void op_fillwin3x3(Program* program)
         interpretError("Invalid type given to fillwin3x3");
     }
 
-    char* fileName = interpretGetString(program, opcode, data);
-    char* mangledFileName = interpretMangleName(fileName);
+    fileName = interpretGetString(program, opcode, data);
+    mangledFileName = interpretMangleName(fileName);
 
-    int imageWidth;
-    int imageHeight;
-    unsigned char* imageData = loadDataFile(mangledFileName, &imageWidth, &imageHeight);
+    imageData = loadDataFile(mangledFileName, &imageWidth, &imageHeight);
     if (imageData == NULL) {
         interpretError("cannot load 3x3 file '%s'", mangledFileName);
     }
@@ -184,9 +187,15 @@ static void op_format(Program* program)
 {
     opcode_t opcode[6];
     int data[6];
+	int arg;
+    char* string;
+    int x,y;
+    int width;
+    int height;
+    int textAlignment;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 6; arg++) {
+    for (arg = 0; arg < 6; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -215,12 +224,12 @@ static void op_format(Program* program)
         interpretError("Invalid arg 1 given to format\n");
     }
 
-    char* string = interpretGetString(program, opcode[5], data[5]);
-    int x = data[4];
-    int y = data[3];
-    int width = data[2];
-    int height = data[1];
-    int textAlignment = data[0];
+    string = interpretGetString(program, opcode[5], data[5]);
+    x = data[4];
+    y = data[3];
+    width = data[2];
+    height = data[1];
+    textAlignment = data[0];
 
     if (!windowFormatMessage(string, x, y, width, height, textAlignment)) {
         interpretError("Error formatting message\n");
@@ -230,10 +239,13 @@ static void op_format(Program* program)
 // 0x456EE8
 static void op_print(Program* program)
 {
+	opcode_t opcode;
+	int data;
+
     selectWindowID(program->windowId);
 
-    opcode_t opcode = interpretPopShort(program);
-    int data = interpretPopLong(program);
+    opcode = interpretPopShort(program);
+    data = interpretPopLong(program);
 
     switch (opcode & VALUE_TYPE_MASK) {
     case VALUE_TYPE_STRING:
@@ -251,13 +263,18 @@ static void op_print(Program* program)
 // 0x456F80
 static void op_selectfilelist(Program* program)
 {
-    program->flags |= PROGRAM_FLAG_0x20;
-
     opcode_t opcode[2];
     int data[2];
+	int arg;
+    char* pattern;
+    char* title;
+    int fileListLength;
+    char** fileList;
+
+    program->flags |= PROGRAM_FLAG_0x20;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -270,11 +287,10 @@ static void op_selectfilelist(Program* program)
         interpretError("Error, invalid arg 1 given to selectfilelist");
     }
 
-    char* pattern = interpretGetString(program, opcode[0], data[0]);
-    char* title = interpretGetString(program, opcode[1], data[1]);
+    pattern = interpretGetString(program, opcode[0], data[0]);
+    title = interpretGetString(program, opcode[1], data[1]);
 
-    int fileListLength;
-    char** fileList = getFileList(interpretMangleName(pattern), &fileListLength);
+    fileList = getFileList(interpretMangleName(pattern), &fileListLength);
     if (fileList != NULL && fileListLength != 0) {
         int selectedIndex = win_list_select(title,
             fileList,
@@ -306,6 +322,9 @@ static void op_tokenize(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	char* prev;
+	char* string;
+    char* temp;
 
     opcode[0] = interpretPopShort(program);
     data[0] = interpretPopLong(program);
@@ -317,7 +336,7 @@ static void op_tokenize(Program* program)
     opcode[1] = interpretPopShort(program);
     data[1] = interpretPopLong(program);
 
-    char* prev = NULL;
+    prev = NULL;
     if ((opcode[1] & VALUE_TYPE_MASK) == VALUE_TYPE_INT) {
         if (data[1] != 0) {
             interpretError("Error, invalid arg 2 to tokenize. (only accept 0 for int value)");
@@ -335,8 +354,8 @@ static void op_tokenize(Program* program)
         interpretError("Error, invalid arg 1 to tokenize.");
     }
 
-    char* string = interpretGetString(program, opcode[2], data[2]);
-    char* temp = NULL;
+    string = interpretGetString(program, opcode[2], data[2]);
+    temp = NULL;
 
     if (prev != NULL) {
         char* start = strstr(string, prev);
@@ -390,13 +409,15 @@ static void op_tokenize(Program* program)
 // 0x457308
 static void op_printrect(Program* program)
 {
-    selectWindowID(program->windowId);
-
     opcode_t opcode[3];
     int data[3];
+	int arg;
+    char string[80];
+
+    selectWindowID(program->windowId);
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -409,7 +430,6 @@ static void op_printrect(Program* program)
         interpretError("Invalid arg 2 given to printrect, expecting int");
     }
 
-    char string[80];
     switch (opcode[2] & VALUE_TYPE_MASK) {
     case VALUE_TYPE_STRING:
         sprintf(string, "%s", interpretGetString(program, opcode[2], data[2]));
@@ -430,6 +450,9 @@ static void op_printrect(Program* program)
 // 0x457430
 static void op_selectwin(Program* program)
 {
+    char* windowName;
+    int win;
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -437,8 +460,8 @@ static void op_selectwin(Program* program)
         interpretError("Invalid type given to select");
     }
 
-    const char* windowName = interpretGetString(program, opcode, data);
-    int win = pushWindow(windowName);
+    windowName = interpretGetString(program, opcode, data);
+    win = pushWindow(windowName);
     if (win == -1) {
         interpretError("Error selecing window %s\n", interpretGetString(program, opcode, data));
     }
@@ -451,6 +474,9 @@ static void op_selectwin(Program* program)
 // 0x4574B4
 static void op_display(Program* program)
 {
+	char* fileName;
+    char* mangledFileName;
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -458,17 +484,20 @@ static void op_display(Program* program)
         interpretError("Invalid type given to display");
     }
 
-    char* fileName = interpretGetString(program, opcode, data);
+    fileName = interpretGetString(program, opcode, data);
 
     selectWindowID(program->windowId);
 
-    char* mangledFileName = interpretMangleName(fileName);
+	mangledFileName = interpretMangleName(fileName);
     displayFile(mangledFileName);
 }
 
 // 0x457514
 static void op_displayraw(Program* program)
 {
+	char* mangledFileName;
+    char* fileName;
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -476,11 +505,11 @@ static void op_displayraw(Program* program)
         interpretError("Invalid type given to displayraw");
     }
 
-    char* fileName = interpretGetString(program, opcode, data);
+	fileName = interpretGetString(program, opcode, data);
 
     selectWindowID(program->windowId);
 
-    char* mangledFileName = interpretMangleName(fileName);
+    mangledFileName = interpretMangleName(fileName);
     displayFileRaw(mangledFileName);
 }
 
@@ -648,6 +677,7 @@ static void op_movieflags(Program* program)
 static void op_playmovie(Program* program)
 {
     // 0x59C6F8
+	char* mangledFileName;
     static char name[100];
 
     opcode_t opcode = interpretPopShort(program);
@@ -668,7 +698,7 @@ static void op_playmovie(Program* program)
     program->flags |= PROGRAM_IS_WAITING;
     program->checkWaitFunc = checkMovie;
 
-    char* mangledFileName = interpretMangleName(name);
+    mangledFileName = interpretMangleName(name);
     if (!windowPlayMovie(mangledFileName)) {
         interpretError("Error playing movie");
     }
@@ -679,12 +709,14 @@ static void op_playmovierect(Program* program)
 {
     // 0x59C75C
     static char name[100];
+	int arg;
+	char* mangledFileName;
 
     opcode_t opcode[5];
     int data[5];
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 5; arg++) {
+    for (arg = 0; arg < 5; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -705,7 +737,7 @@ static void op_playmovierect(Program* program)
     program->checkWaitFunc = checkMovie;
     program->flags |= PROGRAM_IS_WAITING;
 
-    char* mangledFileName = interpretMangleName(name);
+    mangledFileName = interpretMangleName(name);
     if (!windowPlayMovieRect(mangledFileName, data[3], data[2], data[1], data[0])) {
         interpretError("Error playing movie");
     }
@@ -721,6 +753,8 @@ static void op_stopmovie(Program* program)
 // 0x457AF0
 static void op_deleteregion(Program* program)
 {
+	const char* regionName;
+
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -732,7 +766,7 @@ static void op_deleteregion(Program* program)
 
     selectWindowID(program->windowId);
 
-    const char* regionName = data != -1 ? interpretGetString(program, opcode, data) : NULL;
+    regionName = data != -1 ? interpretGetString(program, opcode, data) : NULL;
     windowDeleteRegion(regionName);
 }
 
@@ -741,14 +775,16 @@ static void op_activateregion(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	const char* regionName;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    const char* regionName = interpretGetString(program, opcode[1], data[1]);
+    regionName = interpretGetString(program, opcode[1], data[1]);
     windowActivateRegion(regionName, data[0]);
 }
 
@@ -757,14 +793,16 @@ static void op_checkregion(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+    char* regionName;
+    bool regionExists;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_STRING) {
         interpretError("Invalid arg 1 given to checkregion();\n");
     }
 
-    const char* regionName = interpretGetString(program, opcode, data);
+    regionName = interpretGetString(program, opcode, data);
 
-    bool regionExists = windowCheckRegionExists(regionName);
+    regionExists = windowCheckRegionExists(regionName);
     interpretPushLong(program, regionExists);
     interpretPushShort(program, VALUE_TYPE_INT);
 }
@@ -774,6 +812,8 @@ static void op_addregion(Program* program)
 {
     opcode_t opcode;
     int data;
+	int args;
+	int x,y;
 
     opcode = interpretPopShort(program);
     data = interpretPopLong(program);
@@ -782,7 +822,7 @@ static void op_addregion(Program* program)
         interpretError("Invalid number of elements given to region");
     }
 
-    int args = data;
+    args = data;
 
     if (args < 2) {
         interpretError("addregion call without enough points!");
@@ -800,7 +840,7 @@ static void op_addregion(Program* program)
             interpretError("Invalid y value given to region");
         }
 
-        int y = data;
+        y = data;
 
         opcode = interpretPopShort(program);
         data = interpretPopLong(program);
@@ -809,7 +849,7 @@ static void op_addregion(Program* program)
             interpretError("Invalid x value given to region");
         }
 
-        int x = data;
+        x = data;
 
         y = (y * windowGetYres() + 479) / 480;
         x = (x * windowGetXres() + 639) / 640;
@@ -822,6 +862,8 @@ static void op_addregion(Program* program)
         interpretError("Unnamed regions not allowed\n");
         windowEndRegion();
     } else {
+		char* regionName;
+
         opcode = interpretPopShort(program);
         data = interpretPopLong(program);
 
@@ -831,7 +873,7 @@ static void op_addregion(Program* program)
             }
         }
 
-        const char* regionName = interpretGetString(program, opcode, data);
+        regionName = interpretGetString(program, opcode, data);
         windowAddRegionName(regionName);
         windowEndRegion();
     }
@@ -840,11 +882,14 @@ static void op_addregion(Program* program)
 // 0x457D90
 static void op_addregionproc(Program* program)
 {
+	int arg;
+	char* regionName;
+
     opcode_t opcode[5];
     int data[5];
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 5; arg++) {
+    for (arg = 0; arg < 5; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -869,7 +914,7 @@ static void op_addregionproc(Program* program)
         interpretError("Invalid name given to addregionproc");
     }
 
-    const char* regionName = interpretGetString(program, opcode[4], data[4]);
+    regionName = interpretGetString(program, opcode[4], data[4]);
     selectWindowID(program->windowId);
 
     if (!windowAddRegionProc(regionName, program, data[3], data[2], data[1], data[0])) {
@@ -882,9 +927,11 @@ static void op_addregionrightproc(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+	char* regionName;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -901,7 +948,7 @@ static void op_addregionrightproc(Program* program)
         interpretError("Invalid name given to addregionrightproc");
     }
 
-    const char* regionName = interpretGetString(program, opcode[2], data[2]);
+    regionName = interpretGetString(program, opcode[2], data[2]);
     selectWindowID(program->windowId);
 
     if (!windowAddRegionRightProc(regionName, program, data[1], data[0])) {
@@ -914,18 +961,22 @@ static void op_createwin(Program* program)
 {
     opcode_t opcode[5];
     int data[5];
+	int arg;
+    char* windowName;
+    int x,y;
+    int width,height;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 5; arg++) {
+    for (arg = 0; arg < 5; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    const char* windowName = interpretGetString(program, opcode[4], data[4]);
-    int x = (data[3] * windowGetXres() + 639) / 640;
-    int y = (data[2] * windowGetYres() + 479) / 480;
-    int width = (data[1] * windowGetXres() + 639) / 640;
-    int height = (data[0] * windowGetYres() + 479) / 480;
+    windowName = interpretGetString(program, opcode[4], data[4]);
+    x = (data[3] * windowGetXres() + 639) / 640;
+    y = (data[2] * windowGetYres() + 479) / 480;
+    width = (data[1] * windowGetXres() + 639) / 640;
+    height = (data[0] * windowGetYres() + 479) / 480;
 
     if (createWindow(windowName, x, y, width, height, colorTable[0], 0) == -1) {
         interpretError("Couldn't create window.");
@@ -937,18 +988,22 @@ static void op_resizewin(Program* program)
 {
     opcode_t opcode[5];
     int data[5];
+	int arg;
+    char* windowName;
+    int x ,y;
+    int width ,height;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 5; arg++) {
+    for (arg = 0; arg < 5; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    const char* windowName = interpretGetString(program, opcode[4], data[4]);
-    int x = (data[3] * windowGetXres() + 639) / 640;
-    int y = (data[2] * windowGetYres() + 479) / 480;
-    int width = (data[1] * windowGetXres() + 639) / 640;
-    int height = (data[0] * windowGetYres() + 479) / 480;
+    windowName = interpretGetString(program, opcode[4], data[4]);
+    x = (data[3] * windowGetXres() + 639) / 640;
+    y = (data[2] * windowGetYres() + 479) / 480;
+    width = (data[1] * windowGetXres() + 639) / 640;
+    height = (data[0] * windowGetYres() + 479) / 480;
 
     if (resizeWindow(windowName, x, y, width, height) == -1) {
         interpretError("Couldn't resize window.");
@@ -960,18 +1015,23 @@ static void op_scalewin(Program* program)
 {
     opcode_t opcode[5];
     int data[5];
+	int arg;
+
+	char* windowName;
+    int x,y;
+    int width,height;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 5; arg++) {
+    for (arg = 0; arg < 5; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    const char* windowName = interpretGetString(program, opcode[4], data[4]);
-    int x = (data[3] * windowGetXres() + 639) / 640;
-    int y = (data[2] * windowGetYres() + 479) / 480;
-    int width = (data[1] * windowGetXres() + 639) / 640;
-    int height = (data[0] * windowGetYres() + 479) / 480;
+    windowName = interpretGetString(program, opcode[4], data[4]);
+    x = (data[3] * windowGetXres() + 639) / 640;
+    y = (data[2] * windowGetYres() + 479) / 480;
+    width = (data[1] * windowGetXres() + 639) / 640;
+    height = (data[0] * windowGetYres() + 479) / 480;
 
     if (scaleWindow(windowName, x, y, width, height) == -1) {
         interpretError("Couldn't scale window.");
@@ -996,10 +1056,12 @@ static void op_deletewin(Program* program)
 // 0x4582E8
 static void op_saystart(Program* program)
 {
+	int rc;
+
     sayStartingPosition = 0;
 
     program->flags |= PROGRAM_FLAG_0x20;
-    int rc = dialogStart(program);
+    rc = dialogStart(program);
     program->flags &= ~PROGRAM_FLAG_0x20;
 
     if (rc != 0) {
@@ -1012,11 +1074,12 @@ static void op_saystartpos(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	int rc;
 
     sayStartingPosition = data;
 
     program->flags |= PROGRAM_FLAG_0x20;
-    int rc = dialogStart(program);
+    rc = dialogStart(program);
     program->flags &= ~PROGRAM_FLAG_0x20;
 
     if (rc != 0) {
@@ -1059,18 +1122,19 @@ static void op_saygotoreply(Program* program)
 // 0x458438
 static void op_sayoption(Program* program)
 {
-    program->flags |= PROGRAM_FLAG_0x20;
-
     opcode_t opcode[2];
     int data[2];
+	int arg;
+    const char* v1;
+
+    program->flags |= PROGRAM_FLAG_0x20;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    const char* v1;
     if ((opcode[1] & VALUE_TYPE_MASK) == VALUE_TYPE_STRING) {
         v1 = interpretGetString(program, opcode[1], data[1]);
     } else {
@@ -1098,25 +1162,26 @@ static void op_sayoption(Program* program)
 // 0x458524
 static void op_sayreply(Program* program)
 {
-    program->flags |= PROGRAM_FLAG_0x20;
-
     opcode_t opcode[2];
     int data[2];
+    const char* v1;
+    const char* v2;
+	int arg;
+
+    program->flags |= PROGRAM_FLAG_0x20;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    const char* v1;
     if ((opcode[1] & VALUE_TYPE_MASK) == VALUE_TYPE_STRING) {
         v1 = interpretGetString(program, opcode[1], data[1]);
     } else {
         v1 = NULL;
     }
 
-    const char* v2;
     if ((opcode[0] & VALUE_TYPE_MASK) == VALUE_TYPE_STRING) {
         v2 = interpretGetString(program, opcode[0], data[0]);
     } else {
@@ -1141,8 +1206,10 @@ static int checkDialog(Program* program)
 // 0x4585F4
 static void op_sayend(Program* program)
 {
+	int rc;
+
     program->flags |= PROGRAM_FLAG_0x20;
-    int rc = dialogGo(sayStartingPosition);
+    rc = dialogGo(sayStartingPosition);
     program->flags &= ~PROGRAM_FLAG_0x20;
 
     if (rc == -2) {
@@ -1196,25 +1263,26 @@ static void op_saymessagetimeout(Program* program)
 // 0x4586C4
 static void op_saymessage(Program* program)
 {
-    program->flags |= PROGRAM_FLAG_0x20;
-
     opcode_t opcode[2];
     int data[2];
+	int arg;
+    const char* v1;
+    const char* v2;
+
+    program->flags |= PROGRAM_FLAG_0x20;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    const char* v1;
     if ((opcode[1] & VALUE_TYPE_MASK) == VALUE_TYPE_STRING) {
         v1 = interpretGetString(program, opcode[1], data[1]);
     } else {
         v1 = NULL;
     }
 
-    const char* v2;
     if ((opcode[0] & VALUE_TYPE_MASK) == VALUE_TYPE_STRING) {
         v2 = interpretGetString(program, opcode[0], data[0]);
     } else {
@@ -1234,9 +1302,11 @@ static void op_gotoxy(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	int x,y;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1248,8 +1318,8 @@ static void op_gotoxy(Program* program)
 
     selectWindowID(program->windowId);
 
-    int x = data[1];
-    int y = data[0];
+    x = data[1];
+    y = data[0];
     windowGotoXY(x, y);
 }
 
@@ -1258,9 +1328,11 @@ static void op_addbuttonflag(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	char* buttonName;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1273,7 +1345,7 @@ static void op_addbuttonflag(Program* program)
         interpretError("Invalid arg 1 given to addbuttonflag");
     }
 
-    const char* buttonName = interpretGetString(program, opcode[1], data[1]);
+    buttonName = interpretGetString(program, opcode[1], data[1]);
     if (!windowSetButtonFlag(buttonName, data[0])) {
         // NOTE: Original code calls interpretGetString one more time with the
         // same params.
@@ -1286,9 +1358,11 @@ static void op_addregionflag(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	char* regionName;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1301,7 +1375,7 @@ static void op_addregionflag(Program* program)
         interpretError("Invalid arg 1 given to addregionflag");
     }
 
-    const char* regionName = interpretGetString(program, opcode[1], data[1]);
+    regionName = interpretGetString(program, opcode[1], data[1]);
     if (!windowSetRegionFlag(regionName, data[0])) {
         // NOTE: Original code calls interpretGetString one more time with the
         // same params.
@@ -1314,6 +1388,9 @@ static void op_addbutton(Program* program)
 {
     opcode_t opcode[5];
     int data[5];
+    int height ,width;
+    int y, x;
+    char* buttonName;
 
     opcode[0] = interpretPopShort(program);
     data[0] = interpretPopLong(program);
@@ -1352,11 +1429,11 @@ static void op_addbutton(Program* program)
 
     selectWindowID(program->windowId);
 
-    int height = (data[0] * windowGetYres() + 479) / 480;
-    int width = (data[1] * windowGetXres() + 639) / 640;
-    int y = (data[2] * windowGetYres() + 479) / 480;
-    int x = (data[3] * windowGetXres() + 639) / 640;
-    const char* buttonName = interpretGetString(program, opcode[4], data[4]);
+    height = (data[0] * windowGetYres() + 479) / 480;
+    width = (data[1] * windowGetXres() + 639) / 640;
+    y = (data[2] * windowGetYres() + 479) / 480;
+    x = (data[3] * windowGetXres() + 639) / 640;
+    buttonName = interpretGetString(program, opcode[4], data[4]);
 
     windowAddButton(buttonName, x, y, width, height, 0);
 }
@@ -1366,9 +1443,12 @@ static void op_addbuttontext(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+    char* text;
+    char* buttonName;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1381,8 +1461,8 @@ static void op_addbuttontext(Program* program)
         interpretError("Invalid name string given to addbuttontext");
     }
 
-    const char* text = interpretGetString(program, opcode[0], data[0]);
-    const char* buttonName = interpretGetString(program, opcode[1], data[1]);
+    text = interpretGetString(program, opcode[0], data[0]);
+    buttonName = interpretGetString(program, opcode[1], data[1]);
 
     if (!windowAddButtonText(buttonName, text)) {
         interpretError("Error setting text to button %s\n",
@@ -1395,9 +1475,14 @@ static void op_addbuttongfx(Program* program)
 {
     opcode_t opcode[4];
     int data[4];
+	int arg;
+	const char* buttonName;
+	char* pressedFileName;
+	char* normalFileName;
+	char* hoverFileName;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 4; arg++) {
+    for (arg = 0; arg < 4; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1411,10 +1496,10 @@ static void op_addbuttongfx(Program* program)
             interpretError("Invalid name given to addbuttontext");
         }
 
-        const char* buttonName = interpretGetString(program, opcode[3], data[3]);
-        char* pressedFileName = interpretMangleName(interpretGetString(program, opcode[2], data[2]));
-        char* normalFileName = interpretMangleName(interpretGetString(program, opcode[1], data[1]));
-        char* hoverFileName = interpretMangleName(interpretGetString(program, opcode[0], data[0]));
+        buttonName = interpretGetString(program, opcode[3], data[3]);
+        pressedFileName = interpretMangleName(interpretGetString(program, opcode[2], data[2]));
+        normalFileName = interpretMangleName(interpretGetString(program, opcode[1], data[1]));
+        hoverFileName = interpretMangleName(interpretGetString(program, opcode[0], data[0]));
 
         selectWindowID(program->windowId);
 
@@ -1431,9 +1516,11 @@ static void op_addbuttonproc(Program* program)
 {
     opcode_t opcode[5];
     int data[5];
+	int arg;
+	const char* buttonName;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 5; arg++) {
+    for (arg = 0; arg < 5; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1458,7 +1545,7 @@ static void op_addbuttonproc(Program* program)
         interpretError("Invalid name given to addbuttonproc");
     }
 
-    const char* buttonName = interpretGetString(program, opcode[4], data[4]);
+    buttonName = interpretGetString(program, opcode[4], data[4]);
     selectWindowID(program->windowId);
 
     if (!windowAddButtonProc(buttonName, program, data[3], data[2], data[1], data[0])) {
@@ -1471,9 +1558,11 @@ static void op_addbuttonrightproc(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+	const char* regionName;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1490,7 +1579,7 @@ static void op_addbuttonrightproc(Program* program)
         interpretError("Invalid name given to addbuttonrightproc");
     }
 
-    const char* regionName = interpretGetString(program, opcode[2], data[2]);
+    regionName = interpretGetString(program, opcode[2], data[2]);
     selectWindowID(program->windowId);
 
     if (!windowAddRegionRightProc(regionName, program, data[1], data[0])) {
@@ -1539,9 +1628,10 @@ static void op_fillwin(Program* program)
     opcode_t opcode[3];
     int data[3];
     float* floats = (float*)data;
+	int arg;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1587,9 +1677,10 @@ static void op_fillrect(Program* program)
     opcode_t opcode[7];
     int data[7];
     float* floats = (float*)data;
+	int arg;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 7; arg++) {
+    for (arg = 0; arg < 7; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1661,9 +1752,11 @@ static void op_mouseshape(Program* program)
 {
     opcode_t opcode[3];
     int data[3];
+	int arg;
+	char* fileName;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1680,7 +1773,7 @@ static void op_mouseshape(Program* program)
         interpretError("Invalid filename given to mouseshape");
     }
 
-    char* fileName = interpretGetString(program, opcode[2], data[2]);
+    fileName = interpretGetString(program, opcode[2], data[2]);
     if (!mouseSetMouseShape(fileName, data[1], data[0])) {
         interpretError("Error loading mouse shape.");
     }
@@ -1697,15 +1790,18 @@ static void op_displaygfx(Program* program)
 {
     opcode_t opcode[5];
     int data[5];
+	int arg;
+    char* fileName;
+    char* mangledFileName;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 5; arg++) {
+    for (arg = 0; arg < 5; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    char* fileName = interpretGetString(program, opcode[4], data[4]);
-    char* mangledFileName = interpretMangleName(fileName);
+    fileName = interpretGetString(program, opcode[4], data[4]);
+    mangledFileName = interpretMangleName(fileName);
     windowDisplay(mangledFileName, data[3], data[2], data[1], data[0]);
 }
 
@@ -1714,6 +1810,7 @@ static void op_loadpalettetable(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	char* path;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_STRING) {
         if ((opcode & VALUE_TYPE_MASK) == VALUE_TYPE_INT && data != -1) {
@@ -1721,7 +1818,7 @@ static void op_loadpalettetable(Program* program)
         }
     }
 
-    char* path = interpretGetString(program, opcode, data);
+    path = interpretGetString(program, opcode, data);
     if (!loadColorTable(path)) {
         interpretError(colorError());
     }
@@ -1732,9 +1829,11 @@ static void op_addNamedEvent(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	const char* v1;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1743,7 +1842,7 @@ static void op_addNamedEvent(Program* program)
         interpretError("Invalid type given to addnamedevent");
     }
 
-    const char* v1 = interpretGetString(program, opcode[1], data[1]);
+    v1 = interpretGetString(program, opcode[1], data[1]);
     nevs_addevent(v1, program, data[0], NEVS_TYPE_EVENT);
 }
 
@@ -1752,9 +1851,11 @@ static void op_addNamedHandler(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+	const char* v1;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -1763,13 +1864,14 @@ static void op_addNamedHandler(Program* program)
         interpretError("Invalid type given to addnamedhandler");
     }
 
-    const char* v1 = interpretGetString(program, opcode[1], data[1]);
+    v1 = interpretGetString(program, opcode[1], data[1]);
     nevs_addevent(v1, program, data[0], NEVS_TYPE_HANDLER);
 }
 
 // 0x45958C
 static void op_clearNamed(Program* program)
 {
+	char* string;
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -1777,13 +1879,14 @@ static void op_clearNamed(Program* program)
         interpretError("Invalid type given to clearnamed");
     }
 
-    char* string = interpretGetString(program, opcode, data);
+    string = interpretGetString(program, opcode, data);
     nevs_clearevent(string);
 }
 
 // 0x4595D8
 static void op_signalNamed(Program* program)
 {
+	char* str;
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
 
@@ -1791,7 +1894,7 @@ static void op_signalNamed(Program* program)
         interpretError("Invalid type given to signalnamed");
     }
 
-    char* str = interpretGetString(program, opcode, data);
+    str = interpretGetString(program, opcode, data);
     nevs_signal(str);
 }
 
@@ -1800,21 +1903,25 @@ static void op_addkey(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+    int key;
+    int proc;
+
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         if ((opcode[arg] & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
             interpretError("Invalid arg %d given to addkey", arg + 1);
         }
     }
 
-    int key = data[1];
-    int proc = data[0];
+    key = data[1];
+    proc = data[0];
 
     if (key == -1) {
         anyKeyOffset = proc;
@@ -1834,12 +1941,13 @@ static void op_deletekey(Program* program)
 {
     opcode_t opcode = interpretPopShort(program);
     int data = interpretPopLong(program);
+	int key;
 
     if ((opcode & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
         interpretError("Invalid arg 1 given to deletekey");
     }
 
-    int key = data;
+    key = data;
 
     if (key == -1) {
         anyKeyOffset = 0;
@@ -1905,14 +2013,16 @@ static void op_settextcolor(Program* program)
     opcode_t opcode[3];
     int data[3];
     float* floats = (float*)data;
+	int arg;
+	float r,g,b;
 
     // NOTE: Original code does not use loops.
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         if ((opcode[arg] & VALUE_TYPE_MASK) != VALUE_TYPE_FLOAT
             && (opcode[arg] & VALUE_TYPE_MASK) == VALUE_TYPE_INT
             && data[arg] != 0) {
@@ -1920,9 +2030,9 @@ static void op_settextcolor(Program* program)
         }
     }
 
-    float r = floats[2];
-    float g = floats[1];
-    float b = floats[0];
+    r = floats[2];
+    g = floats[1];
+    b = floats[0];
 
     if (!windowSetTextColor(r, g, b)) {
         interpretError("Error setting text color");
@@ -1935,14 +2045,16 @@ static void op_sayoptioncolor(Program* program)
     opcode_t opcode[3];
     int data[3];
     float* floats = (float*)data;
+	int arg;
+	float r,g,b;
 
     // NOTE: Original code does not use loops.
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         if ((opcode[arg] & VALUE_TYPE_MASK) != VALUE_TYPE_FLOAT
             && (opcode[arg] & VALUE_TYPE_MASK) == VALUE_TYPE_INT
             && data[arg] != 0) {
@@ -1950,9 +2062,9 @@ static void op_sayoptioncolor(Program* program)
         }
     }
 
-    float r = floats[2];
-    float g = floats[1];
-    float b = floats[0];
+    r = floats[2];
+    g = floats[1];
+    b = floats[0];
 
     if (dialogSetOptionColor(r, g, b)) {
         interpretError("Error setting option color");
@@ -1965,14 +2077,16 @@ static void op_sayreplycolor(Program* program)
     opcode_t opcode[3];
     int data[3];
     float* floats = (float*)data;
+	int arg;
+	float r,g,b;
 
     // NOTE: Original code does not use loops.
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         if ((opcode[arg] & VALUE_TYPE_MASK) != VALUE_TYPE_FLOAT
             && (opcode[arg] & VALUE_TYPE_MASK) == VALUE_TYPE_INT
             && data[arg] != 0) {
@@ -1980,9 +2094,9 @@ static void op_sayreplycolor(Program* program)
         }
     }
 
-    float r = floats[2];
-    float g = floats[1];
-    float b = floats[0];
+    r = floats[2];
+    g = floats[1];
+    b = floats[0];
 
     if (dialogSetReplyColor(r, g, b) != 0) {
         interpretError("Error setting reply color");
@@ -1995,14 +2109,16 @@ static void op_sethighlightcolor(Program* program)
     opcode_t opcode[3];
     int data[3];
     float* floats = (float*)data;
+	int arg;
+	float r,g,b;
 
     // NOTE: Original code does not use loops.
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    for (int arg = 0; arg < 3; arg++) {
+    for (arg = 0; arg < 3; arg++) {
         if ((opcode[arg] & VALUE_TYPE_MASK) != VALUE_TYPE_FLOAT
             && (opcode[arg] & VALUE_TYPE_MASK) == VALUE_TYPE_INT
             && data[arg] != 0) {
@@ -2010,9 +2126,9 @@ static void op_sethighlightcolor(Program* program)
         }
     }
 
-    float r = floats[2];
-    float g = floats[1];
-    float b = floats[0];
+    r = floats[2];
+    g = floats[1];
+    b = floats[0];
 
     if (!windowSetHighlightColor(r, g, b)) {
         interpretError("Error setting text highlight color");
@@ -2024,14 +2140,15 @@ static void op_sayreplywindow(Program* program)
 {
     opcode_t opcode[5];
     int data[5];
+	int arg;
+    char* v1;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 5; arg++) {
+    for (arg = 0; arg < 5; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    char* v1;
     if ((opcode[0] & VALUE_TYPE_MASK) == VALUE_TYPE_STRING) {
         v1 = interpretGetString(program, opcode[0], data[0]);
         v1 = interpretMangleName(v1);
@@ -2082,14 +2199,15 @@ static void op_sayoptionwindow(Program* program)
 {
     opcode_t opcode[5];
     int data[5];
+	int arg;
+	char* v1;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 5; arg++) {
+    for (arg = 0; arg < 5; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    char* v1;
     if ((opcode[0] & VALUE_TYPE_MASK) == VALUE_TYPE_STRING) {
         v1 = interpretGetString(program, opcode[0], data[0]);
         v1 = interpretMangleName(v1);
@@ -2110,14 +2228,15 @@ static void op_sayborder(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
 
     // NOTE: Original code does not use loops.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
 
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         if ((opcode[arg] & VALUE_TYPE_MASK) != VALUE_TYPE_INT) {
             interpretError("Invalid arg %d given to sayborder", arg + 1);
         }
@@ -2133,18 +2252,18 @@ static void op_sayscrollup(Program* program)
 {
     opcode_t opcode[6];
     int data[6];
-
-    // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 6; arg++) {
-        opcode[arg] = interpretPopShort(program);
-        data[arg] = interpretPopLong(program);
-    }
-
     char* v1 = NULL;
     char* v2 = NULL;
     char* v3 = NULL;
     char* v4 = NULL;
     int v5 = 0;
+	int arg;
+
+    // NOTE: Original code does not use loop.
+    for (arg = 0; arg < 6; arg++) {
+        opcode[arg] = interpretPopShort(program);
+        data[arg] = interpretPopLong(program);
+    }
 
     if ((opcode[0] & VALUE_TYPE_MASK) == VALUE_TYPE_INT) {
         if (data[0] != -1 && data[0] != 0) {
@@ -2206,18 +2325,18 @@ static void op_sayscrolldown(Program* program)
 {
     opcode_t opcode[6];
     int data[6];
-
-    // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 6; arg++) {
-        opcode[arg] = interpretPopShort(program);
-        data[arg] = interpretPopLong(program);
-    }
-
+	int arg;
     char* v1 = NULL;
     char* v2 = NULL;
     char* v3 = NULL;
     char* v4 = NULL;
     int v5 = 0;
+
+    // NOTE: Original code does not use loop.
+    for (arg = 0; arg < 6; arg++) {
+        opcode[arg] = interpretPopShort(program);
+        data[arg] = interpretPopLong(program);
+    }
 
     if ((opcode[0] & VALUE_TYPE_MASK) == VALUE_TYPE_INT) {
         if (data[0] != -1 && data[0] != 0) {
@@ -2311,6 +2430,9 @@ static void soundCallbackInterpret(void* userData, int a2)
 // 0x45A4B0
 static int soundDeleteInterpret(int value)
 {
+	int index;
+	Sound* sound;
+
     if (value == -1) {
         return 1;
     }
@@ -2319,8 +2441,8 @@ static int soundDeleteInterpret(int value)
         return 0;
     }
 
-    int index = value & ~0xA0000000;
-    Sound* sound = interpretSounds[index];
+    index = value & ~0xA0000000;
+    sound = interpretSounds[index];
     if (sound == NULL) {
         return 0;
     }
@@ -2355,6 +2477,9 @@ int soundStartInterpret(char* fileName, int mode)
 {
     int v3 = 1;
     int v5 = 0;
+	int index;
+	int rc;
+	Sound* sound;
 
     if (mode & 0x01) {
         // looping
@@ -2381,7 +2506,6 @@ int soundStartInterpret(char* fileName, int mode)
         v3 |= 0x02;
     }
 
-    int index;
     for (index = 0; index < INT_LIB_SOUNDS_CAPACITY; index++) {
         if (interpretSounds[index] == NULL) {
             break;
@@ -2392,7 +2516,7 @@ int soundStartInterpret(char* fileName, int mode)
         return -1;
     }
 
-    Sound* sound = interpretSounds[index] = soundAllocate(v3, v5);
+    sound = interpretSounds[index] = soundAllocate(v3, v5);
     if (sound == NULL) {
         return -1;
     }
@@ -2413,7 +2537,7 @@ int soundStartInterpret(char* fileName, int mode)
         soundSetChannel(sound, 3);
     }
 
-    int rc = soundLoad(sound, fileName);
+    rc = soundLoad(sound, fileName);
     if (rc != SOUND_NO_ERROR) {
         goto err;
     }
@@ -2475,6 +2599,10 @@ err:
 // 0x45A99C
 static int soundPauseInterpret(int value)
 {
+	int rc;
+	int index;
+	Sound* sound;
+
     if (value == -1) {
         return 1;
     }
@@ -2483,13 +2611,12 @@ static int soundPauseInterpret(int value)
         return 0;
     }
 
-    int index = value & ~0xA0000000;
-    Sound* sound = interpretSounds[index];
+    index = value & ~0xA0000000;
+    sound = interpretSounds[index];
     if (sound == NULL) {
         return 0;
     }
 
-    int rc;
     if (soundType(sound, 0x01)) {
         rc = soundStop(sound);
     } else {
@@ -2501,6 +2628,9 @@ static int soundPauseInterpret(int value)
 // 0x45AA08
 static int soundRewindInterpret(int value)
 {
+	int index;
+	Sound* sound;
+
     if (value == -1) {
         return 1;
     }
@@ -2509,8 +2639,8 @@ static int soundRewindInterpret(int value)
         return 0;
     }
 
-    int index = value & ~0xA0000000;
-    Sound* sound = interpretSounds[index];
+    index = value & ~0xA0000000;
+    sound = interpretSounds[index];
     if (sound == NULL) {
         return 0;
     }
@@ -2527,6 +2657,10 @@ static int soundRewindInterpret(int value)
 // 0x45AA6C
 static int soundUnpauseInterpret(int value)
 {
+    int index;
+    int rc;
+    Sound* sound;
+
     if (value == -1) {
         return 1;
     }
@@ -2535,13 +2669,12 @@ static int soundUnpauseInterpret(int value)
         return 0;
     }
 
-    int index = value & ~0xA0000000;
-    Sound* sound = interpretSounds[index];
+    index = value & ~0xA0000000;
+    sound = interpretSounds[index];
     if (sound == NULL) {
         return 0;
     }
 
-    int rc;
     if (soundType(sound, 0x01)) {
         rc = soundPlay(sound);
     } else {
@@ -2555,9 +2688,13 @@ static void op_soundplay(Program* program)
 {
     opcode_t opcode[2];
     int data[2];
+	int arg;
+    char* fileName;
+    char* mangledFileName;
+    int rc;
 
     // NOTE: Original code does not use loop.
-    for (int arg = 0; arg < 2; arg++) {
+    for (arg = 0; arg < 2; arg++) {
         opcode[arg] = interpretPopShort(program);
         data[arg] = interpretPopLong(program);
     }
@@ -2570,9 +2707,9 @@ static void op_soundplay(Program* program)
         interpretError("Invalid arg 1 given to soundplay");
     }
 
-    char* fileName = interpretGetString(program, opcode[1], data[1]);
-    char* mangledFileName = interpretMangleName(fileName);
-    int rc = soundStartInterpret(mangledFileName, data[0]);
+    fileName = interpretGetString(program, opcode[1], data[1]);
+    mangledFileName = interpretMangleName(fileName);
+    rc = soundStartInterpret(mangledFileName, data[0]);
 
     interpretPushLong(program, rc);
     interpretPushShort(program, VALUE_TYPE_INT);
@@ -2694,6 +2831,8 @@ void intlibClose()
 // 0x45AD60
 static bool intLibDoInput(int key)
 {
+	IntLibKeyHandlerEntry* entry;
+
     if (key < 0 || key >= INT_LIB_KEY_HANDLERS_CAPACITY) {
         return false;
     }
@@ -2705,7 +2844,7 @@ static bool intLibDoInput(int key)
         return true;
     }
 
-    IntLibKeyHandlerEntry* entry = &(inputProc[key]);
+    entry = &(inputProc[key]);
     if (entry->program == NULL) {
         return false;
     }
@@ -2836,7 +2975,8 @@ void interpretRegisterProgramDeleteCallback(IntLibProgramDeleteCallback* callbac
 // 0x45B39C
 void removeProgramReferences(Program* program)
 {
-    for (int index = 0; index < INT_LIB_KEY_HANDLERS_CAPACITY; index++) {
+	int index;
+    for (index = 0; index < INT_LIB_KEY_HANDLERS_CAPACITY; index++) {
         if (program == inputProc[index].program) {
             inputProc[index].program = NULL;
         }
@@ -2844,7 +2984,7 @@ void removeProgramReferences(Program* program)
 
     intExtraRemoveProgramReferences(program);
 
-    for (int index = 0; index < numCallbacks; index++) {
+    for (index = 0; index < numCallbacks; index++) {
         IntLibProgramDeleteCallback* callback = callbacks[index];
         if (callback != NULL) {
             callback(program);

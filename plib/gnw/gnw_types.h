@@ -55,7 +55,7 @@ typedef struct MenuBar {
     int borderColor;
     int backgroundColor;
 } MenuBar;
-static_assert(sizeof(MenuBar) == 572, "wrong size");
+//static_assert(sizeof(MenuBar) == 572, "wrong size");
 
 typedef struct Window {
     int id;
@@ -75,7 +75,7 @@ typedef struct Window {
     MenuBar* menuBar;
     WindowBlitProc* blitProc;
 } Window;
-static_assert(sizeof(Window) == 68, "wrong size");
+//static_assert(sizeof(Window) == 68, "wrong size");
 
 typedef struct Button {
     int id;
@@ -107,7 +107,7 @@ typedef struct Button {
     Button* prev;
     Button* next;
 } Button;
-static_assert(sizeof(Button) == 124, "wrong size");
+//static_assert(sizeof(Button) == 124, "wrong size");
 
 typedef struct RadioGroup {
     int field_0;
