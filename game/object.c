@@ -4535,9 +4535,9 @@ static void obj_render_outline(Object* object, Rect* rect)
         int outlineType;
         int v43;
         int v44;
-		unsigned char v54 = color;
-        unsigned char* dest14 = dest;
-        unsigned char* src15 = src;
+		unsigned char v54;
+        unsigned char* dest14;
+        unsigned char* src15;
 		int x, y;
 
         v49.ulx += objectRect.ulx - object->sx;
@@ -4550,7 +4550,6 @@ static void obj_render_outline(Object* object, Rect* rect)
         dest = back_buf + buf_full * object->sy + object->sx;
         destStep = buf_full - frameWidth;
 
-        color;
         v47 = NULL;
         v48 = NULL;
         v53 = object->outline & OUTLINE_PALETTED;

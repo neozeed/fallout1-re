@@ -1964,7 +1964,8 @@ static void DrawInfoBox(int a1)
 
             v22 = map_get_elev_idx(ptr->map, ptr->elevation);
             v9 = map_get_short_name(ptr->map);
-            sprintf(str, "%s %s", v9, v22);
+            //sprintf(str, "%s %s", v9, v22);
+            sprintf(str, "%s", v9);
 
             y = v2 + 3 + v2 + 256;
 
@@ -2612,7 +2613,7 @@ static int SaveBackup()
 	DB_FILE* stream1;
 	DB_FILE* stream2;
 	int index;
-	char* v1,v2;
+	char* v1,* v2;
 
     debug_printf("\nLOADSAVE: Backing up save slot files..\n");
 
