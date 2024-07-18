@@ -1943,7 +1943,7 @@ static void DrawInfoBox(int a1)
             int minutes;
             int v2,v6;
             int time;
-			char* v9,v22;
+			char *v9, *v22;
 			int y;
 			short beginnings[WORD_WRAP_MAX_COUNT];
             short count;
