@@ -4465,11 +4465,11 @@ static int obj_adjust_light(Object* obj, int a2, Rect* rect)
 static void obj_render_outline(Object* object, Rect* rect)
 {
 	int frameWidth,frameHeight;
-    Rect objectRect;
-    Rect v49;
     CacheEntry* cacheEntry;
+	Rect v49;
     Rect v32;
-	int v22;
+    Rect objectRect;
+
     Art* art = art_ptr_lock(object->fid, &cacheEntry);
     if (art == NULL) {
         return;
@@ -4477,6 +4477,7 @@ static void obj_render_outline(Object* object, Rect* rect)
 
     frameWidth = art_frame_width(art, object->frame, object->rotation);
     frameHeight = art_frame_length(art, object->frame, object->rotation);
+
 
     v49.ulx = 0;
     v49.uly = 0;
@@ -4491,7 +4492,8 @@ static void obj_render_outline(Object* object, Rect* rect)
         objectRect.uly = object->sy;
         objectRect.lrx = object->sx + frameWidth - 1;
         objectRect.lry = object->sy + frameHeight - 1;
-    } else {
+    }
+    else {
         int x;
         int y;
         tile_coord(object->tile, &x, &y, object->elevation);
@@ -4523,8 +4525,9 @@ static void obj_render_outline(Object* object, Rect* rect)
     rect_inside_bound(&v32, &buf_rect, &v32);
 
     if (rect_inside_bound(&objectRect, &v32, &objectRect) == 0) {
-		unsigned char* src,dest;
-		int destStep;
+        unsigned char* src;
+        unsigned char* dest;
+        int destStep;
         unsigned char color;
         unsigned char* v47 = NULL;
         unsigned char* v48 = NULL;
@@ -4532,10 +4535,10 @@ static void obj_render_outline(Object* object, Rect* rect)
         int outlineType;
         int v43;
         int v44;
-		unsigned char v54;
-        unsigned char* dest14;
-        unsigned char* src15;
-		int x,y;
+		unsigned char v54 = color;
+        unsigned char* dest14 = dest;
+        unsigned char* src15 = src;
+		int x, y;
 
         v49.ulx += objectRect.ulx - object->sx;
         v49.uly += objectRect.uly - object->sy;
@@ -4547,6 +4550,7 @@ static void obj_render_outline(Object* object, Rect* rect)
         dest = back_buf + buf_full * object->sy + object->sx;
         destStep = buf_full - frameWidth;
 
+        color;
         v47 = NULL;
         v48 = NULL;
         v53 = object->outline & OUTLINE_PALETTED;
@@ -4600,6 +4604,7 @@ static void obj_render_outline(Object* object, Rect* rect)
         dest14 = dest;
         src15 = src;
         for (y = 0; y < frameHeight; y++) {
+			int v22, x;
             bool cycle = true;
             if (v44 != 0) {
                 if (y % v44 == 0) {
@@ -4619,18 +4624,21 @@ static void obj_render_outline(Object* object, Rect* rect)
                         unsigned char v20;
                         if (v53 != 0) {
                             v20 = v48[(v47[v54] << 8) + *(dest14 - 1)];
-                        } else {
+                        }
+                        else {
                             v20 = v54;
                         }
                         *(dest14 - 1) = v20;
                     }
                     cycle = false;
-                } else if (*src15 == 0 && !cycle) {
+                }
+                else if (*src15 == 0 && !cycle) {
                     if (x >= v49.ulx && x <= v49.lrx && y >= v49.uly && y <= v49.lry) {
                         int v21;
                         if (v53 != 0) {
                             v21 = v48[(v47[v54] << 8) + *dest14];
-                        } else {
+                        }
+                        else {
                             v21 = v54;
                         }
                         *dest14 = v21 & 0xFF;
@@ -4647,7 +4655,8 @@ static void obj_render_outline(Object* object, Rect* rect)
                     if (v23 >= v49.ulx && v23 <= v49.lrx && y >= v49.uly && y <= v49.lry) {
                         if (v53 != 0) {
                             *dest14 = v48[(v47[v54] << 8) + *dest14];
-                        } else {
+                        }
+                        else {
                             *dest14 = v54;
                         }
                     }
@@ -4658,11 +4667,11 @@ static void obj_render_outline(Object* object, Rect* rect)
         }
 
         for (x = 0; x < frameWidth; x++) {
-			int y;
             bool cycle = true;
             unsigned char v28 = color;
             unsigned char* dest27 = dest + x;
             unsigned char* src27 = src + x;
+			int y;
             for (y = 0; y < frameHeight; y++) {
                 if (v44 != 0) {
                     if (y % v44 == 0) {
@@ -4680,17 +4689,20 @@ static void obj_render_outline(Object* object, Rect* rect)
                         if (v29 >= back_buf) {
                             if (v53) {
                                 *v29 = v48[(v47[v28] << 8) + *v29];
-                            } else {
+                            }
+                            else {
                                 *v29 = v28;
                             }
                         }
                     }
                     cycle = false;
-                } else if (*src27 == 0 && !cycle) {
+                }
+                else if (*src27 == 0 && !cycle) {
                     if (x >= v49.ulx && x <= v49.lrx && y >= v49.uly && y <= v49.lry) {
                         if (v53) {
                             *dest27 = v48[(v47[v28] << 8) + *dest27];
-                        } else {
+                        }
+                        else {
                             *dest27 = v28;
                         }
                     }
@@ -4707,7 +4719,8 @@ static void obj_render_outline(Object* object, Rect* rect)
                     if (x >= v49.ulx && x <= v49.lrx && y >= v49.uly && y <= v49.lry) {
                         if (v53) {
                             *dest27 = v48[(v47[v28] << 8) + *dest27];
-                        } else {
+                        }
+                        else {
                             *dest27 = v28;
                         }
                     }
@@ -4718,6 +4731,7 @@ static void obj_render_outline(Object* object, Rect* rect)
 
     art_ptr_unlock(cacheEntry);
 }
+
 
 // 0x480868
 static void obj_render_object(Object* object, Rect* rect, int light)
