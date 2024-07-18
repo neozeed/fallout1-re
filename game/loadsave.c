@@ -2612,7 +2612,7 @@ static int SaveBackup()
 	DB_FILE* stream1;
 	DB_FILE* stream2;
 	int index;
-	char* v1,* v2;
+	char *v1, *v2;
 
     debug_printf("\nLOADSAVE: Backing up save slot files..\n");
 
@@ -2687,7 +2687,7 @@ static int RestoreSave()
     char** fileList;
     int fileListLength;
 	int index;
-	char* v1,v2;
+	char *v1, *v2;
 
     debug_printf("\nLOADSAVE: Restoring save file backup...\n");
 
