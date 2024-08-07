@@ -1,0 +1,56 @@
+CC = gcc
+INCLUDES = -I. -Iplatform
+#DEFINES = -DSTATIC_INLINE="static _inline" -Dinline=_inline
+DEFINES = -DSTATIC_INLINE="inline" # -Dinline="" -Dstatic=""
+OPT = -O
+DEBUG = -g
+CLIB = #/MDd
+CFLAGS = $(INCLUDES) $(DEFINES) $(OPT) $(DEBUG)
+GDIR = game
+IDIR = int
+PDIR = plib
+
+LIBS = -lm -lwinmm -lgdi32 -luser32
+
+GOBJ = $(GDIR)/ability.o $(GDIR)/actions.o $(GDIR)/amutex.o $(GDIR)/anim.o $(GDIR)/art.o \
+	$(GDIR)/artload.o $(GDIR)/automap.o $(GDIR)/bmpdlog.o $(GDIR)/cache.o $(GDIR)/combat.o \
+	$(GDIR)/combatai.o $(GDIR)/config.o $(GDIR)/counter.o $(GDIR)/credits.o $(GDIR)/critter.o \
+	$(GDIR)/cycle.o $(GDIR)/diskspce.o $(GDIR)/display.o $(GDIR)/editor.o $(GDIR)/elevator.o \
+	$(GDIR)/endgame.o $(GDIR)/ereg.o $(GDIR)/fontmgr.o $(GDIR)/game.o $(GDIR)/gconfig.o \
+	$(GDIR)/gdebug.o $(GDIR)/gdialog.o $(GDIR)/gmemory.o $(GDIR)/gmouse.o $(GDIR)/gmovie.o \
+	$(GDIR)/graphlib.o $(GDIR)/gsound.o $(GDIR)/heap.o $(GDIR)/intface.o $(GDIR)/inventry.o \
+	$(GDIR)/item.o $(GDIR)/light.o $(GDIR)/lip_sync.o $(GDIR)/loadsave.o $(GDIR)/main.o \
+	$(GDIR)/mainmenu.o $(GDIR)/map.o $(GDIR)/message.o $(GDIR)/moviefx.o $(GDIR)/object.o \
+	$(GDIR)/options.o $(GDIR)/palette.o $(GDIR)/party.o $(GDIR)/perk.o $(GDIR)/pipboy.o \
+	$(GDIR)/protinst.o $(GDIR)/proto.o $(GDIR)/queue.o $(GDIR)/reaction.o $(GDIR)/roll.o \
+	$(GDIR)/scripts.o $(GDIR)/select.o $(GDIR)/selfrun.o $(GDIR)/sfxcache.o $(GDIR)/sfxlist.o \
+	$(GDIR)/skill.o $(GDIR)/skilldex.o $(GDIR)/stat.o $(GDIR)/textobj.o $(GDIR)/tile.o \
+	$(GDIR)/trait.o $(GDIR)/trap.o $(GDIR)/version.o $(GDIR)/wordwrap.o $(GDIR)/worldmap.o \
+	$(GDIR)/worldmap_walkmask.o 
+
+TOBJ = 	missing.o movie_lib.o sound_decoder.o
+
+IOBJ = $(IDIR)/audio.o $(IDIR)/audiof.o $(IDIR)/datafile.o $(IDIR)/dialog.o $(IDIR)/export.o $(IDIR)/intlib.o \
+	$(IDIR)/intrpret.o $(IDIR)/memdbg.o $(IDIR)/mousemgr.o $(IDIR)/movie.o $(IDIR)/nevs.o $(IDIR)/pcx.o \
+	$(IDIR)/region.o $(IDIR)/share1.o $(IDIR)/sound.o $(IDIR)/widget.o $(IDIR)/window.o $(IDIR)/support/intextra.o
+
+POBJ = $(PDIR)/assoc/assoc.o $(PDIR)/color/color.o $(PDIR)/db/db.o $(PDIR)/db/lzss.o $(PDIR)/gnw/button.o $(PDIR)/gnw/debug.o \
+	$(PDIR)/gnw/doscmdln.o $(PDIR)/gnw/dxinput.o $(PDIR)/gnw/gnw.o $(PDIR)/gnw/gnw95dx.o $(PDIR)/gnw/grbuf.o \
+	$(PDIR)/gnw/input.o  $(PDIR)/gnw/intrface.o $(PDIR)/gnw/kb.o $(PDIR)/gnw/memory.o $(PDIR)/gnw/mmx.o $(PDIR)/gnw/mouse.o \
+	$(PDIR)/gnw/rect.o $(PDIR)/gnw/svga.o $(PDIR)/gnw/text.o $(PDIR)/gnw/vcr.o $(PDIR)/gnw/winmain.o
+
+.c .o:
+	$(CC) /c $(CFLAGS) $*.c /Fo$*.o
+
+
+fallout1.exe : $(GOBJ) $(TOBJ) $(IOBJ) $(POBJ)
+	$(CC) $(DEBUG) $(GOBJ) $(TOBJ) $(IOBJ) $(POBJ) -o fallout1.exe $(LIBS)
+
+clean:
+	@- rm -f $(GOBJ)
+	@- rm -f $(TOBJ)
+	@- rm -f $(IOBJ)
+	@- rm -f $(POBJ)
+	@- rm -f fallout1.ncb vc*.pdb fallout1.pdb fallout1.ilk
+	- rm -f fallout1.exe
+
